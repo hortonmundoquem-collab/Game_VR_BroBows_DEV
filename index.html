@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Fase VR - Aventura do Bandicoot</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; width:100%; height:100%; background:#000; }
+  canvas { display:block; }
+  #ui { position:fixed; inset:0; pointer-events:none; font-family: Verdana, Geneva, sans-serif; z-index:10; }
+  #info {
+    position:absolute; top:14px; left:14px; color:#fff; background:rgba(0,0,0,0.35);
+    padding:10px 14px; border-radius:10px; font-size:14px; line-height:1.5; max-width:320px;
+  }
+  #vr-button {
+    position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
+    pointer-events:auto; padding:14px 28px; font-size:17px; font-weight:bold;
+    background:#ff7a1a; color:#fff; border:none; border-radius:30px; cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+  }
+  #vr-button:disabled { background:#666; cursor:not-allowed; }
+  #message {
+    position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
+    color:#fff; font-size:44px; font-weight:bold; text-align:center;
+    text-shadow: 0 0 10px #000, 0 0 20px #000; display:none; white-space:nowrap;
+  }
+  #hint {
+    position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
+    color:#fff; font-size:22px; text-align:center; text-shadow:0 0 8px #000;
+    display:none;
+  }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="info">
+    <b>Fase de teste VR</b><br/>
+    Desktop: WASD/Setas para andar, Espaço para pular<br/>
+    Quest: Analógico para andar, Gatilho/Botão para pular<br/>
+    Pule o buraco, pule em cima do inimigo e pegue a estrela!
+  </div>
+  <button id="vr-button">Entrar em VR</button>
+  <div id="message"></div>
+  <div id="hint"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Config da fase ----------
+  const START_POS = new THREE.Vector3(0, 0, 9);
+  const GRAVITY = 18;
+  const JUMP_SPEED = 7.5;
+  const MOVE_SPEED = 4.2;
+  const TURN_LERP = 0.25;
+
+  // Trechos de chão (z_max, z_min) — character anda de +Z para -Z
+  const PLATFORMS = [
+    { zMax: 10.5, zMin: 2.0 },   // P1: chão inicial
+    { zMax: -1.0, zMin: -9.0 },  // P2: chão do inimigo
+    { zMax: -9.0, zMin: -16.5 } // P3: chão final / estrela
+  ];
+  const HALF_WIDTH = 3.0;
+
+  function hasGroundAt(x, z) {
+    if (Math.abs(x) > HALF_WIDTH) return false;
+    for (const p of PLATFORMS) {
+      if (z <= p.zMax && z >= p.zMin) return true;
+    }
+    return false;
+  }
+
+  // ---------- Setup básico ----------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8fd0e8);
+  scene.fog = new THREE.Fog(0x8fd0e8, 18, 48);
+
+  const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.05, 100);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.xr.enabled = true;
+  document.body.appendChild(renderer.domElement);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // "Dolly" que a câmera segue — em VR ele se move e a cabeça olha livre dentro dele
+  const dolly = new THREE.Group();
+  dolly.add(camera);
+  scene.add(dolly);
+
+  // ---------- Luzes ----------
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445522, 1.15));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+  sun.position.set(6, 12, 6);
+  scene.add(sun);
+
+  // ---------- Cenário decorativo ----------
+  function makeTree(x, z, scale) {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15, 0.2, 1.4, 6),
+      new THREE.MeshStandardMaterial({ color: 0x8a5a2b })
+    );
+    trunk.position.y = 0.7;
+    const leaves = new THREE.Mesh(
+      new THREE.ConeGeometry(0.9, 1.8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x2f9e44 })
+    );
+    leaves.position.y = 2.0;
+    g.add(trunk, leaves);
+    g.position.set(x, 0, z);
+    g.scale.setScalar(scale);
+    scene.add(g);
+  }
+  for (let i = 0; i < 10; i++) {
+    const z = 10 - i * 3.2;
+    makeTree(-4.4 - Math.random()*1.2, z, 0.9 + Math.random()*0.4);
+    makeTree(4.4 + Math.random()*1.2, z, 0.9 + Math.random()*0.4);
+  }
+
+  // ---------- Plataformas de chão ----------
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x6fbf4f });
+  const groundMat2 = new THREE.MeshStandardMaterial({ color: 0x5fae44 });
+  function addPlatform(zMax, zMin, mat) {
+    const depth = zMax - zMin;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(HALF_WIDTH*2, 1, depth), mat);
+    box.position.set(0, -0.5, (zMax+zMin)/2);
+    scene.add(box);
+  }
+  addPlatform(PLATFORMS[0].zMax, PLATFORMS[0].zMin, groundMat);
+  addPlatform(PLATFORMS[1].zMax, PLATFORMS[1].zMin, groundMat2);
+  addPlatform(PLATFORMS[2].zMax, PLATFORMS[2].zMin, groundMat);
+
+  // Fundo do buraco (abismo)
+  const pitFloor = new THREE.Mesh(
+    new THREE.BoxGeometry(HALF_WIDTH*2 + 2, 0.5, 6),
+    new THREE.MeshStandardMaterial({ color: 0x1a0d05 })
+  );
+  pitFloor.position.set(0, -9, (PLATFORMS[0].zMin + PLATFORMS[1].zMax)/2);
+  scene.add(pitFloor);
+
+  // ---------- Personagem (bem simples, estilo Crash) ----------
+  const character = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe08a3c });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.4), bodyMat);
+  body.position.y = 0.55;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), bodyMat);
+  head.position.set(0, 1.15, 0);
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), eyeMat);
+  eyeL.position.set(-0.14, 1.2, -0.32);
+  const eyeR = eyeL.clone(); eyeR.position.x = 0.14;
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x7a4a1e });
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.35,0.22), legMat);
+  legL.position.set(-0.16, 0.17, 0);
+  const legR = legL.clone(); legR.position.x = 0.16;
+  character.add(body, head, eyeL, eyeR, legL, legR);
+  character.position.copy(START_POS);
+  scene.add(character);
+
+  // ---------- Inimigo básico (patrulha) ----------
+  const enemyMat = new THREE.MeshStandardMaterial({ color: 0xd63b3b });
+  const enemy = new THREE.Group();
+  const enemyBody = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), enemyMat);
+  enemyBody.position.y = 0.45;
+  const enemyEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), eyeMat);
+  enemyEyeL.position.set(-0.16, 0.55, -0.38);
+  const enemyEyeR = enemyEyeL.clone(); enemyEyeR.position.x = 0.16;
+  enemy.add(enemyBody, enemyEyeL, enemyEyeR);
+  enemy.position.set(0, 0, -5);
+  scene.add(enemy);
+  let enemyAlive = true;
+  const enemyBaseX = 0;
+  const enemyRange = 1.8;
+
+  // ---------- Estrela final ----------
+  function starShape(outerR, innerR, points) {
+    const shape = new THREE.Shape();
+    const step = Math.PI / points;
+    for (let i = 0; i < points*2; i++) {
+      const r = (i % 2 === 0) ? outerR : innerR;
+      const a = i * step - Math.PI/2;
+      const x = Math.cos(a)*r, y = Math.sin(a)*r;
+      if (i === 0) shape.moveTo(x,y); else shape.lineTo(x,y);
+    }
+    shape.closePath();
+    return shape;
+  }
+  const starGeo = new THREE.ExtrudeGeometry(starShape(0.55, 0.22, 5), {
+    depth: 0.16, bevelEnabled:true, bevelThickness:0.04, bevelSize:0.04, bevelSegments:2
+  });
+  const starMat = new THREE.MeshStandardMaterial({ color:0xffd400, emissive:0x8a6a00, metalness:0.5, roughness:0.3 });
+  const star = new THREE.Mesh(starGeo, starMat);
+  const STAR_POS = new THREE.Vector3(0, 1.4, -14);
+  star.position.copy(STAR_POS);
+  scene.add(star);
+
+  const pedestal = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5, 0.6, 0.8, 12),
+    new THREE.MeshStandardMaterial({ color:0xdedede })
+  );
+  pedestal.position.set(0, 0.4, STAR_POS.z);
+  scene.add(pedestal);
+
+  // ---------- Estado do jogo ----------
+  let velocityY = 0;
+  let grounded = true;
+  let gameWon = false;
+  let facingAngle = 0;
+
+  const messageEl = document.getElementById('message');
+  const hintEl = document.getElementById('hint');
+  function showMessage(text, ms) {
+    messageEl.textContent = text;
+    messageEl.style.display = 'block';
+    if (ms) setTimeout(() => { if (!gameWon) messageEl.style.display = 'none'; }, ms);
+  }
+  function showHint(text, ms) {
+    hintEl.textContent = text;
+    hintEl.style.display = 'block';
+    setTimeout(() => { hintEl.style.display = 'none'; }, ms);
+  }
+
+  function respawn() {
+    character.position.copy(START_POS);
+    velocityY = 0;
+    grounded = true;
+    showHint('Cuidado! Tente de novo.', 1400);
+  }
+
+  function winGame() {
+    if (gameWon) return;
+    gameWon = true;
+    showMessage('⭐ Fase Completa! ⭐', 0);
+  }
+
+  // ---------- Entrada: teclado (modo desktop) ----------
+  const keys = {};
+  window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+  window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+  // ---------- Entrada: controle VR ----------
+  function getXRInput() {
+    let ax = 0, ay = 0, jump = false;
+    const session = renderer.xr.getSession && renderer.xr.getSession();
+    if (session) {
+      for (const src of session.inputSources) {
+        if (src.gamepad) {
+          const gp = src.gamepad;
+          const axes = gp.axes;
+          let sx = 0, sy = 0;
+          if (axes.length >= 4) { sx = axes[2]; sy = axes[3]; }
+          else if (axes.length >= 2) { sx = axes[0]; sy = axes[1]; }
+          if (Math.abs(sx) > 0.15) ax += sx;
+          if (Math.abs(sy) > 0.15) ay += sy;
+          for (const b of gp.buttons) { if (b.pressed) jump = true; }
+        }
+      }
+    }
+    return { ax, ay, jump };
+  }
+
+  // ---------- Botão de entrar em VR ----------
+  const vrButton = document.getElementById('vr-button');
+  if (navigator.xr) {
+    navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+      if (!supported) {
+        vrButton.textContent = 'VR não suportado neste navegador';
+        vrButton.disabled = true;
+      }
+    }).catch(() => {
+      vrButton.textContent = 'VR indisponível';
+      vrButton.disabled = true;
+    });
+  } else {
+    vrButton.textContent = 'WebXR não disponível (use o navegador do Quest)';
+    vrButton.disabled = true;
+  }
+  vrButton.addEventListener('click', async () => {
+    const current = renderer.xr.getSession && renderer.xr.getSession();
+    if (current) { current.end(); return; }
+    try {
+      const session = await navigator.xr.requestSession('immersive-vr', {
+        optionalFeatures: ['local-floor', 'bounded-floor']
+      });
+      session.addEventListener('end', () => { vrButton.textContent = 'Entrar em VR'; });
+      await renderer.xr.setSession(session);
+      vrButton.textContent = 'Sair do VR';
+    } catch (err) {
+      alert('Não foi possível iniciar a sessão VR: ' + err.message);
+    }
+  });
+
+  // ---------- Loop principal ----------
+  const clock = new THREE.Clock();
+  const DOLLY_OFFSET = new THREE.Vector3(0, 3.2, 5.2);
+  const tmpDesired = new THREE.Vector3();
+
+  function animate() {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const t = clock.elapsedTime;
+
+    if (!gameWon) {
+      // --- ler entradas ---
+      let moveX = 0, moveZ = 0;
+      if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+      if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+      if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+      if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+      const xr = getXRInput();
+      moveX += xr.ax;
+      moveZ += xr.ay;
+      moveX = Math.max(-1, Math.min(1, moveX));
+      moveZ = Math.max(-1, Math.min(1, moveZ));
+
+      // --- mover personagem ---
+      if (moveX !== 0 || moveZ !== 0) {
+        character.position.x += moveX * MOVE_SPEED * dt;
+        character.position.z += moveZ * MOVE_SPEED * dt;
+        character.position.x = Math.max(-2.7, Math.min(2.7, character.position.x));
+        character.position.z = Math.max(-16.2, Math.min(10.2, character.position.z));
+
+        const targetAngle = Math.atan2(-moveX, -moveZ);
+        let diff = targetAngle - facingAngle;
+        while (diff > Math.PI) diff -= Math.PI*2;
+        while (diff < -Math.PI) diff += Math.PI*2;
+        facingAngle += diff * TURN_LERP;
+        character.rotation.y = facingAngle;
+
+        // balancinho de andar nas pernas
+        legL.rotation.x = Math.sin(t*10)*0.5;
+        legR.rotation.x = -Math.sin(t*10)*0.5;
+      } else {
+        legL.rotation.x *= 0.8;
+        legR.rotation.x *= 0.8;
+      }
+
+      // --- pular ---
+      const jumpPressed = keys['Space'] || xr.jump;
+      if (jumpPressed && grounded) {
+        velocityY = JUMP_SPEED;
+        grounded = false;
+      }
+
+      // --- gravidade ---
+      velocityY -= GRAVITY * dt;
+      character.position.y += velocityY * dt;
+
+      if (character.position.y <= 0) {
+        if (hasGroundAt(character.position.x, character.position.z)) {
+          character.position.y = 0;
+          velocityY = 0;
+          grounded = true;
+        } else {
+          grounded = false;
+        }
+      } else {
+        grounded = false;
+      }
+
+      if (character.position.y < -7) {
+        respawn();
+      }
+
+      // --- colisão com inimigo ---
+      if (enemyAlive) {
+        enemy.position.x = enemyBaseX + Math.sin(t * 1.3) * enemyRange;
+        const dx = character.position.x - enemy.position.x;
+        const dz = character.position.z - enemy.position.z;
+        const distXZ = Math.sqrt(dx*dx + dz*dz);
+        if (distXZ < 0.75) {
+          const charBottom = character.position.y;
+          const enemyTop = 0.85;
+          if (charBottom > enemyTop - 0.15 && velocityY < 0) {
+            // pulou em cima -> derrota o inimigo
+            enemyAlive = false;
+            enemy.visible = false;
+            velocityY = 4.2;
+            showHint('Inimigo derrotado!', 1200);
+          } else {
+            // tocou de lado -> volta pro início
+            respawn();
+          }
+        }
+      }
+
+      // --- coletar estrela ---
+      const dToStar = Math.sqrt(
+        Math.pow(character.position.x - STAR_POS.x, 2) +
+        Math.pow(character.position.z - STAR_POS.z, 2)
+      );
+      if (dToStar < 1.1) {
+        winGame();
+      }
+    }
+
+    // animação da estrela
+    star.rotation.z += dt * 1.6;
+    star.position.y = STAR_POS.y + Math.sin(t * 2) * 0.12;
+
+    // --- câmera terceira pessoa (dolly segue o personagem) ---
+    tmpDesired.set(
+      character.position.x * 0.6 + DOLLY_OFFSET.x,
+      character.position.y + DOLLY_OFFSET.y,
+      character.position.z + DOLLY_OFFSET.z
+    );
+    dolly.position.lerp(tmpDesired, 1 - Math.pow(0.001, dt));
+
+    if (!renderer.xr.isPresenting) {
+      const lookTarget = new THREE.Vector3(character.position.x, character.position.y + 0.9, character.position.z);
+      camera.position.copy(dolly.position);
+      camera.lookAt(lookTarget);
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  renderer.setAnimationLoop(animate);
+})();
+</script>
+</body>
+</html>
