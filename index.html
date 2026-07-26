@@ -38,6 +38,12 @@
   }
   #crosshair::before { width:16px; height:2px; top:7px; left:0; }
   #crosshair::after { width:2px; height:16px; left:7px; top:0; }
+  #restart-button {
+    position:absolute; top:calc(38% + 60px); left:50%; transform:translateX(-50%);
+    pointer-events:auto; padding:14px 28px; font-size:17px; font-weight:bold;
+    background:#2ea043; color:#fff; border:none; border-radius:30px; cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4); display:none;
+  }
 </style>
 </head>
 <body>
@@ -46,11 +52,12 @@
     <b>Fase de teste VR</b><br/>
     <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma)<br/>
     <u>Controle (PC) / Quest:</u> analógico esquerdo anda, botão A/X pula, gatilho direito atira (com arma)<br/>
-    Câmera sempre fixa atrás do personagem (estilo Crash Bandicoot), nunca gira e nunca muda de distância.<br/>
+    Câmera sempre fixa atrás do personagem (estilo Crash Bandicoot): só acompanha o avanço para frente, nunca gira e nunca muda de distância. No Quest, você pode virar a cabeça livremente para olhar o cenário (como em Moss/Astro Bot), mas o ponto de observação continua sempre atrás do herói.<br/>
     Pule o buraco, pule no inimigo, atravesse as plataformas, derrote o chefão baixinho (3 pulos), pegue a arma dele e destrua os guardiões que giram ao redor da estrela (2 pulos em cima ou 5 tiros cada) para conseguir pegá-la!
   </div>
   <button id="vr-button">Entrar em VR</button>
   <div id="message"></div>
+  <button id="restart-button">Repetir fase</button>
   <div id="hint"></div>
   <div id="crosshair"></div>
   <div id="fade" style="position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.12s ease;"></div>
@@ -68,18 +75,40 @@
   const START_POS   = new THREE.Vector3(0, 0, 9);
   const GRAVITY      = 18;
   const JUMP_SPEED   = 9.2;
-  const KILL_BOUNCE_SPEED = 4.6;
+  // Altura do pulo normal = JUMP_SPEED^2/(2*GRAVITY). Para o quique de matar
+  // inimigo ter metade dessa altura, a velocidade precisa ser
+  // JUMP_SPEED/sqrt(2) (porque a altura escala com o quadrado da velocidade).
+  const KILL_BOUNCE_SPEED = JUMP_SPEED / Math.SQRT2; // ~6.5 → metade da altura do pulo
+  // Tempo que o quique leva pra subir e voltar a cair (2*v/g), mais uma
+  // margem de segurança. Usado para o cooldown/invulnerabilidade de cada
+  // inimigo de várias lapadas: ele TEM que durar pelo menos esse tempo,
+  // senão a checagem de colisão volta a rodar enquanto o personagem ainda
+  // está subindo do quique — e nesse instante ele não está "caindo", então
+  // seria lido (errado) como o personagem tendo se machucado, resetando o
+  // jogo no meio de uma sequência de lapadas válidas.
+  const STOMP_SAFE_TIME = (2 * KILL_BOUNCE_SPEED / GRAVITY) + 0.15;
   const MOVE_SPEED   = 4.2;
   const TURN_LERP    = 0.25;
 
   // A câmera nunca se move sozinha, nunca gira e nunca muda de distância.
-  // Ela é um "dolly" (retentor) com a câmera dentro, num deslocamento local
-  // fixo (definido uma única vez, no setup). Depois disso, o único valor
-  // que muda a cada quadro é a posição Z do dolly, para acompanhar o avanço
-  // do personagem para frente — exatamente como a câmera de Crash Bandicoot.
-  const CAM_BACK_OFFSET = 5.2;   // distância atrás do personagem
-  const CAM_HEIGHT      = 3.2;   // altura acima do chão
-  const CAM_LOOK_HEIGHT = 0.9;   // altura do "alvo" que a câmera mira no setup
+  // Ela é um "dolly" (retentor/plataforma flutuante) com a câmera dentro.
+  // O único valor que muda a cada quadro é a posição Z do DOLLY, para
+  // acompanhar o avanço do personagem para frente — exatamente como a
+  // câmera de Crash Bandicoot.
+  //
+  // IMPORTANTE sobre VR (terceira pessoa em VR, tipo Moss / Astro Bot):
+  // quando uma sessão WebXR está ativa, o Three.js ignora qualquer posição/
+  // rotação que a gente atribua manualmente à câmera — ele substitui pela
+  // pose real do headset (relativa ao pai da câmera, isto é, o dolly).
+  // Por isso o deslocamento "atrás e acima do personagem" TEM que estar no
+  // DOLLY (o pai), nunca na própria câmera. Assim, o headset do jogador
+  // vira uma "cabeça" flutuando naquele ponto fixo atrás/acima do herói:
+  // o jogador pode virar a cabeça livremente pra olhar o cenário (como
+  // numa maquete/diorama), mas o ponto de observação sempre segue o
+  // personagem só pra frente, nunca se aproxima, nunca gira sozinho.
+  const CAM_BACK_OFFSET = 4.6;   // distância atrás do personagem
+  const CAM_HEIGHT      = 2.1;   // altura do "assento" da câmera acima do chão
+  const CAM_TILT_DOWN   = 0.38;  // inclinação p/ baixo (radianos) usada só no modo desktop
 
   // =========================================================================
   // GEOMETRIA DA FASE
@@ -90,11 +119,8 @@
     { zMax: -21.0, zMin: -33.0, xHalf: 6.0 }   // P3: arena final (mais larga)
   ];
   const STEP_STONES = [
-    { x: 0.6,  z: -10.6, r: 1.0 },
-    { x: -0.7, z: -12.8, r: 1.0 },
-    { x: 0.5,  z: -15.0, r: 1.0 },
-    { x: -0.6, z: -17.2, r: 1.05 },
-    { x: 0.0,  z: -19.4, r: 1.1 }
+    { x: 0.7,  z: -13.5, r: 1.3 },
+    { x: -0.7, z: -17.5, r: 1.3 }
   ];
 
   function hasGroundAt(x, z) {
@@ -136,20 +162,27 @@
   // muda, a cada quadro, para seguir o personagem para frente. X e Y do
   // dolly ficam sempre em 0.
   const dolly = new THREE.Group();
-  dolly.position.set(0, 0, START_POS.z);
+  // O dolly já nasce na posição final da "câmera de Crash Bandicoot": atrás
+  // e acima do personagem. A cada quadro, só o Z dele muda (ver animate()).
+  dolly.position.set(0, CAM_HEIGHT, START_POS.z + CAM_BACK_OFFSET);
   scene.add(dolly);
 
-  // A câmera é filha do dolly, com um deslocamento LOCAL fixo, definido uma
-  // única vez aqui embaixo. Esse deslocamento NUNCA é reatribuído dentro do
-  // loop de animação — esse era o bug do jogo antigo (ele reatribuía a
-  // posição da câmera todo quadro usando coordenadas do mundo, o que fazia
-  // a câmera "correr" e se aproximar demais, quebrando os controles).
+  // A câmera é filha do dolly. Em modo DESKTOP (sem VR), ela fica com uma
+  // leve inclinação fixa pra baixo, definida uma única vez aqui e nunca mais
+  // tocada — isso evita o bug do jogo antigo, que reatribuía a posição da
+  // câmera todo quadro usando coordenadas do mundo, fazendo-a "correr" e se
+  // aproximar demais, quebrando os controles.
+  //
+  // Em modo VR, o WebXR ignora essa posição/rotação da câmera e a substitui
+  // pela pose real do headset (relativa ao dolly). Como o dolly já está no
+  // ponto certo (atrás/acima do herói), o resultado é uma câmera de
+  // terceira pessoa de verdade: o jogador "flutua" naquele ponto fixo e pode
+  // virar a cabeça livremente pra olhar a cena, como em Moss ou Astro Bot
+  // Rescue Mission — mas o ponto de observação em si só avança pra frente
+  // junto com o personagem, nunca se aproxima nem gira sozinho.
   dolly.add(camera);
-  camera.position.set(0, CAM_HEIGHT, CAM_BACK_OFFSET);
-  camera.lookAt(new THREE.Vector3(0, CAM_LOOK_HEIGHT, START_POS.z));
-  // A partir daqui, camera.position e camera.rotation nunca mais são tocados
-  // manualmente fora da sessão XR. Em VR, o próprio WebXR assume a pose da
-  // câmera (relativa ao dolly) a partir do rastreamento do headset.
+  camera.position.set(0, 0, 0);
+  camera.rotation.set(-CAM_TILT_DOWN, 0, 0);
 
   // =========================================================================
   // LUZES
@@ -353,31 +386,55 @@
     mesh.position.set(x, 0, z);
     scene.add(mesh);
     const angularSpeed = (i % 2 === 0 ? 1 : -1) * (2.6 + Math.random() * 1.0);
-    gunEnemies.push({ mesh, alive: true, hp: GUARDIAN_HP, baseAngle: ang, angularSpeed, stompHits: 0 });
+    gunEnemies.push({ mesh, alive: true, hp: GUARDIAN_HP, baseAngle: ang, angularSpeed, stompHits: 0, stompCooldown: 0 });
   }
 
   // =========================================================================
   // CHEFÃO (3 pulos + atira, dropa a arma)
   // =========================================================================
+  // Refeito do zero para não ter nada pontudo no topo (o "chifre" antigo
+  // parecia um espinho, dando a falsa impressão de que pular em cima doía).
+  // Agora o corpo é uma bolha arredondada e achatada por cima — visualmente
+  // convidativa para pular em cima e quicar, igual aos outros inimigos.
   const toughGroup = new THREE.Group();
-  const toughMat = new THREE.MeshStandardMaterial({ color: 0x552222 });
-  const toughBody = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.68, 0.75, 10), toughMat);
-  toughBody.position.y = 0.45;
-  const toughHorn = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
-  toughHorn.position.y = 0.95;
+  const toughMat = new THREE.MeshStandardMaterial({ color: 0x8a3a3a });
+  const toughBellyMat = new THREE.MeshStandardMaterial({ color: 0xc76a4a });
+
+  const toughBody = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 12), toughMat);
+  toughBody.scale.set(1, 0.82, 1);
+  toughBody.position.y = 0.56;
+
+  const toughBelly = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10), toughBellyMat);
+  toughBelly.scale.set(1, 0.75, 0.6);
+  toughBelly.position.set(0, 0.5, -0.42);
+
   const toughEyeMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x995500 });
-  const toughEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), toughEyeMat);
-  toughEyeL.position.set(-0.22, 0.6, -0.5);
-  const toughEyeR = toughEyeL.clone(); toughEyeR.position.x = 0.22;
+  const toughPupilMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+  const toughEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), toughEyeMat);
+  toughEyeL.position.set(-0.24, 0.72, -0.5);
+  const toughEyeR = toughEyeL.clone(); toughEyeR.position.x = 0.24;
+  const toughPupilL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), toughPupilMat);
+  toughPupilL.position.set(-0.24, 0.72, -0.6);
+  const toughPupilR = toughPupilL.clone(); toughPupilR.position.x = 0.24;
+
+  // pequenos pés arredondados, sem nada pontudo em lugar nenhum
+  const toughFootMat = new THREE.MeshStandardMaterial({ color: 0x5c2a2a });
+  const toughFootL = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), toughFootMat);
+  toughFootL.scale.set(1, 0.6, 1.15);
+  toughFootL.position.set(-0.26, 0.08, -0.1);
+  const toughFootR = toughFootL.clone(); toughFootR.position.x = 0.26;
+
+  // arma na lateral do corpo, nunca no topo
   const toughGun = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.55), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-  toughGun.position.set(0.5, 0.55, -0.5);
-  toughGroup.add(toughBody, toughHorn, toughEyeL, toughEyeR, toughGun);
+  toughGun.position.set(0.58, 0.48, -0.35);
+
+  toughGroup.add(toughBody, toughBelly, toughEyeL, toughEyeR, toughPupilL, toughPupilR, toughFootL, toughFootR, toughGun);
   toughGroup.position.set(0, 0, -31.5);
   scene.add(toughGroup);
 
   const toughEnemy = {
     mesh: toughGroup, alive: true, hits: 0, speed: 1.3,
-    fireTimer: 0, fireInterval: 2.4, radius: 0.95, topY: 0.85
+    fireTimer: 0, fireInterval: 2.4, radius: 1.0, topY: 1.0, stompCooldown: 0
   };
 
   let gunPickup = null;
@@ -451,6 +508,53 @@
   }
 
   // =========================================================================
+  // "SQUASH & STRETCH" — dá a sensação de impacto de verdade quando o
+  // personagem pisa em cima de um inimigo, do jeito clássico de jogo de
+  // plataforma (Crash, Mario, etc.): o inimigo achata na hora do pisão e o
+  // personagem também se comprime um pouco ao quicar.
+  // =========================================================================
+  const squashList = []; // { mesh, life, duration, dying }
+  function squashMesh(mesh, dying) {
+    if (!mesh.userData._origScale) mesh.userData._origScale = mesh.scale.clone();
+    // remove qualquer animação de esmagamento anterior nesse mesmo mesh
+    for (let i = squashList.length - 1; i >= 0; i--) {
+      if (squashList[i].mesh === mesh) squashList.splice(i, 1);
+    }
+    squashList.push({ mesh, life: 0, duration: dying ? 0.22 : 0.16, dying: !!dying });
+  }
+  function updateSquash(dt) {
+    for (let i = squashList.length - 1; i >= 0; i--) {
+      const s = squashList[i];
+      s.life += dt;
+      const p = Math.min(s.life / s.duration, 1);
+      const orig = s.mesh.userData._origScale;
+      const dip = Math.sin(p * Math.PI); // 0 -> 1 -> 0: achata e volta
+      if (s.dying) {
+        const shrink = 1 - p; // some por completo até o fim da animação
+        s.mesh.scale.set(
+          orig.x * (1 + dip * 0.45) * shrink,
+          orig.y * Math.max(0.05, 1 - dip * 0.9) * shrink,
+          orig.z * (1 + dip * 0.45) * shrink
+        );
+      } else {
+        s.mesh.scale.set(
+          orig.x * (1 + dip * 0.22),
+          orig.y * (1 - dip * 0.32),
+          orig.z * (1 + dip * 0.22)
+        );
+      }
+      if (p >= 1) {
+        if (s.dying) {
+          s.mesh.visible = false;
+        } else {
+          s.mesh.scale.copy(orig);
+        }
+        squashList.splice(i, 1);
+      }
+    }
+  }
+
+  // =========================================================================
   // PROJÉTEIS
   // =========================================================================
   const playerProjectiles = [];
@@ -458,20 +562,32 @@
   const PLAYER_PROJ_SPEED = 16;
   const ENEMY_PROJ_SPEED  = 9;
 
-  function spawnPlayerProjectile(origin, dir) {
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 8, 8),
-      new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0x666600 })
+  // Contorno preto ao redor dos projéteis: uma cópia da esfera, um pouco
+  // maior, renderizada por dentro (BackSide) e totalmente preta. Do lado de
+  // fora ela aparece só como uma fina borda preta ao redor da bolinha
+  // colorida, de qualquer ângulo.
+  function makeOutlinedProjectile(radius, color, emissive) {
+    const group = new THREE.Group();
+    const outline = new THREE.Mesh(
+      new THREE.SphereGeometry(radius * 1.35, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide })
     );
+    const inner = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 10, 8),
+      new THREE.MeshStandardMaterial({ color, emissive })
+    );
+    group.add(outline, inner);
+    return group;
+  }
+
+  function spawnPlayerProjectile(origin, dir) {
+    const mesh = makeOutlinedProjectile(0.09, 0xffffaa, 0x666600);
     mesh.position.copy(origin);
     scene.add(mesh);
     playerProjectiles.push({ mesh, dir: dir.clone(), life: 0 });
   }
   function spawnEnemyProjectile(origin, dir) {
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.11, 8, 8),
-      new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0x660000 })
-    );
+    const mesh = makeOutlinedProjectile(0.11, 0xff2222, 0x660000);
     mesh.position.copy(origin);
     scene.add(mesh);
     enemyProjectiles.push({ mesh, dir: dir.clone(), life: 0 });
@@ -485,13 +601,22 @@
   let gameWon = false;
   let facingAngle = 0;
   let arenaActivated = false;
-  let wasShootPressed = false;
+  const SHOOT_INTERVAL = 0.22; // intervalo entre tiros automáticos ao segurar o botão
+  let shootCooldown = 0;
+  // Curta invulnerabilidade concedida sempre que o personagem quica em um
+  // inimigo (mesmo sem matá-lo). Evita que um projétil inimigo (ex.: o tiro
+  // do chefão) acerte o jogador no instante seguinte ao quique — o que
+  // antes parecia "o jogo reseta a cada lapada", já que o combate corpo a
+  // corpo acontece bem perto do inimigo que atira.
+  let stompInvulnTimer = 0;
   const checkpoint = START_POS.clone();
 
   const messageEl   = document.getElementById('message');
   const hintEl      = document.getElementById('hint');
   const crosshairEl = document.getElementById('crosshair');
   const fadeEl      = document.getElementById('fade');
+  const restartButtonEl = document.getElementById('restart-button');
+  restartButtonEl.addEventListener('click', () => { window.location.reload(); });
 
   function showMessage(text) {
     messageEl.textContent = text;
@@ -532,6 +657,7 @@
     gameWon = true;
     playWinFanfare();
     showMessage('⭐ Fase Completa! ⭐');
+    restartButtonEl.style.display = 'block';
   }
 
   // =========================================================================
@@ -691,17 +817,33 @@
       }
 
       // -------- atirar (com arma) --------
+      // Segurando o botão, atira sozinho continuamente (respeitando um
+      // intervalo mínimo entre tiros), sem precisar apertar várias vezes.
+      if (shootCooldown > 0) shootCooldown -= dt;
       const shootPressed = keys['KeyF'] || xr.shootBtn || pad.shootBtn;
-      if (hasGun && shootPressed && !wasShootPressed) {
+      if (hasGun && shootPressed && shootCooldown <= 0) {
         const fwd = forwardVectorFromAngle(facingAngle);
         const origin = character.position.clone().add(new THREE.Vector3(0, 0.75, 0)).add(fwd.clone().multiplyScalar(0.6));
         spawnPlayerProjectile(origin, fwd);
         playShootSound();
+        shootCooldown = SHOOT_INTERVAL;
       }
-      wasShootPressed = shootPressed;
 
       // -------- gravidade --------
+      // Guardamos a altura do personagem ANTES de aplicar a gravidade deste
+      // quadro (prevFootY) e também a velocidade vertical logo após a queda
+      // ser calculada, mas ANTES do "grude no chão" (fallVelocityY).
+      //
+      // Isso importa porque os inimigos ficam em pé sobre o mesmo chão que
+      // o personagem pisa — então, no exato quadro em que o personagem
+      // aterrissa em cima de um inimigo, o código de colisão com o CHÃO
+      // (logo abaixo) já zera velocityY antes da checagem do inimigo
+      // rodar. Resultado: toda pisada de verdade era lida como "não estava
+      // caindo" e virava dano em vez de quique — por isso ficou pior, e a
+      // tela ficava piscando preta (fade de dano) toda hora.
+      const prevFootY = character.position.y;
       velocityY -= GRAVITY * dt;
+      const fallVelocityY = velocityY; // captura ANTES do grude no chão
       character.position.y += velocityY * dt;
 
       if (character.position.y <= 0) {
@@ -720,6 +862,24 @@
         respawn();
       }
 
+      // Um pulo em cima (stomp) é reconhecido quando, no quadro anterior, o
+      // personagem já estava na altura do topo do inimigo (ou acima) E
+      // estava caindo neste quadro (fallVelocityY, capturado ANTES do
+      // grude no chão). Se ele vinha de baixo dessa altura (esbarrou de
+      // lado / por baixo), conta como dano, não como pisada.
+      // Tolerância generosa: em caso de dúvida, o jogo deve sempre entender
+      // que o personagem pulou em cima do inimigo (matando-o), nunca que o
+      // personagem morreu. Por isso a margem de altura é ampla e a
+      // velocidade vertical aceita como "quique" inclui até uma leve subida
+      // (não só queda), cobrindo o instante logo após o personagem decolar
+      // do chão em direção ao inimigo.
+      const STOMP_TOLERANCE = 0.6;
+      function isStomp(enemyTopY) {
+        return fallVelocityY < 1.0 && prevFootY >= enemyTopY - STOMP_TOLERANCE;
+      }
+
+      if (stompInvulnTimer > 0) stompInvulnTimer -= dt;
+
       // -------- inimigo 1 (bounce comum) --------
       if (enemyAlive) {
         enemy.position.x = enemyBaseX + Math.sin(t * 1.3) * enemyRange;
@@ -727,11 +887,13 @@
         const dz = character.position.z - enemy.position.z;
         const distXZ = Math.sqrt(dx * dx + dz * dz);
         if (distXZ < 0.75) {
-          if (character.position.y > 0.85 - 0.15 && velocityY < 0) {
+          if (isStomp(0.9)) {
             enemyAlive = false;
-            enemy.visible = false;
             spawnImpactEffect(enemy.position);
-            velocityY = jumpPressed ? JUMP_SPEED : KILL_BOUNCE_SPEED;
+            squashMesh(enemy, true);
+            squashMesh(character, false);
+            velocityY = KILL_BOUNCE_SPEED; // todo quique tem sempre a mesma altura
+            stompInvulnTimer = STOMP_SAFE_TIME;
             playDefeatSound();
             showHint('Inimigo derrotado!', 1200);
           } else {
@@ -753,24 +915,31 @@
         ge.mesh.position.x = STAR_POS.x + Math.cos(ang) * GUARDIAN_RADIUS;
         ge.mesh.position.z = STAR_POS.z + Math.sin(ang) * GUARDIAN_RADIUS;
         ge.mesh.rotation.y = -ang + Math.PI / 2;
+        if (ge.stompCooldown > 0) ge.stompCooldown -= dt;
         const dx = character.position.x - ge.mesh.position.x;
         const dz = character.position.z - ge.mesh.position.z;
         const distXZ = Math.sqrt(dx * dx + dz * dz);
         if (distXZ < 0.7) {
-          if (character.position.y > 0.9 - 0.15 && velocityY < 0) {
+          if (isStomp(1.05)) {
             ge.stompHits += 1;
+            squashMesh(character, false);
             if (ge.stompHits >= 2) {
               ge.alive = false;
-              ge.mesh.visible = false;
               spawnImpactEffect(ge.mesh.position);
-              velocityY = jumpPressed ? JUMP_SPEED : KILL_BOUNCE_SPEED;
+              squashMesh(ge.mesh, true);
+              velocityY = KILL_BOUNCE_SPEED; // todo quique tem sempre a mesma altura
+              stompInvulnTimer = STOMP_SAFE_TIME;
               playDefeatSound();
               showHint('Guardião derrotado!', 1200);
             } else {
-              velocityY = 3.5;
+              spawnImpactEffect(ge.mesh.position);
+              squashMesh(ge.mesh, false);
+              velocityY = KILL_BOUNCE_SPEED;
+              ge.stompCooldown = STOMP_SAFE_TIME; // evita reavaliar a colisão como dano enquanto o personagem ainda sobe do quique
+              stompInvulnTimer = STOMP_SAFE_TIME;
               playBounceSound();
             }
-          } else {
+          } else if (ge.stompCooldown <= 0) {
             respawn();
           }
         }
@@ -796,23 +965,31 @@
           spawnEnemyProjectile(origin, dirToPlayer);
         }
 
+        if (toughEnemy.stompCooldown > 0) toughEnemy.stompCooldown -= dt;
+
         if (dist < toughEnemy.radius) {
-          if (character.position.y > toughEnemy.topY - 0.15 && velocityY < 0) {
+          if (isStomp(toughEnemy.topY)) {
             toughEnemy.hits += 1;
+            squashMesh(character, false);
             if (toughEnemy.hits >= 3) {
               toughEnemy.alive = false;
-              toughEnemy.mesh.visible = false;
               spawnImpactEffect(toughEnemy.mesh.position);
-              velocityY = jumpPressed ? JUMP_SPEED : KILL_BOUNCE_SPEED;
+              squashMesh(toughEnemy.mesh, true);
+              velocityY = KILL_BOUNCE_SPEED; // todo quique tem sempre a mesma altura
+              stompInvulnTimer = STOMP_SAFE_TIME;
               spawnGunPickup(toughEnemy.mesh.position);
               playDefeatSound();
               showHint('Chefão derrotado! Pegue a arma dele!', 2200);
             } else {
-              velocityY = 4.5;
+              spawnImpactEffect(toughEnemy.mesh.position);
+              squashMesh(toughEnemy.mesh, false);
+              velocityY = KILL_BOUNCE_SPEED;
+              toughEnemy.stompCooldown = STOMP_SAFE_TIME; // evita reavaliar a colisão como dano enquanto o personagem ainda sobe do quique
+              stompInvulnTimer = STOMP_SAFE_TIME; // protege de tiro do chefão logo após o quique, no combate corpo a corpo
               playHitSound();
               showHint('Acertou! (' + toughEnemy.hits + '/3)', 1000);
             }
-          } else {
+          } else if (toughEnemy.stompCooldown <= 0) {
             respawn();
           }
         }
@@ -847,10 +1024,11 @@
             ge.hp -= 1;
             if (ge.hp <= 0) {
               ge.alive = false;
-              ge.mesh.visible = false;
               spawnImpactEffect(ge.mesh.position);
+              squashMesh(ge.mesh, true);
               playDefeatSound();
             } else {
+              squashMesh(ge.mesh, false);
               playHitSound();
             }
             hit = true;
@@ -871,7 +1049,7 @@
         const dx = character.position.x - p.mesh.position.x;
         const dz = character.position.z - p.mesh.position.z;
         if (Math.sqrt(dx * dx + dz * dz) < 0.6) {
-          respawn();
+          if (stompInvulnTimer <= 0) respawn();
           scene.remove(p.mesh);
           enemyProjectiles.splice(i, 1);
           continue;
@@ -893,6 +1071,7 @@
     }
 
     updateImpactEffects(dt);
+    updateSquash(dt);
 
     star.rotation.z += dt * 1.6;
     star.position.y = STAR_POS.y + Math.sin(t * 2) * 0.12;
@@ -902,12 +1081,13 @@
     shadowMat.opacity = THREE.MathUtils.clamp(0.42 - character.position.y * 0.13, 0.08, 0.42);
 
     // -------- câmera: SÓ o dolly avança em Z, acompanhando o personagem.
-    // X e Y do dolly permanecem sempre 0. Nem o dolly nem a câmera giram.
-    // A câmera em si nunca é tocada aqui — seu deslocamento local (atrás e
-    // acima do personagem) foi fixado uma única vez no setup. Isso é o que
-    // garante o efeito "câmera de Crash Bandicoot": sempre atrás, sempre
-    // olhando para frente, nunca se aproxima nem gira.
-    dolly.position.z = character.position.z;
+    // X do dolly fica sempre 0 e Y sempre CAM_HEIGHT — nunca mudam. Nem o
+    // dolly nem a câmera giram sozinhos. A câmera em si nunca é tocada aqui:
+    // seu deslocamento (atrás/acima do personagem) está todo no dolly, que é
+    // o que o WebXR respeita mesmo dentro de uma sessão VR. Isso garante o
+    // efeito "câmera de Crash Bandicoot" tanto no PC quanto no headset:
+    // sempre atrás, sempre olhando para frente, nunca se aproxima nem gira.
+    dolly.position.z = character.position.z + CAM_BACK_OFFSET;
 
     renderer.render(scene, camera);
   }
