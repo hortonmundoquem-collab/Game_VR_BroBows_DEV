@@ -9,9 +9,14 @@
   canvas { display:block; }
   #ui { position:fixed; inset:0; pointer-events:none; font-family: Verdana, Geneva, sans-serif; z-index:10; }
   #info {
-    position:absolute; top:14px; left:14px; color:#fff; background:rgba(0,0,0,0.35);
+    position:absolute; top:70px; left:14px; color:#fff; background:rgba(0,0,0,0.35);
     padding:10px 14px; border-radius:10px; font-size:13px; line-height:1.5; max-width:340px;
   }
+  #hearts-pc {
+    position:absolute; top:14px; left:14px; font-size:30px; line-height:1;
+    text-shadow:0 0 6px #000, 0 0 3px #000; letter-spacing:4px;
+  }
+  #hearts-pc span.lost { opacity:0.28; filter:grayscale(1); }
   #vr-button {
     position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
     pointer-events:auto; padding:14px 28px; font-size:17px; font-weight:bold;
@@ -48,12 +53,14 @@
 </head>
 <body>
 <div id="ui">
+  <div id="hearts-pc"></div>
   <div id="info">
     <b>Fase de teste VR</b><br/>
-    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma)<br/>
-    <u>Controle (PC) / Quest:</u> analógico esquerdo anda, botão A/X pula, gatilho direito atira (com arma)<br/>
+    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira<br/>
+    <u>Controle (PC) / Quest:</u> analógico esquerdo anda, botão A/X pula, gatilho direito atira (com arma), GRIP esquerdo trava a mira<br/>
     Câmera sempre fixa atrás do personagem (estilo Crash Bandicoot): só acompanha o avanço para frente, nunca gira e nunca muda de distância. No Quest, você pode virar a cabeça livremente para olhar o cenário (como em Moss/Astro Bot), mas o ponto de observação continua sempre atrás do herói.<br/>
-    Pule o buraco, pule no inimigo, atravesse as plataformas, derrote o chefão baixinho (3 pulos), pegue a arma dele e destrua os guardiões que giram ao redor da estrela (2 pulos em cima ou 5 tiros cada) para conseguir pegá-la!
+    Você tem 3 corações de vida (mostrados aqui no PC e na sua mão esquerda no VR). Segurando a mira travada (G / GRIP esquerdo) você pode se mover para qualquer lado enquanto os tiros continuam saindo para a direção travada.<br/>
+    Pule o buraco, pule no inimigo, atravesse as plataformas, derrote o chefão baixinho (3 pulos) antes da estrela e pegue a arma dele. Cuidado com os guardiões que giram ao redor da estrela: pular em cima deles NÃO os machuca, e qualquer contato com eles (por cima ou de lado) tira 3 corações seus de uma vez! Use a arma para atirar neles (5 tiros cada) até conseguir pegar a estrela.
   </div>
   <button id="vr-button">Entrar em VR</button>
   <div id="message"></div>
@@ -75,10 +82,11 @@
   const START_POS   = new THREE.Vector3(0, 0, 9);
   const GRAVITY      = 18;
   const JUMP_SPEED   = 9.2;
-  // Altura do pulo normal = JUMP_SPEED^2/(2*GRAVITY). Para o quique de matar
-  // inimigo ter metade dessa altura, a velocidade precisa ser
-  // JUMP_SPEED/sqrt(2) (porque a altura escala com o quadrado da velocidade).
-  const KILL_BOUNCE_SPEED = JUMP_SPEED / Math.SQRT2; // ~6.5 → metade da altura do pulo
+  // Quicar em cima de um inimigo (matando ou não) agora sobe com a MESMA
+  // força de um pulo normal — como se fosse um novo pulo automático — para
+  // dar tempo e altura de encadear vários pulos seguidos em inimigos de
+  // várias lapadas (ex.: o chefão, que precisa de 3).
+  const KILL_BOUNCE_SPEED = JUMP_SPEED;
   // Tempo que o quique leva pra subir e voltar a cair (2*v/g), mais uma
   // margem de segurança. Usado para o cooldown/invulnerabilidade de cada
   // inimigo de várias lapadas: ele TEM que durar pelo menos esse tempo,
@@ -106,9 +114,9 @@
   // o jogador pode virar a cabeça livremente pra olhar o cenário (como
   // numa maquete/diorama), mas o ponto de observação sempre segue o
   // personagem só pra frente, nunca se aproxima, nunca gira sozinho.
-  const CAM_BACK_OFFSET = 4.6;   // distância atrás do personagem
-  const CAM_HEIGHT      = 2.1;   // altura do "assento" da câmera acima do chão
-  const CAM_TILT_DOWN   = 0.38;  // inclinação p/ baixo (radianos) usada só no modo desktop
+  const CAM_BACK_OFFSET = 6.4;   // distância atrás do personagem (mais longe que antes)
+  const CAM_HEIGHT      = 3.6;   // altura do "assento" da câmera acima do chão (mais alta, para ver o jogo de cima)
+  const CAM_TILT_DOWN   = 0.52;  // inclinação p/ baixo (radianos) usada só no modo desktop, compensando a altura maior
 
   // =========================================================================
   // GEOMETRIA DA FASE
@@ -429,7 +437,12 @@
   toughGun.position.set(0.58, 0.48, -0.35);
 
   toughGroup.add(toughBody, toughBelly, toughEyeL, toughEyeR, toughPupilL, toughPupilR, toughFootL, toughFootR, toughGun);
-  toughGroup.position.set(0, 0, -31.5);
+  // Posicionado ANTES da estrela (z menos negativo que STAR_POS.z = -27),
+  // já que a sequência de combate é: chegar na arena -> derrotar o chefão
+  // -> pegar a arma dele -> só então enfrentar os guardiões que ficam
+  // girando ao redor da estrela, mais à frente. Antes ele estava atrás da
+  // estrela, obrigando o jogador a atravessar os guardiões primeiro.
+  toughGroup.position.set(0, 0, -22.5);
   scene.add(toughGroup);
 
   const toughEnemy = {
@@ -611,10 +624,27 @@
   let stompInvulnTimer = 0;
   const checkpoint = START_POS.clone();
 
+  // -------- VIDA (3 corações) --------
+  const MAX_HEARTS = 3;
+  let hearts = MAX_HEARTS;
+  // Ao tomar qualquer dano, o personagem pisca e fica invencível durante
+  // esse tempo, evitando perder vários corações de uma vez com o mesmo
+  // golpe/atropelamento.
+  const HURT_BLINK_TIME = 1.0;
+  let invulnTimer = 0;
+
+  // -------- MIRA TRAVADA (segurar G no PC / GRIP esquerdo no VR) --------
+  // Enquanto travada, o personagem pode se mover livremente em qualquer
+  // direção, mas o corpo (e portanto os tiros) continuam sempre apontando
+  // para o ângulo que estava no instante em que a mira foi travada.
+  let aimLocked = false;
+  let lockedFacingAngle = 0;
+
   const messageEl   = document.getElementById('message');
   const hintEl      = document.getElementById('hint');
   const crosshairEl = document.getElementById('crosshair');
   const fadeEl      = document.getElementById('fade');
+  const heartsPcEl  = document.getElementById('hearts-pc');
   const restartButtonEl = document.getElementById('restart-button');
   restartButtonEl.addEventListener('click', () => { window.location.reload(); });
 
@@ -627,6 +657,63 @@
     hintEl.style.display = 'block';
     clearTimeout(showHint._t);
     showHint._t = setTimeout(() => { hintEl.style.display = 'none'; }, ms);
+  }
+
+  // -------- UI DOS CORAÇÕES --------
+  // Canvas usado como textura de um pequeno painel preso ao controle
+  // esquerdo em VR, mostrando os mesmos corações da HUD do PC.
+  const heartsCanvas = document.createElement('canvas');
+  heartsCanvas.width = 256; heartsCanvas.height = 96;
+  const heartsCtx = heartsCanvas.getContext('2d');
+  const heartsTexture = new THREE.CanvasTexture(heartsCanvas);
+
+  function drawHeartsCanvas() {
+    heartsCtx.clearRect(0, 0, heartsCanvas.width, heartsCanvas.height);
+    heartsCtx.font = '64px sans-serif';
+    heartsCtx.textBaseline = 'middle';
+    for (let i = 0; i < MAX_HEARTS; i++) {
+      heartsCtx.fillStyle = i < hearts ? '#ff3b3b' : 'rgba(255,255,255,0.25)';
+      heartsCtx.fillText('\u2665', 10 + i * 82, 52);
+    }
+    heartsTexture.needsUpdate = true;
+  }
+
+  function updateHeartsUI() {
+    heartsPcEl.innerHTML = '';
+    for (let i = 0; i < MAX_HEARTS; i++) {
+      const span = document.createElement('span');
+      span.textContent = '\u2665';
+      if (i >= hearts) span.className = 'lost';
+      heartsPcEl.appendChild(span);
+    }
+    drawHeartsCanvas();
+  }
+  updateHeartsUI();
+
+  // Painel de corações preso à mão esquerda em VR: um plano com a mesma
+  // textura em canvas dos corações, anexado ao "grip" do controle
+  // identificado como esquerdo pelo próprio WebXR.
+  const heartsPlaneMat = new THREE.MeshBasicMaterial({
+    map: heartsTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
+  });
+  const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.06), heartsPlaneMat);
+  heartsPlane.position.set(0, 0.05, 0.02);
+  heartsPlane.rotation.x = -Math.PI / 3;
+  heartsPlane.renderOrder = 10;
+
+  for (let i = 0; i < 2; i++) {
+    const grip = renderer.xr.getControllerGrip(i);
+    const controller = renderer.xr.getController(i);
+    scene.add(grip);
+    controller.addEventListener('connected', (e) => {
+      if (e.data && e.data.handedness === 'left') {
+        if (!heartsPlane.parent) grip.add(heartsPlane);
+      }
+    });
+  }
+
+  function playerIsInvulnerable() {
+    return invulnTimer > 0 || stompInvulnTimer > 0;
   }
 
   let isRespawning = false;
@@ -645,6 +732,25 @@
     }, 90);
     playHurtSound();
     showHint('Cuidado! Tente de novo.', 1400);
+  }
+
+  // Ponto único de entrada para qualquer dano sofrido pelo personagem.
+  // Tira "amount" corações (1 por padrão), volta ao checkpoint e deixa o
+  // personagem piscando e invencível por HURT_BLINK_TIME segundos. Se os
+  // corações acabarem, reinicia a fase.
+  function takeHit(amount) {
+    if (playerIsInvulnerable()) return;
+    amount = amount || 1;
+    hearts = Math.max(0, hearts - amount);
+    updateHeartsUI();
+    if (hearts <= 0) {
+      playHurtSound();
+      showMessage('💀 Você perdeu! Reiniciando...');
+      setTimeout(() => window.location.reload(), 1400);
+      return;
+    }
+    invulnTimer = HURT_BLINK_TIME;
+    respawn();
   }
 
   function updateCheckpoint() {
@@ -673,7 +779,7 @@
   // ENTRADA: CONTROLE VR (Quest)
   // =========================================================================
   function getXRInput() {
-    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false;
+    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripLeftBtn = false;
     const session = renderer.xr.getSession && renderer.xr.getSession();
     if (session) {
       for (const src of session.inputSources) {
@@ -684,16 +790,27 @@
         if (axes.length >= 4) { sx = axes[2]; sy = axes[3]; }
         else if (axes.length >= 2) { sx = axes[0]; sy = axes[1]; }
         if (src.handedness === 'right') {
-          if (gp.buttons[0] && gp.buttons[0].pressed) shootBtn = true;
-          if (gp.buttons[1] && gp.buttons[1].pressed) jumpBtn = true;
+          if (gp.buttons[0] && gp.buttons[0].pressed) shootBtn = true; // gatilho: atira
+          // Botão "A" (botão primário do controle direito no Quest) pula.
+          // No mapeamento xr-standard ele costuma ser o índice 4, mas varia
+          // um pouco por navegador/dispositivo — por segurança, qualquer
+          // botão do controle direito além do gatilho (índice 0, reservado
+          // para atirar) também conta como pulo, cobrindo o A de qualquer forma.
+          for (let bi = 1; bi < gp.buttons.length; bi++) {
+            if (gp.buttons[bi] && gp.buttons[bi].pressed) { jumpBtn = true; break; }
+          }
         } else {
           if (Math.abs(sx) > 0.15) moveX += sx;
           if (Math.abs(sy) > 0.15) moveY += sy;
           for (const b of gp.buttons) { if (b.pressed) jumpBtn = true; }
+          // GRIP esquerdo (botão de aperto lateral do controle esquerdo):
+          // no mapeamento xr-standard é o índice 1 (o 0 é o gatilho).
+          // Trava a mira do personagem enquanto estiver pressionado.
+          if (gp.buttons[1] && gp.buttons[1].pressed) gripLeftBtn = true;
         }
       }
     }
-    return { moveX, moveY, jumpBtn, shootBtn };
+    return { moveX, moveY, jumpBtn, shootBtn, gripLeftBtn };
   }
 
   // =========================================================================
@@ -740,8 +857,13 @@
     const current = renderer.xr.getSession && renderer.xr.getSession();
     if (current) { current.end(); return; }
     try {
+      // 'dom-overlay' é o recurso do WebXR que faz o navegador desenhar
+      // nosso HTML (mensagens, botão de reiniciar, corações etc.) como uma
+      // camada sobre a cena renderizada dentro do headset. Sem ele, o
+      // botão "Repetir fase" existe no DOM mas nunca aparece no VR.
       const session = await navigator.xr.requestSession('immersive-vr', {
-        optionalFeatures: ['local-floor', 'bounded-floor']
+        optionalFeatures: ['local-floor', 'bounded-floor', 'dom-overlay'],
+        domOverlay: { root: document.body }
       });
       session.addEventListener('end', () => { vrButton.textContent = 'Entrar em VR'; });
       await renderer.xr.setSession(session);
@@ -764,6 +886,17 @@
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
 
+    // Lido sempre, mesmo com o jogo já ganho, para servir de fallback do
+    // botão "Repetir fase" dentro do VR (caso o dom-overlay não seja
+    // suportado pelo navegador do headset): qualquer botão reinicia.
+    const xr = getXRInput();
+
+    if (gameWon) {
+      if (renderer.xr.isPresenting && (xr.jumpBtn || xr.shootBtn || xr.gripLeftBtn)) {
+        window.location.reload();
+      }
+    }
+
     if (!gameWon) {
       // -------- entradas --------
       let moveX = 0, moveZ = 0;
@@ -772,7 +905,6 @@
       if (keys['KeyA'] || keys['ArrowLeft'])  moveX -= 1;
       if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
 
-      const xr = getXRInput();
       moveX += xr.moveX;
       moveZ += xr.moveY;
 
@@ -782,6 +914,19 @@
 
       moveX = Math.max(-1, Math.min(1, moveX));
       moveZ = Math.max(-1, Math.min(1, moveZ));
+
+      // -------- mira travada --------
+      // Enquanto o botão estiver segurado, o ângulo de mira fica congelado
+      // no valor que o personagem tinha no instante em que travou. Soltando
+      // o botão, volta a virar normalmente na direção do movimento.
+      const aimLockPressed = keys['KeyG'] || xr.gripLeftBtn;
+      if (aimLockPressed && !aimLocked) {
+        aimLocked = true;
+        lockedFacingAngle = facingAngle;
+        showHint('Mira travada!', 900);
+      } else if (!aimLockPressed && aimLocked) {
+        aimLocked = false;
+      }
 
       // -------- mover personagem (eixos fixos do mundo; a câmera nunca gira,
       // então "para frente" é sempre a mesma direção do mundo, -Z) --------
@@ -793,12 +938,13 @@
         character.position.x = Math.max(-5.8, Math.min(5.8, character.position.x));
         character.position.z = Math.max(-32.4, Math.min(10.2, character.position.z));
 
-        const targetAngle = Math.atan2(-worldDir.x, -worldDir.z);
-        let diff = targetAngle - facingAngle;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        facingAngle += diff * TURN_LERP;
-        character.rotation.y = facingAngle;
+        if (!aimLocked) {
+          const targetAngle = Math.atan2(-worldDir.x, -worldDir.z);
+          let diff = targetAngle - facingAngle;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          facingAngle += diff * TURN_LERP;
+        }
 
         legL.rotation.x = Math.sin(t * 10) * 0.5;
         legR.rotation.x = -Math.sin(t * 10) * 0.5;
@@ -806,6 +952,10 @@
         legL.rotation.x *= 0.8;
         legR.rotation.x *= 0.8;
       }
+      // Com a mira travada, o corpo (e a direção dos tiros) fica preso no
+      // ângulo travado, mesmo que o personagem esteja se movendo para os
+      // lados ou para trás; do contrário segue a direção normal do andar.
+      character.rotation.y = aimLocked ? lockedFacingAngle : facingAngle;
       updateCheckpoint();
 
       // -------- pular --------
@@ -822,7 +972,7 @@
       if (shootCooldown > 0) shootCooldown -= dt;
       const shootPressed = keys['KeyF'] || xr.shootBtn || pad.shootBtn;
       if (hasGun && shootPressed && shootCooldown <= 0) {
-        const fwd = forwardVectorFromAngle(facingAngle);
+        const fwd = forwardVectorFromAngle(aimLocked ? lockedFacingAngle : facingAngle);
         const origin = character.position.clone().add(new THREE.Vector3(0, 0.75, 0)).add(fwd.clone().multiplyScalar(0.6));
         spawnPlayerProjectile(origin, fwd);
         playShootSound();
@@ -830,20 +980,7 @@
       }
 
       // -------- gravidade --------
-      // Guardamos a altura do personagem ANTES de aplicar a gravidade deste
-      // quadro (prevFootY) e também a velocidade vertical logo após a queda
-      // ser calculada, mas ANTES do "grude no chão" (fallVelocityY).
-      //
-      // Isso importa porque os inimigos ficam em pé sobre o mesmo chão que
-      // o personagem pisa — então, no exato quadro em que o personagem
-      // aterrissa em cima de um inimigo, o código de colisão com o CHÃO
-      // (logo abaixo) já zera velocityY antes da checagem do inimigo
-      // rodar. Resultado: toda pisada de verdade era lida como "não estava
-      // caindo" e virava dano em vez de quique — por isso ficou pior, e a
-      // tela ficava piscando preta (fade de dano) toda hora.
-      const prevFootY = character.position.y;
       velocityY -= GRAVITY * dt;
-      const fallVelocityY = velocityY; // captura ANTES do grude no chão
       character.position.y += velocityY * dt;
 
       if (character.position.y <= 0) {
@@ -859,26 +996,41 @@
       }
 
       if (character.position.y < -7) {
-        respawn();
+        takeHit();
       }
 
-      // Um pulo em cima (stomp) é reconhecido quando, no quadro anterior, o
-      // personagem já estava na altura do topo do inimigo (ou acima) E
-      // estava caindo neste quadro (fallVelocityY, capturado ANTES do
-      // grude no chão). Se ele vinha de baixo dessa altura (esbarrou de
-      // lado / por baixo), conta como dano, não como pisada.
-      // Tolerância generosa: em caso de dúvida, o jogo deve sempre entender
-      // que o personagem pulou em cima do inimigo (matando-o), nunca que o
-      // personagem morreu. Por isso a margem de altura é ampla e a
-      // velocidade vertical aceita como "quique" inclui até uma leve subida
-      // (não só queda), cobrindo o instante logo após o personagem decolar
-      // do chão em direção ao inimigo.
-      const STOMP_TOLERANCE = 0.6;
-      function isStomp(enemyTopY) {
-        return fallVelocityY < 1.0 && prevFootY >= enemyTopY - STOMP_TOLERANCE;
+      // Colisão corpo-a-corpo baseada em ALTURA real, não só em "está no
+      // ar ou não" (a regra bem antiga, "!grounded = quique", deixava
+      // passar um esbarrão de lado à meia altura como se fosse quique).
+      //
+      // A primeira tentativa de corrigir isso exigia também "estar caindo"
+      // (velocityY baixo), mas isso quase nunca acontecia na altura certa:
+      // a velocidade só cai o suficiente perto do ápice do pulo, quando o
+      // personagem já está bem mais alto que a janela de altura válida —
+      // ou seja, a checagem de queda e a checagem de altura quase nunca
+      // eram verdadeiras ao mesmo tempo, e o quique parava de funcionar.
+      //
+      // Regra nova, mais simples e confiável: contato enquanto no ar conta
+      // como quique sempre que os pés já passaram da metade da altura do
+      // inimigo (não importa se ainda subindo ou já descendo) — é
+      // exatamente esse instante que faz o personagem parecer "por cima"
+      // dele. Contato com os pés mais baixos que isso (ou com o
+      // personagem no chão) conta como esbarrão/dano.
+      function meleeContact(topY) {
+        if (grounded) return 'hit';
+        return character.position.y >= topY * 0.5 ? 'stomp' : 'hit';
       }
 
       if (stompInvulnTimer > 0) stompInvulnTimer -= dt;
+
+      // Pisca o personagem enquanto estiver invencível por ter tomado dano.
+      if (invulnTimer > 0) {
+        invulnTimer -= dt;
+        character.visible = Math.floor(t * 12) % 2 === 0;
+        if (invulnTimer <= 0) character.visible = true;
+      } else {
+        character.visible = true;
+      }
 
       // -------- inimigo 1 (bounce comum) --------
       if (enemyAlive) {
@@ -887,7 +1039,8 @@
         const dz = character.position.z - enemy.position.z;
         const distXZ = Math.sqrt(dx * dx + dz * dz);
         if (distXZ < 0.75) {
-          if (isStomp(0.9)) {
+          const contact = meleeContact(0.9); // topo aproximado do inimigo esférico
+          if (contact === 'stomp') {
             enemyAlive = false;
             spawnImpactEffect(enemy.position);
             squashMesh(enemy, true);
@@ -896,8 +1049,8 @@
             stompInvulnTimer = STOMP_SAFE_TIME;
             playDefeatSound();
             showHint('Inimigo derrotado!', 1200);
-          } else {
-            respawn();
+          } else if (contact === 'hit') {
+            takeHit();
           }
         }
       }
@@ -909,39 +1062,30 @@
       }
 
       // -------- guardiões da estrela --------
+      // Esses guardiões são "espinhentos": pular em cima deles NÃO causa
+      // dano neles (diferente do inimigo comum e do chefão) — qualquer
+      // contato, de cima, de lado, ou do jeito que for, machuca o
+      // personagem em 3 corações. A única forma de derrotá-los é atirando
+      // (ver dano por projétil mais abaixo).
       for (const ge of gunEnemies) {
         if (!ge.alive) continue;
         const ang = ge.baseAngle + t * ge.angularSpeed;
         ge.mesh.position.x = STAR_POS.x + Math.cos(ang) * GUARDIAN_RADIUS;
         ge.mesh.position.z = STAR_POS.z + Math.sin(ang) * GUARDIAN_RADIUS;
-        ge.mesh.rotation.y = -ang + Math.PI / 2;
-        if (ge.stompCooldown > 0) ge.stompCooldown -= dt;
+        // Olham para fora da estrela: a direção radial (do centro para o
+        // guardião) é (cos ang, sin ang); convertendo para um ângulo de
+        // rotação Y com a mesma fórmula usada no resto do jogo para "virar
+        // de frente para uma direção" (ex.: chefão perseguindo o jogador).
+        const outX = Math.cos(ang), outZ = Math.sin(ang);
+        ge.mesh.rotation.y = Math.atan2(-outX, -outZ);
         const dx = character.position.x - ge.mesh.position.x;
         const dz = character.position.z - ge.mesh.position.z;
         const distXZ = Math.sqrt(dx * dx + dz * dz);
-        if (distXZ < 0.7) {
-          if (isStomp(1.05)) {
-            ge.stompHits += 1;
-            squashMesh(character, false);
-            if (ge.stompHits >= 2) {
-              ge.alive = false;
-              spawnImpactEffect(ge.mesh.position);
-              squashMesh(ge.mesh, true);
-              velocityY = KILL_BOUNCE_SPEED; // todo quique tem sempre a mesma altura
-              stompInvulnTimer = STOMP_SAFE_TIME;
-              playDefeatSound();
-              showHint('Guardião derrotado!', 1200);
-            } else {
-              spawnImpactEffect(ge.mesh.position);
-              squashMesh(ge.mesh, false);
-              velocityY = KILL_BOUNCE_SPEED;
-              ge.stompCooldown = STOMP_SAFE_TIME; // evita reavaliar a colisão como dano enquanto o personagem ainda sobe do quique
-              stompInvulnTimer = STOMP_SAFE_TIME;
-              playBounceSound();
-            }
-          } else if (ge.stompCooldown <= 0) {
-            respawn();
-          }
+        // Ainda usa a checagem de altura pra não machucar o personagem se
+        // ele estiver bem acima, no meio de um pulo alto que nem chegou
+        // perto do guardião de verdade.
+        if (distXZ < 0.7 && character.position.y <= 1.7) {
+          takeHit(3); // guardiões tiram sempre 3 corações no corpo a corpo
         }
       }
 
@@ -967,8 +1111,9 @@
 
         if (toughEnemy.stompCooldown > 0) toughEnemy.stompCooldown -= dt;
 
-        if (dist < toughEnemy.radius) {
-          if (isStomp(toughEnemy.topY)) {
+        if (dist < toughEnemy.radius && toughEnemy.stompCooldown <= 0) {
+          const contact = meleeContact(toughEnemy.topY);
+          if (contact === 'stomp') {
             toughEnemy.hits += 1;
             squashMesh(character, false);
             if (toughEnemy.hits >= 3) {
@@ -984,13 +1129,13 @@
               spawnImpactEffect(toughEnemy.mesh.position);
               squashMesh(toughEnemy.mesh, false);
               velocityY = KILL_BOUNCE_SPEED;
-              toughEnemy.stompCooldown = STOMP_SAFE_TIME; // evita reavaliar a colisão como dano enquanto o personagem ainda sobe do quique
+              toughEnemy.stompCooldown = STOMP_SAFE_TIME; // evita reavaliar a colisão enquanto o personagem ainda sobe do quique
               stompInvulnTimer = STOMP_SAFE_TIME; // protege de tiro do chefão logo após o quique, no combate corpo a corpo
               playHitSound();
               showHint('Acertou! (' + toughEnemy.hits + '/3)', 1000);
             }
-          } else if (toughEnemy.stompCooldown <= 0) {
-            respawn();
+          } else if (contact === 'hit') {
+            takeHit();
           }
         }
       }
@@ -1049,7 +1194,7 @@
         const dx = character.position.x - p.mesh.position.x;
         const dz = character.position.z - p.mesh.position.z;
         if (Math.sqrt(dx * dx + dz * dz) < 0.6) {
-          if (stompInvulnTimer <= 0) respawn();
+          takeHit();
           scene.remove(p.mesh);
           enemyProjectiles.splice(i, 1);
           continue;
