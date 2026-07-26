@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Fase VR - Aventura do Bandicoot</title>
+<title>Fase VR - Aventura do Herói</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; width:100%; height:100%; background:#000; }
   canvas { display:block; }
@@ -44,40 +44,51 @@
 <div id="ui">
   <div id="info">
     <b>Fase de teste VR</b><br/>
-    <u>Desktop:</u> WASD/Setas anda, mouse ou Q/E gira câmera, Espaço pula, F atira (com arma). Clique na tela pra travar o mouse (Esc libera)<br/>
-    <u>Quest:</u> Analógico esquerdo anda, analógico direito gira câmera, botão esquerdo pula, gatilho direito atira (com arma)<br/>
-    Pule o buraco, pule no inimigo, atravesse as plataformas, derrote o chefão baixinho (3 pulos), pegue a arma dele e destrua os guardiões que giram ao redor da estrela (5 tiros cada) para conseguir pegá-la!
+    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma)<br/>
+    <u>Controle (PC) / Quest:</u> analógico esquerdo anda, botão A/X pula, gatilho direito atira (com arma)<br/>
+    Câmera sempre fixa atrás do personagem (estilo Crash Bandicoot), nunca gira e nunca muda de distância.<br/>
+    Pule o buraco, pule no inimigo, atravesse as plataformas, derrote o chefão baixinho (3 pulos), pegue a arma dele e destrua os guardiões que giram ao redor da estrela (2 pulos em cima ou 5 tiros cada) para conseguir pegá-la!
   </div>
   <button id="vr-button">Entrar em VR</button>
   <div id="message"></div>
   <div id="hint"></div>
   <div id="crosshair"></div>
+  <div id="fade" style="position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.12s ease;"></div>
+  <div style="position:absolute;bottom:6px;right:8px;color:#fff8;font-size:11px;pointer-events:none;">build: câmera-crash-v1 (reconstruído do zero)</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-(function(){
+(function () {
   "use strict";
 
-  // ================= CONFIG GERAL =================
-  const START_POS = new THREE.Vector3(0, 0, 9);
-  const GRAVITY = 18;
-  const JUMP_SPEED = 7.5;
-  const MOVE_SPEED = 4.2;
-  const TURN_LERP = 0.25;
-  const ORBIT_SPEED = 2.4;      // velocidade de giro da câmera (analógico direito / Q,E)
-  const CAM_DISTANCE = 5.2;
-  const CAM_HEIGHT = 3.2;
-  const MOUSE_SENSITIVITY = 0.0028; // giro da câmera pelo mouse (modo desktop)
+  // =========================================================================
+  // CONFIG GERAL
+  // =========================================================================
+  const START_POS   = new THREE.Vector3(0, 0, 9);
+  const GRAVITY      = 18;
+  const JUMP_SPEED   = 9.2;
+  const KILL_BOUNCE_SPEED = 4.6;
+  const MOVE_SPEED   = 4.2;
+  const TURN_LERP    = 0.25;
 
-  // ================= GEOMETRIA DA FASE =================
-  // Trechos de chão em faixa (largura total em X)
+  // A câmera nunca se move sozinha, nunca gira e nunca muda de distância.
+  // Ela é um "dolly" (retentor) com a câmera dentro, num deslocamento local
+  // fixo (definido uma única vez, no setup). Depois disso, o único valor
+  // que muda a cada quadro é a posição Z do dolly, para acompanhar o avanço
+  // do personagem para frente — exatamente como a câmera de Crash Bandicoot.
+  const CAM_BACK_OFFSET = 5.2;   // distância atrás do personagem
+  const CAM_HEIGHT      = 3.2;   // altura acima do chão
+  const CAM_LOOK_HEIGHT = 0.9;   // altura do "alvo" que a câmera mira no setup
+
+  // =========================================================================
+  // GEOMETRIA DA FASE
+  // =========================================================================
   const STRIP_PLATFORMS = [
-    { zMax: 10.5, zMin: 2.0,   xHalf: 3.0 },  // P1: chão inicial
-    { zMax: -1.0, zMin: -9.0,  xHalf: 3.0 },  // P2: chão do 1o inimigo
-    { zMax: -21.0, zMin: -33.0, xHalf: 6.0 }  // P3: arena final (mais larga)
+    { zMax: 10.5,  zMin: 2.0,   xHalf: 3.0 },  // P1: chão inicial
+    { zMax: -1.0,  zMin: -9.0,  xHalf: 3.0 },  // P2: chão do 1o inimigo
+    { zMax: -21.0, zMin: -33.0, xHalf: 6.0 }   // P3: arena final (mais larga)
   ];
-  // Pedras de apoio no buraco grande
   const STEP_STONES = [
     { x: 0.6,  z: -10.6, r: 1.0 },
     { x: -0.7, z: -12.8, r: 1.0 },
@@ -92,48 +103,68 @@
     }
     for (const s of STEP_STONES) {
       const dx = x - s.x, dz = z - s.z;
-      if (dx*dx + dz*dz <= s.r*s.r) return true;
+      if (dx * dx + dz * dz <= s.r * s.r) return true;
     }
     return false;
   }
 
   const STAR_POS = new THREE.Vector3(0, 1.4, -27);
 
-  // ================= THREE.JS SETUP =================
+  // =========================================================================
+  // THREE.JS SETUP
+  // =========================================================================
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0e8);
   scene.fog = new THREE.Fog(0x8fd0e8, 18, 52);
 
-  const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.05, 120);
+  const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 120);
 
-  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
 
   window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
+  // ---- DOLLY / RIG DA CÂMERA -------------------------------------------------
+  // dolly: grupo que representa o "trilho" da câmera. Só a posição Z dele
+  // muda, a cada quadro, para seguir o personagem para frente. X e Y do
+  // dolly ficam sempre em 0.
   const dolly = new THREE.Group();
-  dolly.add(camera);
+  dolly.position.set(0, 0, START_POS.z);
   scene.add(dolly);
 
-  // ================= LUZES =================
+  // A câmera é filha do dolly, com um deslocamento LOCAL fixo, definido uma
+  // única vez aqui embaixo. Esse deslocamento NUNCA é reatribuído dentro do
+  // loop de animação — esse era o bug do jogo antigo (ele reatribuía a
+  // posição da câmera todo quadro usando coordenadas do mundo, o que fazia
+  // a câmera "correr" e se aproximar demais, quebrando os controles).
+  dolly.add(camera);
+  camera.position.set(0, CAM_HEIGHT, CAM_BACK_OFFSET);
+  camera.lookAt(new THREE.Vector3(0, CAM_LOOK_HEIGHT, START_POS.z));
+  // A partir daqui, camera.position e camera.rotation nunca mais são tocados
+  // manualmente fora da sessão XR. Em VR, o próprio WebXR assume a pose da
+  // câmera (relativa ao dolly) a partir do rastreamento do headset.
+
+  // =========================================================================
+  // LUZES
+  // =========================================================================
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445522, 1.15));
   const sun = new THREE.DirectionalLight(0xffffff, 0.9);
   sun.position.set(6, 12, 6);
   scene.add(sun);
 
-  // ================= SOM (Web Audio, sem arquivos externos) =================
+  // =========================================================================
+  // SOM (Web Audio, sem arquivos externos)
+  // =========================================================================
   let audioCtx = null;
   function ensureAudio() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
   }
   function beep(f0, f1, dur, type, vol) {
@@ -159,7 +190,9 @@
   function playHurtSound()   { beep(300, 80,  0.25, 'sawtooth', 0.22); }
   function playWinFanfare()  { beep(523, 1046,0.4,  'triangle', 0.25); }
 
-  // ================= CENÁRIO DECORATIVO =================
+  // =========================================================================
+  // CENÁRIO DECORATIVO
+  // =========================================================================
   function makeTree(x, z, scale) {
     const g = new THREE.Group();
     const trunk = new THREE.Mesh(
@@ -179,16 +212,18 @@
   }
   for (let i = 0; i < 6; i++) {
     const z = 10 - i * 3.2;
-    makeTree(-4.4 - Math.random()*1.2, z, 0.9 + Math.random()*0.4);
-    makeTree(4.4 + Math.random()*1.2, z, 0.9 + Math.random()*0.4);
+    makeTree(-4.4 - Math.random() * 1.2, z, 0.9 + Math.random() * 0.4);
+    makeTree(4.4 + Math.random() * 1.2, z, 0.9 + Math.random() * 0.4);
   }
   for (let i = 0; i < 5; i++) {
     const z = -22 - i * 2.3;
-    makeTree(-7.2 - Math.random()*1.2, z, 1.0 + Math.random()*0.3);
-    makeTree(7.2 + Math.random()*1.2, z, 1.0 + Math.random()*0.3);
+    makeTree(-7.2 - Math.random() * 1.2, z, 1.0 + Math.random() * 0.3);
+    makeTree(7.2 + Math.random() * 1.2, z, 1.0 + Math.random() * 0.3);
   }
 
-  // ================= PLATAFORMAS =================
+  // =========================================================================
+  // PLATAFORMAS
+  // =========================================================================
   const groundMat  = new THREE.MeshStandardMaterial({ color: 0x6fbf4f });
   const groundMat2 = new THREE.MeshStandardMaterial({ color: 0x5fae44 });
   const arenaMat   = new THREE.MeshStandardMaterial({ color: 0x8a8a5a });
@@ -196,8 +231,8 @@
 
   function addStripPlatform(p, mat) {
     const depth = p.zMax - p.zMin;
-    const box = new THREE.Mesh(new THREE.BoxGeometry(p.xHalf*2, 1, depth), mat);
-    box.position.set(0, -0.5, (p.zMax + p.zMin)/2);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(p.xHalf * 2, 1, depth), mat);
+    box.position.set(0, -0.5, (p.zMax + p.zMin) / 2);
     scene.add(box);
   }
   addStripPlatform(STRIP_PLATFORMS[0], groundMat);
@@ -205,27 +240,28 @@
   addStripPlatform(STRIP_PLATFORMS[2], arenaMat);
 
   for (const s of STEP_STONES) {
-    const stone = new THREE.Mesh(new THREE.CylinderGeometry(s.r*0.95, s.r, 0.4, 14), stoneMat);
+    const stone = new THREE.Mesh(new THREE.CylinderGeometry(s.r * 0.95, s.r, 0.4, 14), stoneMat);
     stone.position.set(s.x, -0.2, s.z);
     scene.add(stone);
   }
 
-  // Fundo dos abismos
   const pitFloor1 = new THREE.Mesh(
-    new THREE.BoxGeometry(STRIP_PLATFORMS[0].xHalf*2 + 2, 0.5, 6),
+    new THREE.BoxGeometry(STRIP_PLATFORMS[0].xHalf * 2 + 2, 0.5, 6),
     new THREE.MeshStandardMaterial({ color: 0x1a0d05 })
   );
-  pitFloor1.position.set(0, -9, (STRIP_PLATFORMS[0].zMin + STRIP_PLATFORMS[1].zMax)/2);
+  pitFloor1.position.set(0, -9, (STRIP_PLATFORMS[0].zMin + STRIP_PLATFORMS[1].zMax) / 2);
   scene.add(pitFloor1);
 
   const pitFloor2 = new THREE.Mesh(
     new THREE.BoxGeometry(10, 0.5, STRIP_PLATFORMS[1].zMin - STRIP_PLATFORMS[2].zMax + 2),
     new THREE.MeshStandardMaterial({ color: 0x1a0d05 })
   );
-  pitFloor2.position.set(0, -9, (STRIP_PLATFORMS[1].zMin + STRIP_PLATFORMS[2].zMax)/2);
+  pitFloor2.position.set(0, -9, (STRIP_PLATFORMS[1].zMin + STRIP_PLATFORMS[2].zMax) / 2);
   scene.add(pitFloor2);
 
-  // ================= PERSONAGEM =================
+  // =========================================================================
+  // PERSONAGEM
+  // =========================================================================
   const character = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe08a3c });
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.4), bodyMat);
@@ -237,14 +273,13 @@
   eyeL.position.set(-0.14, 1.2, -0.32);
   const eyeR = eyeL.clone(); eyeR.position.x = 0.14;
   const legMat = new THREE.MeshStandardMaterial({ color: 0x7a4a1e });
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.35,0.22), legMat);
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.35, 0.22), legMat);
   legL.position.set(-0.16, 0.17, 0);
   const legR = legL.clone(); legR.position.x = 0.16;
   character.add(body, head, eyeL, eyeR, legL, legR);
   character.position.copy(START_POS);
   scene.add(character);
 
-  // sombra no chão, sempre exatamente embaixo do personagem (ajuda a mirar nas plataformas)
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false });
   const characterShadow = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24), shadowMat);
   characterShadow.rotation.x = -Math.PI / 2;
@@ -252,23 +287,24 @@
   characterShadow.renderOrder = 1;
   scene.add(characterShadow);
 
-  // arma equipada na mão do personagem (some até o jogador pegar)
   const gunOnPlayer = new THREE.Group();
-  const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.42), new THREE.MeshStandardMaterial({ color:0x2b2b2b }));
+  const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.42), new THREE.MeshStandardMaterial({ color: 0x2b2b2b }));
   gunBody.position.set(0.3, 0.7, -0.28);
-  const gunTip = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.12), new THREE.MeshStandardMaterial({ color:0x111111 }));
+  const gunTip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.12), new THREE.MeshStandardMaterial({ color: 0x111111 }));
   gunTip.position.set(0.3, 0.7, -0.55);
   gunOnPlayer.add(gunBody, gunTip);
   gunOnPlayer.visible = false;
   character.add(gunOnPlayer);
   let hasGun = false;
 
-  // ================= INIMIGO 1 (pula em cima pra matar) =================
+  // =========================================================================
+  // INIMIGO 1 (pula em cima pra matar)
+  // =========================================================================
   const enemyMat = new THREE.MeshStandardMaterial({ color: 0xd63b3b });
   const enemy = new THREE.Group();
   const enemyBody = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), enemyMat);
   enemyBody.position.y = 0.45;
-  const enemyEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), eyeMat);
+  const enemyEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeMat);
   enemyEyeL.position.set(-0.16, 0.55, -0.38);
   const enemyEyeR = enemyEyeL.clone(); enemyEyeR.position.x = 0.16;
   enemy.add(enemyBody, enemyEyeL, enemyEyeR);
@@ -278,7 +314,9 @@
   const enemyBaseX = 0;
   const enemyRange = 1.8;
 
-  // ================= GUARDIÕES DA ESTRELA (aterrorizantes, só morrem com arma) =================
+  // =========================================================================
+  // GUARDIÕES DA ESTRELA (giram rápido, morrem com 2 pulos ou 5 tiros)
+  // =========================================================================
   function makeGunEnemyMesh() {
     const g = new THREE.Group();
     const mat = new THREE.MeshStandardMaterial({ color: 0x2a1030 });
@@ -286,20 +324,17 @@
     bodyM.position.y = 0.58;
     const spike = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.55, 8), new THREE.MeshStandardMaterial({ color: 0x1a0a1f }));
     spike.position.y = 1.35;
-    // presas/espinhos ao redor do corpo
     const spikeMat = new THREE.MeshStandardMaterial({ color: 0x1a0a1f });
-    const spikePositions = [
-      [0.32, 0.5, 0], [-0.32, 0.5, 0], [0, 0.5, 0.32], [0, 0.5, -0.32]
-    ];
+    const spikePositions = [[0.32, 0.5, 0], [-0.32, 0.5, 0], [0, 0.5, 0.32], [0, 0.5, -0.32]];
     for (const sp of spikePositions) {
       const thorn = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.3, 6), spikeMat);
       thorn.position.set(sp[0], sp[1], sp[2]);
-      thorn.rotation.z = sp[0] !== 0 ? Math.PI/2 * Math.sign(sp[0]) : 0;
-      thorn.rotation.x = sp[2] !== 0 ? -Math.PI/2 * Math.sign(sp[2]) : 0;
+      thorn.rotation.z = sp[0] !== 0 ? Math.PI / 2 * Math.sign(sp[0]) : 0;
+      thorn.rotation.x = sp[2] !== 0 ? -Math.PI / 2 * Math.sign(sp[2]) : 0;
       g.add(thorn);
     }
     const eMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.2 });
-    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8), eMat);
+    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), eMat);
     eL.position.set(-0.16, 0.85, -0.32);
     const eR = eL.clone(); eR.position.x = 0.16;
     g.add(bodyM, spike, eL, eR);
@@ -308,7 +343,7 @@
 
   const GUARDIAN_RADIUS = 3.4;
   const GUARDIAN_HP = 5;
-  const N_GUN_ENEMIES = 5;
+  const N_GUN_ENEMIES = 8;
   const gunEnemies = [];
   for (let i = 0; i < N_GUN_ENEMIES; i++) {
     const ang = (i / N_GUN_ENEMIES) * Math.PI * 2;
@@ -317,43 +352,38 @@
     const mesh = makeGunEnemyMesh();
     mesh.position.set(x, 0, z);
     scene.add(mesh);
-    const angularSpeed = (i % 2 === 0 ? 1 : -1) * (1.5 + Math.random() * 0.6);
-    gunEnemies.push({ mesh, alive: true, hp: GUARDIAN_HP, baseAngle: ang, angularSpeed });
+    const angularSpeed = (i % 2 === 0 ? 1 : -1) * (2.6 + Math.random() * 1.0);
+    gunEnemies.push({ mesh, alive: true, hp: GUARDIAN_HP, baseAngle: ang, angularSpeed, stompHits: 0 });
   }
 
-  // ================= CHEFÃO (3 pulos + atira, dropa a arma) =================
+  // =========================================================================
+  // CHEFÃO (3 pulos + atira, dropa a arma)
+  // =========================================================================
   const toughGroup = new THREE.Group();
   const toughMat = new THREE.MeshStandardMaterial({ color: 0x552222 });
   const toughBody = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.68, 0.75, 10), toughMat);
   toughBody.position.y = 0.45;
-  const toughHorn = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.3, 8), new THREE.MeshStandardMaterial({ color:0x1a1a1a }));
+  const toughHorn = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
   toughHorn.position.y = 0.95;
   const toughEyeMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x995500 });
-  const toughEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8), toughEyeMat);
+  const toughEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), toughEyeMat);
   toughEyeL.position.set(-0.22, 0.6, -0.5);
   const toughEyeR = toughEyeL.clone(); toughEyeR.position.x = 0.22;
-  const toughGun = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.16,0.55), new THREE.MeshStandardMaterial({ color:0x333333 }));
+  const toughGun = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.55), new THREE.MeshStandardMaterial({ color: 0x333333 }));
   toughGun.position.set(0.5, 0.55, -0.5);
   toughGroup.add(toughBody, toughHorn, toughEyeL, toughEyeR, toughGun);
   toughGroup.position.set(0, 0, -31.5);
   scene.add(toughGroup);
 
   const toughEnemy = {
-    mesh: toughGroup,
-    alive: true,
-    hits: 0,
-    speed: 1.3,
-    fireTimer: 0,
-    fireInterval: 2.4,
-    radius: 0.95,
-    topY: 0.85
+    mesh: toughGroup, alive: true, hits: 0, speed: 1.3,
+    fireTimer: 0, fireInterval: 2.4, radius: 0.95, topY: 0.85
   };
 
-  // pistola largada quando o chefão morre
   let gunPickup = null;
   function spawnGunPickup(pos) {
     const g = new THREE.Group();
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.6), new THREE.MeshStandardMaterial({ color:0x3a3a3a, emissive:0x111111 }));
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.6), new THREE.MeshStandardMaterial({ color: 0x3a3a3a, emissive: 0x111111 }));
     b.position.y = 0.5;
     g.add(b);
     g.position.set(pos.x, 0, pos.z);
@@ -361,37 +391,70 @@
     gunPickup = g;
   }
 
-  // ================= ESTRELA FINAL =================
+  // =========================================================================
+  // ESTRELA FINAL
+  // =========================================================================
   function starShape(outerR, innerR, points) {
     const shape = new THREE.Shape();
     const step = Math.PI / points;
-    for (let i = 0; i < points*2; i++) {
+    for (let i = 0; i < points * 2; i++) {
       const r = (i % 2 === 0) ? outerR : innerR;
-      const a = i * step - Math.PI/2;
-      const x = Math.cos(a)*r, y = Math.sin(a)*r;
-      if (i === 0) shape.moveTo(x,y); else shape.lineTo(x,y);
+      const a = i * step - Math.PI / 2;
+      const x = Math.cos(a) * r, y = Math.sin(a) * r;
+      if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
     }
     shape.closePath();
     return shape;
   }
   const starGeo = new THREE.ExtrudeGeometry(starShape(0.55, 0.22, 5), {
-    depth: 0.16, bevelEnabled:true, bevelThickness:0.04, bevelSize:0.04, bevelSegments:2
+    depth: 0.16, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2
   });
-  const starMat = new THREE.MeshStandardMaterial({ color:0xffd400, emissive:0x8a6a00, metalness:0.5, roughness:0.3 });
+  const starMat = new THREE.MeshStandardMaterial({ color: 0xffd400, emissive: 0x8a6a00, metalness: 0.5, roughness: 0.3 });
   const star = new THREE.Mesh(starGeo, starMat);
   star.position.copy(STAR_POS);
   scene.add(star);
 
   const pedestal = new THREE.Mesh(
     new THREE.CylinderGeometry(0.5, 0.6, 0.8, 12),
-    new THREE.MeshStandardMaterial({ color:0xdedede })
+    new THREE.MeshStandardMaterial({ color: 0xdedede })
   );
   pedestal.position.set(STAR_POS.x, 0.4, STAR_POS.z);
   scene.add(pedestal);
 
-  // ================= PROJÉTEIS =================
-  const playerProjectiles = []; // {mesh, dir:Vector3, life}
-  const enemyProjectiles  = []; // {mesh, dir:Vector3, life}
+  // =========================================================================
+  // EFEITO DE IMPACTO
+  // =========================================================================
+  const impactEffects = [];
+  function spawnImpactEffect(pos) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.05, 0.22, 20),
+      new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(pos.x, 0.08, pos.z);
+    scene.add(ring);
+    impactEffects.push({ mesh: ring, life: 0 });
+  }
+  function updateImpactEffects(dt) {
+    for (let i = impactEffects.length - 1; i >= 0; i--) {
+      const fx = impactEffects[i];
+      fx.life += dt;
+      const p = Math.min(fx.life / 0.35, 1);
+      const scale = 1 + p * 6;
+      fx.mesh.scale.set(scale, scale, scale);
+      fx.mesh.material.opacity = 0.95 * (1 - p);
+      if (p >= 1) {
+        scene.remove(fx.mesh);
+        impactEffects.splice(i, 1);
+      }
+    }
+  }
+
+  // =========================================================================
+  // PROJÉTEIS
+  // =========================================================================
+  const playerProjectiles = [];
+  const enemyProjectiles  = [];
   const PLAYER_PROJ_SPEED = 16;
   const ENEMY_PROJ_SPEED  = 9;
 
@@ -414,19 +477,21 @@
     enemyProjectiles.push({ mesh, dir: dir.clone(), life: 0 });
   }
 
-  // ================= ESTADO DO JOGO =================
+  // =========================================================================
+  // ESTADO DO JOGO
+  // =========================================================================
   let velocityY = 0;
   let grounded = true;
   let gameWon = false;
   let facingAngle = 0;
-  let orbitAngle = 0;
   let arenaActivated = false;
   let wasShootPressed = false;
   const checkpoint = START_POS.clone();
 
-  const messageEl = document.getElementById('message');
-  const hintEl = document.getElementById('hint');
+  const messageEl   = document.getElementById('message');
+  const hintEl      = document.getElementById('hint');
   const crosshairEl = document.getElementById('crosshair');
+  const fadeEl      = document.getElementById('fade');
 
   function showMessage(text) {
     messageEl.textContent = text;
@@ -435,13 +500,24 @@
   function showHint(text, ms) {
     hintEl.textContent = text;
     hintEl.style.display = 'block';
-    setTimeout(() => { hintEl.style.display = 'none'; }, ms);
+    clearTimeout(showHint._t);
+    showHint._t = setTimeout(() => { hintEl.style.display = 'none'; }, ms);
   }
 
+  let isRespawning = false;
   function respawn() {
-    character.position.copy(checkpoint);
-    velocityY = 0;
-    grounded = true;
+    if (isRespawning) return;
+    isRespawning = true;
+    fadeEl.style.transition = 'opacity 0.08s ease';
+    fadeEl.style.opacity = '1';
+    setTimeout(() => {
+      character.position.copy(checkpoint);
+      velocityY = 0;
+      grounded = true;
+      fadeEl.style.transition = 'opacity 0.25s ease';
+      fadeEl.style.opacity = '0';
+      isRespawning = false;
+    }, 90);
     playHurtSound();
     showHint('Cuidado! Tente de novo.', 1400);
   }
@@ -458,56 +534,20 @@
     showMessage('⭐ Fase Completa! ⭐');
   }
 
-  // ================= ENTRADA: TECLADO =================
+  // =========================================================================
+  // ENTRADA: TECLADO
+  // =========================================================================
   const keys = {};
   window.addEventListener('keydown', (e) => { keys[e.code] = true; ensureAudio(); });
   window.addEventListener('keyup',   (e) => { keys[e.code] = false; });
 
-  // ================= ENTRADA: MOUSE (modo desktop) =================
-  // Clique no jogo para travar o cursor; mova o mouse para girar a câmera.
-  // Enquanto o cursor não está travado, arrastar com o botão esquerdo também gira.
-  let mouseLookDelta = 0;
-  let isDragging = false;
-  let lastDragX = 0;
+  renderer.domElement.addEventListener('click', () => { ensureAudio(); });
 
-  renderer.domElement.addEventListener('click', () => {
-    ensureAudio();
-    if (!renderer.xr.isPresenting && document.pointerLockElement !== renderer.domElement) {
-      renderer.domElement.requestPointerLock();
-    }
-  });
-
-  document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement === renderer.domElement) {
-      showHint('Mouse travado: mova para girar a câmera (Esc libera)', 2200);
-    }
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (document.pointerLockElement === renderer.domElement) {
-      mouseLookDelta += e.movementX * MOUSE_SENSITIVITY;
-    }
-  });
-
-  // Fallback sem pointer lock: clicar e arrastar com o botão esquerdo
-  renderer.domElement.addEventListener('mousedown', (e) => {
-    if (e.button === 0 && document.pointerLockElement !== renderer.domElement) {
-      isDragging = true;
-      lastDragX = e.clientX;
-    }
-  });
-  window.addEventListener('mouseup', () => { isDragging = false; });
-  window.addEventListener('mousemove', (e) => {
-    if (isDragging) {
-      const dx = e.clientX - lastDragX;
-      lastDragX = e.clientX;
-      mouseLookDelta += dx * MOUSE_SENSITIVITY;
-    }
-  });
-
-  // ================= ENTRADA: CONTROLE VR =================
+  // =========================================================================
+  // ENTRADA: CONTROLE VR (Quest)
+  // =========================================================================
   function getXRInput() {
-    let moveX = 0, moveY = 0, lookX = 0, jumpBtn = false, shootBtn = false;
+    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false;
     const session = renderer.xr.getSession && renderer.xr.getSession();
     if (session) {
       for (const src of session.inputSources) {
@@ -518,8 +558,8 @@
         if (axes.length >= 4) { sx = axes[2]; sy = axes[3]; }
         else if (axes.length >= 2) { sx = axes[0]; sy = axes[1]; }
         if (src.handedness === 'right') {
-          if (Math.abs(sx) > 0.15) lookX += sx;
           if (gp.buttons[0] && gp.buttons[0].pressed) shootBtn = true;
+          if (gp.buttons[1] && gp.buttons[1].pressed) jumpBtn = true;
         } else {
           if (Math.abs(sx) > 0.15) moveX += sx;
           if (Math.abs(sy) > 0.15) moveY += sy;
@@ -527,10 +567,33 @@
         }
       }
     }
-    return { moveX, moveY, lookX, jumpBtn, shootBtn };
+    return { moveX, moveY, jumpBtn, shootBtn };
   }
 
-  // ================= BOTÃO VR =================
+  // =========================================================================
+  // ENTRADA: CONTROLE (GAMEPAD) NO PC / TELA
+  // =========================================================================
+  function getDesktopGamepadInput() {
+    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false;
+    if (!renderer.xr.isPresenting && navigator.getGamepads) {
+      const pads = navigator.getGamepads();
+      for (const gp of pads) {
+        if (!gp) continue;
+        const axes = gp.axes;
+        let sx = 0, sy = 0;
+        if (axes.length >= 2) { sx = axes[0]; sy = axes[1]; }
+        if (Math.abs(sx) > 0.15) moveX += sx;
+        if (Math.abs(sy) > 0.15) moveY += sy;
+        if (gp.buttons[0] && gp.buttons[0].pressed) jumpBtn = true;
+        if (gp.buttons[7] && gp.buttons[7].pressed) shootBtn = true;
+      }
+    }
+    return { moveX, moveY, jumpBtn, shootBtn };
+  }
+
+  // =========================================================================
+  // BOTÃO VR
+  // =========================================================================
   const vrButton = document.getElementById('vr-button');
   if (navigator.xr) {
     navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
@@ -562,15 +625,13 @@
     }
   });
 
-  // ================= LOOP PRINCIPAL =================
+  // =========================================================================
+  // LOOP PRINCIPAL
+  // =========================================================================
   const clock = new THREE.Clock();
-  const tmpDesired = new THREE.Vector3();
 
   function forwardVectorFromAngle(theta) {
     return new THREE.Vector3(-Math.sin(theta), 0, -Math.cos(theta));
-  }
-  function rightVectorFromAngle(theta) {
-    return new THREE.Vector3(Math.cos(theta), 0, -Math.sin(theta));
   }
 
   function animate() {
@@ -584,29 +645,22 @@
       if (keys['KeyS'] || keys['ArrowDown'])  moveZ += 1;
       if (keys['KeyA'] || keys['ArrowLeft'])  moveX -= 1;
       if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
-      let lookInput = 0;
-      if (keys['KeyQ']) lookInput -= 1;
-      if (keys['KeyE']) lookInput += 1;
 
       const xr = getXRInput();
       moveX += xr.moveX;
       moveZ += xr.moveY;
-      lookInput += xr.lookX;
+
+      const pad = getDesktopGamepadInput();
+      moveX += pad.moveX;
+      moveZ += pad.moveY;
+
       moveX = Math.max(-1, Math.min(1, moveX));
       moveZ = Math.max(-1, Math.min(1, moveZ));
 
-      // -------- câmera: girar com analógico direito / Q,E / mouse --------
-      orbitAngle += lookInput * ORBIT_SPEED * dt;
-      orbitAngle += mouseLookDelta;
-      mouseLookDelta = 0;
-
-      // -------- mover personagem (relativo à direção da câmera) --------
+      // -------- mover personagem (eixos fixos do mundo; a câmera nunca gira,
+      // então "para frente" é sempre a mesma direção do mundo, -Z) --------
       if (moveX !== 0 || moveZ !== 0) {
-        const camFwd = forwardVectorFromAngle(orbitAngle);
-        const camRight = rightVectorFromAngle(orbitAngle);
-        const worldDir = new THREE.Vector3()
-          .addScaledVector(camFwd, -moveZ)
-          .addScaledVector(camRight, moveX);
+        const worldDir = new THREE.Vector3(moveX, 0, moveZ);
 
         character.position.x += worldDir.x * MOVE_SPEED * dt;
         character.position.z += worldDir.z * MOVE_SPEED * dt;
@@ -615,13 +669,13 @@
 
         const targetAngle = Math.atan2(-worldDir.x, -worldDir.z);
         let diff = targetAngle - facingAngle;
-        while (diff > Math.PI) diff -= Math.PI*2;
-        while (diff < -Math.PI) diff += Math.PI*2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
         facingAngle += diff * TURN_LERP;
         character.rotation.y = facingAngle;
 
-        legL.rotation.x = Math.sin(t*10)*0.5;
-        legR.rotation.x = -Math.sin(t*10)*0.5;
+        legL.rotation.x = Math.sin(t * 10) * 0.5;
+        legR.rotation.x = -Math.sin(t * 10) * 0.5;
       } else {
         legL.rotation.x *= 0.8;
         legR.rotation.x *= 0.8;
@@ -629,7 +683,7 @@
       updateCheckpoint();
 
       // -------- pular --------
-      const jumpPressed = keys['Space'] || xr.jumpBtn;
+      const jumpPressed = keys['Space'] || xr.jumpBtn || pad.jumpBtn;
       if (jumpPressed && grounded) {
         velocityY = JUMP_SPEED;
         grounded = false;
@@ -637,7 +691,7 @@
       }
 
       // -------- atirar (com arma) --------
-      const shootPressed = keys['KeyF'] || xr.shootBtn;
+      const shootPressed = keys['KeyF'] || xr.shootBtn || pad.shootBtn;
       if (hasGun && shootPressed && !wasShootPressed) {
         const fwd = forwardVectorFromAngle(facingAngle);
         const origin = character.position.clone().add(new THREE.Vector3(0, 0.75, 0)).add(fwd.clone().multiplyScalar(0.6));
@@ -671,12 +725,13 @@
         enemy.position.x = enemyBaseX + Math.sin(t * 1.3) * enemyRange;
         const dx = character.position.x - enemy.position.x;
         const dz = character.position.z - enemy.position.z;
-        const distXZ = Math.sqrt(dx*dx + dz*dz);
+        const distXZ = Math.sqrt(dx * dx + dz * dz);
         if (distXZ < 0.75) {
           if (character.position.y > 0.85 - 0.15 && velocityY < 0) {
             enemyAlive = false;
             enemy.visible = false;
-            velocityY = 4.2;
+            spawnImpactEffect(enemy.position);
+            velocityY = jumpPressed ? JUMP_SPEED : KILL_BOUNCE_SPEED;
             playDefeatSound();
             showHint('Inimigo derrotado!', 1200);
           } else {
@@ -691,21 +746,30 @@
         showHint('Cuidado! Inimigos à frente!', 2000);
       }
 
-      // -------- guardiões da estrela (giram rápido, só morrem com arma) --------
+      // -------- guardiões da estrela --------
       for (const ge of gunEnemies) {
         if (!ge.alive) continue;
         const ang = ge.baseAngle + t * ge.angularSpeed;
         ge.mesh.position.x = STAR_POS.x + Math.cos(ang) * GUARDIAN_RADIUS;
         ge.mesh.position.z = STAR_POS.z + Math.sin(ang) * GUARDIAN_RADIUS;
-        ge.mesh.rotation.y = -ang + Math.PI/2;
+        ge.mesh.rotation.y = -ang + Math.PI / 2;
         const dx = character.position.x - ge.mesh.position.x;
         const dz = character.position.z - ge.mesh.position.z;
-        const distXZ = Math.sqrt(dx*dx + dz*dz);
+        const distXZ = Math.sqrt(dx * dx + dz * dz);
         if (distXZ < 0.7) {
           if (character.position.y > 0.9 - 0.15 && velocityY < 0) {
-            // pisar neles não mata, só quica (só arma mata)
-            velocityY = 3.5;
-            playBounceSound();
+            ge.stompHits += 1;
+            if (ge.stompHits >= 2) {
+              ge.alive = false;
+              ge.mesh.visible = false;
+              spawnImpactEffect(ge.mesh.position);
+              velocityY = jumpPressed ? JUMP_SPEED : KILL_BOUNCE_SPEED;
+              playDefeatSound();
+              showHint('Guardião derrotado!', 1200);
+            } else {
+              velocityY = 3.5;
+              playBounceSound();
+            }
           } else {
             respawn();
           }
@@ -716,9 +780,9 @@
       if (toughEnemy.alive && arenaActivated) {
         const dx = character.position.x - toughEnemy.mesh.position.x;
         const dz = character.position.z - toughEnemy.mesh.position.z;
-        const dist = Math.sqrt(dx*dx + dz*dz);
+        const dist = Math.sqrt(dx * dx + dz * dz);
         if (dist > 0.1) {
-          const nx = dx/dist, nz = dz/dist;
+          const nx = dx / dist, nz = dz / dist;
           toughEnemy.mesh.position.x += nx * toughEnemy.speed * dt;
           toughEnemy.mesh.position.z += nz * toughEnemy.speed * dt;
           toughEnemy.mesh.rotation.y = Math.atan2(-nx, -nz);
@@ -735,14 +799,16 @@
         if (dist < toughEnemy.radius) {
           if (character.position.y > toughEnemy.topY - 0.15 && velocityY < 0) {
             toughEnemy.hits += 1;
-            velocityY = 4.5;
             if (toughEnemy.hits >= 3) {
               toughEnemy.alive = false;
               toughEnemy.mesh.visible = false;
+              spawnImpactEffect(toughEnemy.mesh.position);
+              velocityY = jumpPressed ? JUMP_SPEED : KILL_BOUNCE_SPEED;
               spawnGunPickup(toughEnemy.mesh.position);
               playDefeatSound();
               showHint('Chefão derrotado! Pegue a arma dele!', 2200);
             } else {
+              velocityY = 4.5;
               playHitSound();
               showHint('Acertou! (' + toughEnemy.hits + '/3)', 1000);
             }
@@ -756,7 +822,7 @@
       if (gunPickup && !hasGun) {
         const dx = character.position.x - gunPickup.position.x;
         const dz = character.position.z - gunPickup.position.z;
-        if (Math.sqrt(dx*dx + dz*dz) < 1.0) {
+        if (Math.sqrt(dx * dx + dz * dz) < 1.0) {
           hasGun = true;
           gunOnPlayer.visible = true;
           crosshairEl.style.display = 'block';
@@ -782,6 +848,7 @@
             if (ge.hp <= 0) {
               ge.alive = false;
               ge.mesh.visible = false;
+              spawnImpactEffect(ge.mesh.position);
               playDefeatSound();
             } else {
               playHitSound();
@@ -803,7 +870,7 @@
         p.life += dt;
         const dx = character.position.x - p.mesh.position.x;
         const dz = character.position.z - p.mesh.position.z;
-        if (Math.sqrt(dx*dx + dz*dz) < 0.6) {
+        if (Math.sqrt(dx * dx + dz * dz) < 0.6) {
           respawn();
           scene.remove(p.mesh);
           enemyProjectiles.splice(i, 1);
@@ -825,30 +892,22 @@
       }
     }
 
-    // animação da estrela
+    updateImpactEffects(dt);
+
     star.rotation.z += dt * 1.6;
     star.position.y = STAR_POS.y + Math.sin(t * 2) * 0.12;
 
-    // sombra sempre embaixo do personagem, mais clara quanto mais alto ele estiver
     characterShadow.position.x = character.position.x;
     characterShadow.position.z = character.position.z;
     shadowMat.opacity = THREE.MathUtils.clamp(0.42 - character.position.y * 0.13, 0.08, 0.42);
 
-    // -------- câmera terceira pessoa em órbita ao redor do personagem --------
-    const sin = Math.sin(orbitAngle), cos = Math.cos(orbitAngle);
-    tmpDesired.set(
-      character.position.x + CAM_DISTANCE * sin,
-      character.position.y + CAM_HEIGHT,
-      character.position.z + CAM_DISTANCE * cos
-    );
-    dolly.position.lerp(tmpDesired, 1 - Math.pow(0.001, dt));
-    dolly.rotation.y = orbitAngle;
-
-    if (!renderer.xr.isPresenting) {
-      const lookTarget = new THREE.Vector3(character.position.x, character.position.y + 0.9, character.position.z);
-      camera.position.copy(dolly.position);
-      camera.lookAt(lookTarget);
-    }
+    // -------- câmera: SÓ o dolly avança em Z, acompanhando o personagem.
+    // X e Y do dolly permanecem sempre 0. Nem o dolly nem a câmera giram.
+    // A câmera em si nunca é tocada aqui — seu deslocamento local (atrás e
+    // acima do personagem) foi fixado uma única vez no setup. Isso é o que
+    // garante o efeito "câmera de Crash Bandicoot": sempre atrás, sempre
+    // olhando para frente, nunca se aproxima nem gira.
+    dolly.position.z = character.position.z;
 
     renderer.render(scene, camera);
   }
