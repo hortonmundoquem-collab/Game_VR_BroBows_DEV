@@ -95,6 +95,7 @@
   // seria lido (errado) como o personagem tendo se machucado, resetando o
   // jogo no meio de uma sequência de lapadas válidas.
   const STOMP_SAFE_TIME = (2 * KILL_BOUNCE_SPEED / GRAVITY) + 0.15;
+  const STOMP_CHAIN_COOLDOWN = 0.35;
   const MOVE_SPEED   = 4.2;
   const TURN_LERP    = 0.25;
 
@@ -802,10 +803,8 @@
         } else {
           if (Math.abs(sx) > 0.15) moveX += sx;
           if (Math.abs(sy) > 0.15) moveY += sy;
-          for (const b of gp.buttons) { if (b.pressed) jumpBtn = true; }
-          // GRIP esquerdo (botão de aperto lateral do controle esquerdo):
-          // no mapeamento xr-standard é o índice 1 (o 0 é o gatilho).
-          // Trava a mira do personagem enquanto estiver pressionado.
+          // Controle esquerdo: APENAS movimento e GRIP (mira travada).
+          // Pulo vem exclusivamente do controle direito (botão A/X).
           if (gp.buttons[1] && gp.buttons[1].pressed) gripLeftBtn = true;
         }
       }
@@ -1018,7 +1017,9 @@
       // personagem no chão) conta como esbarrão/dano.
       function meleeContact(topY) {
         if (grounded) return 'hit';
-        return character.position.y >= topY * 0.5 ? 'stomp' : 'hit';
+        if (character.position.y < topY * 0.5) return 'hit';
+        if (velocityY < 0) return 'stomp';
+        return 'none';
       }
 
       if (stompInvulnTimer > 0) stompInvulnTimer -= dt;
@@ -1129,7 +1130,7 @@
               spawnImpactEffect(toughEnemy.mesh.position);
               squashMesh(toughEnemy.mesh, false);
               velocityY = KILL_BOUNCE_SPEED;
-              toughEnemy.stompCooldown = STOMP_SAFE_TIME; // evita reavaliar a colisão enquanto o personagem ainda sobe do quique
+              toughEnemy.stompCooldown = STOMP_CHAIN_COOLDOWN; // curto para permitir encadear pulos
               stompInvulnTimer = STOMP_SAFE_TIME; // protege de tiro do chefão logo após o quique, no combate corpo a corpo
               playHitSound();
               showHint('Acertou! (' + toughEnemy.hits + '/3)', 1000);
