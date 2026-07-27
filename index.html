@@ -49,6 +49,38 @@
     background:#2ea043; color:#fff; border:none; border-radius:30px; cursor:pointer;
     box-shadow:0 4px 12px rgba(0,0,0,0.4); display:none;
   }
+  #death-overlay {
+    position:absolute; inset:0; background:rgba(0,0,0,0.85); display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:20px;
+    z-index:20;
+  }
+  #death-overlay .death-text {
+    color:#ff4444; font-size:38px; font-weight:bold;
+    text-shadow:0 0 10px #ff0000, 0 0 20px #880000;
+  }
+  #death-overlay .btn {
+    pointer-events:auto; padding:14px 28px; font-size:17px; font-weight:bold;
+    color:#fff; border:none; border-radius:30px; cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+  }
+  #death-overlay .btn-retry { background:#e05555; }
+  #death-overlay .btn-retry:hover { background:#cc3333; }
+  #win-overlay {
+    position:absolute; inset:0; background:rgba(0,0,0,0.7); display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:20px;
+    z-index:20;
+  }
+  #win-overlay .win-text {
+    color:#ffd400; font-size:42px; font-weight:bold;
+    text-shadow:0 0 10px #ffaa00, 0 0 20px #886600;
+  }
+  #win-overlay .btn {
+    pointer-events:auto; padding:14px 28px; font-size:17px; font-weight:bold;
+    color:#fff; border:none; border-radius:30px; cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+  }
+  #win-overlay .btn-play { background:#2ea043; }
+  #win-overlay .btn-play:hover { background:#258a38; }
 </style>
 </head>
 <body>
@@ -57,14 +89,22 @@
   <div id="info">
     <b>Fase de teste VR</b><br/>
     <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira<br/>
-    <u>Controle (PC) / Quest:</u> analógico esquerdo anda, botão A/X pula, gatilho direito atira (com arma), GRIP esquerdo trava a mira<br/>
+    <u>Controle (PC) / Quest:</u> analógico esquerdo anda, botão A/X pula, gatilho direito atira (com arma), GRIP direito trava a mira<br/>
     Câmera sempre fixa atrás do personagem (estilo Crash Bandicoot): só acompanha o avanço para frente, nunca gira e nunca muda de distância. No Quest, você pode virar a cabeça livremente para olhar o cenário (como em Moss/Astro Bot), mas o ponto de observação continua sempre atrás do herói.<br/>
-    Você tem 3 corações de vida (mostrados aqui no PC e na sua mão esquerda no VR). Segurando a mira travada (G / GRIP esquerdo) você pode se mover para qualquer lado enquanto os tiros continuam saindo para a direção travada.<br/>
+    Você tem 3 corações de vida (mostrados aqui no PC e no canto superior esquerdo no VR). Segurando a mira travada (G / GRIP direito) você pode se mover para qualquer lado enquanto os tiros continuam saindo para a direção travada.<br/>
     Pule o buraco, pule no inimigo, atravesse as plataformas, derrote o chefão baixinho (3 pulos) antes da estrela e pegue a arma dele. Cuidado com os guardiões que giram ao redor da estrela: pular em cima deles NÃO os machuca, e qualquer contato com eles (por cima ou de lado) tira 3 corações seus de uma vez! Use a arma para atirar neles (5 tiros cada) até conseguir pegar a estrela.
   </div>
   <button id="vr-button">Entrar em VR</button>
   <div id="message"></div>
   <button id="restart-button">Repetir fase</button>
+  <div id="death-overlay">
+    <div class="death-text">Você morreu!</div>
+    <button class="btn btn-retry" id="retry-button">Tentar Novamente</button>
+  </div>
+  <div id="win-overlay">
+    <div class="win-text">Fase Completa!</div>
+    <button class="btn btn-play" id="playagain-button">Jogar Novamente</button>
+  </div>
   <div id="hint"></div>
   <div id="crosshair"></div>
   <div id="fade" style="position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.12s ease;"></div>
@@ -634,7 +674,19 @@
   const HURT_BLINK_TIME = 1.0;
   let invulnTimer = 0;
 
-  // -------- MIRA TRAVADA (segurar G no PC / GRIP esquerdo no VR) --------
+  // -------- ANIMAÇÃO DE MORTE / VITÓRIA --------
+  let deathAnim = false;
+  let deathAnimTimer = 0;
+  let winAnim = false;
+  let winAnimTimer = 0;
+  const deathOverlayEl = document.getElementById('death-overlay');
+  const winOverlayEl = document.getElementById('win-overlay');
+  const retryBtnEl = document.getElementById('retry-button');
+  const playagainBtnEl = document.getElementById('playagain-button');
+  retryBtnEl.addEventListener('click', () => { window.location.reload(); });
+  playagainBtnEl.addEventListener('click', () => { window.location.reload(); });
+
+  // -------- MIRA TRAVADA (segurar G no PC / GRIP direito no VR) --------
   // Enquanto travada, o personagem pode se mover livremente em qualquer
   // direção, mas o corpo (e portanto os tiros) continuam sempre apontando
   // para o ângulo que estava no instante em que a mira foi travada.
@@ -691,27 +743,16 @@
   }
   updateHeartsUI();
 
-  // Painel de corações preso à mão esquerda em VR: um plano com a mesma
-  // textura em canvas dos corações, anexado ao "grip" do controle
-  // identificado como esquerdo pelo próprio WebXR.
+  // Painel de corações fixo no canto superior esquerdo da tela em VR:
+  // preso à câmera, posicionado para aparecer no HUD como um painel
+  // flutuante no canto, igual à HUD do PC.
   const heartsPlaneMat = new THREE.MeshBasicMaterial({
     map: heartsTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
   });
-  const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.06), heartsPlaneMat);
-  heartsPlane.position.set(0, 0.05, 0.02);
-  heartsPlane.rotation.x = -Math.PI / 3;
+  const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.07), heartsPlaneMat);
+  heartsPlane.position.set(-0.32, 0.28, -0.6);
   heartsPlane.renderOrder = 10;
-
-  for (let i = 0; i < 2; i++) {
-    const grip = renderer.xr.getControllerGrip(i);
-    const controller = renderer.xr.getController(i);
-    scene.add(grip);
-    controller.addEventListener('connected', (e) => {
-      if (e.data && e.data.handedness === 'left') {
-        if (!heartsPlane.parent) grip.add(heartsPlane);
-      }
-    });
-  }
+  camera.add(heartsPlane);
 
   function playerIsInvulnerable() {
     return invulnTimer > 0 || stompInvulnTimer > 0;
@@ -741,17 +782,23 @@
   // corações acabarem, reinicia a fase.
   function takeHit(amount) {
     if (playerIsInvulnerable()) return;
+    if (deathAnim) return;
     amount = amount || 1;
     hearts = Math.max(0, hearts - amount);
     updateHeartsUI();
     if (hearts <= 0) {
       playHurtSound();
-      showMessage('💀 Você perdeu! Reiniciando...');
-      setTimeout(() => window.location.reload(), 1400);
+      deathAnim = true;
+      deathAnimTimer = 0;
       return;
     }
+    playHurtSound();
     invulnTimer = HURT_BLINK_TIME;
-    respawn();
+    const kb = forwardVectorFromAngle(facingAngle);
+    character.position.x -= kb.x * 0.18;
+    character.position.z -= kb.z * 0.18;
+    velocityY = 1.8;
+    grounded = false;
   }
 
   function updateCheckpoint() {
@@ -763,8 +810,8 @@
     if (gameWon) return;
     gameWon = true;
     playWinFanfare();
-    showMessage('⭐ Fase Completa! ⭐');
-    restartButtonEl.style.display = 'block';
+    winAnim = true;
+    winAnimTimer = 0;
   }
 
   // =========================================================================
@@ -780,7 +827,7 @@
   // ENTRADA: CONTROLE VR (Quest)
   // =========================================================================
   function getXRInput() {
-    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripLeftBtn = false;
+    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false;
     const session = renderer.xr.getSession && renderer.xr.getSession();
     if (session) {
       for (const src of session.inputSources) {
@@ -791,25 +838,18 @@
         if (axes.length >= 4) { sx = axes[2]; sy = axes[3]; }
         else if (axes.length >= 2) { sx = axes[0]; sy = axes[1]; }
         if (src.handedness === 'right') {
-          if (gp.buttons[0] && gp.buttons[0].pressed) shootBtn = true; // gatilho: atira
-          // Botão "A" (botão primário do controle direito no Quest) pula.
-          // No mapeamento xr-standard ele costuma ser o índice 4, mas varia
-          // um pouco por navegador/dispositivo — por segurança, qualquer
-          // botão do controle direito além do gatilho (índice 0, reservado
-          // para atirar) também conta como pulo, cobrindo o A de qualquer forma.
-          for (let bi = 1; bi < gp.buttons.length; bi++) {
+          if (gp.buttons[0] && gp.buttons[0].pressed) shootBtn = true;
+          if (gp.buttons[1] && gp.buttons[1].pressed) gripRightBtn = true;
+          for (let bi = 2; bi < gp.buttons.length; bi++) {
             if (gp.buttons[bi] && gp.buttons[bi].pressed) { jumpBtn = true; break; }
           }
         } else {
           if (Math.abs(sx) > 0.15) moveX += sx;
           if (Math.abs(sy) > 0.15) moveY += sy;
-          // Controle esquerdo: APENAS movimento e GRIP (mira travada).
-          // Pulo vem exclusivamente do controle direito (botão A/X).
-          if (gp.buttons[1] && gp.buttons[1].pressed) gripLeftBtn = true;
         }
       }
     }
-    return { moveX, moveY, jumpBtn, shootBtn, gripLeftBtn };
+    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn };
   }
 
   // =========================================================================
@@ -891,12 +931,12 @@
     const xr = getXRInput();
 
     if (gameWon) {
-      if (renderer.xr.isPresenting && (xr.jumpBtn || xr.shootBtn || xr.gripLeftBtn)) {
+      if (renderer.xr.isPresenting && (xr.jumpBtn || xr.shootBtn || xr.gripRightBtn)) {
         window.location.reload();
       }
     }
 
-    if (!gameWon) {
+    if (!gameWon && !deathAnim && !winAnim) {
       // -------- entradas --------
       let moveX = 0, moveZ = 0;
       if (keys['KeyW'] || keys['ArrowUp'])    moveZ -= 1;
@@ -918,7 +958,7 @@
       // Enquanto o botão estiver segurado, o ângulo de mira fica congelado
       // no valor que o personagem tinha no instante em que travou. Soltando
       // o botão, volta a virar normalmente na direção do movimento.
-      const aimLockPressed = keys['KeyG'] || xr.gripLeftBtn;
+      const aimLockPressed = keys['KeyG'] || xr.gripRightBtn;
       if (aimLockPressed && !aimLocked) {
         aimLocked = true;
         lockedFacingAngle = facingAngle;
@@ -1015,11 +1055,13 @@
       // exatamente esse instante que faz o personagem parecer "por cima"
       // dele. Contato com os pés mais baixos que isso (ou com o
       // personagem no chão) conta como esbarrão/dano.
+      const STOMP_ZONE = 0.5;
       function meleeContact(topY) {
         if (grounded) return 'hit';
-        if (character.position.y < topY * 0.5) return 'hit';
-        if (velocityY < 0) return 'stomp';
-        return 'none';
+        if (velocityY >= 0) return 'none';
+        if (character.position.y < topY - STOMP_ZONE) return 'hit';
+        if (character.position.y > topY + STOMP_ZONE) return 'none';
+        return 'stomp';
       }
 
       if (stompInvulnTimer > 0) stompInvulnTimer -= dt;
@@ -1027,10 +1069,8 @@
       // Pisca o personagem enquanto estiver invencível por ter tomado dano.
       if (invulnTimer > 0) {
         invulnTimer -= dt;
-        character.visible = Math.floor(t * 12) % 2 === 0;
-        if (invulnTimer <= 0) character.visible = true;
-      } else {
-        character.visible = true;
+        bodyMat.color.setHex(Math.floor(t * 10) % 2 === 0 ? 0xff5555 : 0xe08a3c);
+        if (invulnTimer <= 0) bodyMat.color.setHex(0xe08a3c);
       }
 
       // -------- inimigo 1 (bounce comum) --------
@@ -1218,6 +1258,41 @@
 
     updateImpactEffects(dt);
     updateSquash(dt);
+
+    // -------- ANIMAÇÃO DE MORTE --------
+    if (deathAnim) {
+      deathAnimTimer += dt;
+      character.rotation.y += dt * 8;
+      character.position.y -= dt * 3;
+      bodyMat.color.setHex(0xcc2222);
+      if (deathAnimTimer > 1.5) {
+        fadeEl.style.transition = 'opacity 0.6s ease';
+        fadeEl.style.opacity = '1';
+      }
+      if (deathAnimTimer > 2.2) {
+        deathOverlayEl.style.display = 'flex';
+        if (renderer.xr.isPresenting && (xr.jumpBtn || xr.shootBtn)) {
+          window.location.reload();
+        }
+      }
+    }
+
+    // -------- ANIMAÇÃO DE VITÓRIA --------
+    if (winAnim) {
+      winAnimTimer += dt;
+      character.rotation.y += dt * 5;
+      character.position.y = 0.5 + Math.abs(Math.sin(winAnimTimer * 4)) * 0.8;
+      if (winAnimTimer > 2.0) {
+        fadeEl.style.transition = 'opacity 0.6s ease';
+        fadeEl.style.opacity = '0.7';
+      }
+      if (winAnimTimer > 2.8) {
+        winOverlayEl.style.display = 'flex';
+        if (renderer.xr.isPresenting && (xr.jumpBtn || xr.shootBtn)) {
+          window.location.reload();
+        }
+      }
+    }
 
     star.rotation.z += dt * 1.6;
     star.position.y = STAR_POS.y + Math.sin(t * 2) * 0.12;
