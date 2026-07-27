@@ -565,20 +565,21 @@
   puzzleWall.position.set(-13, 1.25, -17.5);
   scene.add(puzzleWall);
 
-  // Chave 1 (atrás da parede em P4)
+  // Chave 1 vermelha (atrás da parede em P4)
   const key1Mesh = new THREE.Mesh(
     new THREE.BoxGeometry(0.15, 0.4, 0.08),
-    new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xaa8800, emissiveIntensity: 0.6 })
+    new THREE.MeshStandardMaterial({ color: 0xee2222, emissive: 0xaa1111, emissiveIntensity: 0.6 })
   );
   key1Mesh.position.set(-13, 0.6, -19);
   scene.add(key1Mesh);
   const key1Handle = new THREE.Mesh(
     new THREE.TorusGeometry(0.12, 0.03, 8, 12),
-    new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xaa8800, emissiveIntensity: 0.6 })
+    new THREE.MeshStandardMaterial({ color: 0xee2222, emissive: 0xaa1111, emissiveIntensity: 0.6 })
   );
   key1Handle.position.set(-13, 0.85, -19);
   scene.add(key1Handle);
-  let keysCount = 0;
+  let hasRedKey = false;
+  let hasBlueKey = false;
 
   // =========================================================================
   // PUZZLE MATEMÁTICA (P5) — 3-5=?, 4 botões no chão
@@ -643,41 +644,49 @@
   let mathGuardianTimer = 0;
 
   // =========================================================================
-  // PORTÃO DE FERRO (P6) — bloqueia acesso à estrela
+  // PORTÃO VERMELHO (P6) — requer chave vermelha
   // =========================================================================
-  const ironDoor = new THREE.Mesh(
+  const redDoor = new THREE.Mesh(
     new THREE.BoxGeometry(6.0, 3.0, 0.3),
-    new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8, roughness: 0.3 })
+    new THREE.MeshStandardMaterial({ color: 0xcc2222, emissive: 0x661111, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.3 })
   );
-  ironDoor.position.set(0, 1.5, -50);
-  scene.add(ironDoor);
-  let doorOpen = false;
+  redDoor.position.set(0, 1.5, -48);
+  scene.add(redDoor);
+  let redDoorOpen = false;
 
-  // Paredes em funil que estreitam o caminho até o portão
+  // =========================================================================
+  // PORTÃO AZUL (P6) — requer chave azul
+  // =========================================================================
+  const blueDoor = new THREE.Mesh(
+    new THREE.BoxGeometry(6.0, 3.0, 0.3),
+    new THREE.MeshStandardMaterial({ color: 0x2244cc, emissive: 0x112266, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.3 })
+  );
+  blueDoor.position.set(0, 1.5, -51);
+  scene.add(blueDoor);
+  let blueDoorOpen = false;
+
+  // Paredes em funil que estreitam o caminho até os portões
   const gateWallMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.6, roughness: 0.4 });
-  // Parede esquerda angular: de x:-10 (z:-44) até x:-3.5 (z:-50)
   const funnelGeoL = new THREE.BufferGeometry();
   const fLv = new Float32Array([
     -10, 0, -44,   -10, 3, -44,
-    -3.5, 3, -50,  -3.5, 0, -50
+    -3.5, 3, -52,  -3.5, 0, -52
   ]);
   funnelGeoL.setAttribute('position', new THREE.BufferAttribute(fLv, 3));
   funnelGeoL.setIndex([0,1,2, 0,2,3]);
   funnelGeoL.computeVertexNormals();
   const funnelWallL = new THREE.Mesh(funnelGeoL, gateWallMat);
   scene.add(funnelWallL);
-  // Parede direita angular: de x:10 (z:-44) até x:3.5 (z:-50)
   const funnelGeoR = new THREE.BufferGeometry();
   const fRv = new Float32Array([
     10, 0, -44,   10, 3, -44,
-    3.5, 3, -50,  3.5, 0, -50
+    3.5, 3, -52,  3.5, 0, -52
   ]);
   funnelGeoR.setAttribute('position', new THREE.BufferAttribute(fRv, 3));
   funnelGeoR.setIndex([0,2,1, 0,3,2]);
   funnelGeoR.computeVertexNormals();
   const funnelWallR = new THREE.Mesh(funnelGeoR, gateWallMat);
   scene.add(funnelWallR);
-  // Parede traseira (bloqueia acesso por trás do portão)
   const backWall = new THREE.Mesh(new THREE.BoxGeometry(20, 3, 0.5), gateWallMat);
   backWall.position.set(0, 1.5, -44);
   scene.add(backWall);
@@ -950,14 +959,36 @@
   }
   updateHeartsUI();
 
+  // Canvas para chaves VR (vermelha + azul)
+  const keysCanvas = document.createElement('canvas');
+  keysCanvas.width = 128; keysCanvas.height = 96;
+  const keysCtx = keysCanvas.getContext('2d');
+  const keysTexture = new THREE.CanvasTexture(keysCanvas);
+
+  function drawKeysCanvas() {
+    keysCtx.clearRect(0, 0, keysCanvas.width, keysCanvas.height);
+    keysCtx.font = '64px sans-serif';
+    keysCtx.textBaseline = 'middle';
+    keysCtx.fillStyle = hasRedKey ? '#ee2222' : 'rgba(255,255,255,0.28)';
+    keysCtx.fillText('\uD83D\uDD11', 10, 52);
+    keysCtx.fillStyle = hasBlueKey ? '#3388ff' : 'rgba(255,255,255,0.28)';
+    keysCtx.fillText('\uD83D\uDD11', 64, 52);
+    keysTexture.needsUpdate = true;
+  }
+
   function updateKeysUI() {
     keysPcEl.innerHTML = '';
-    for (let i = 0; i < 2; i++) {
-      const span = document.createElement('span');
-      span.textContent = '\uD83D\uDD11';
-      if (i >= keysCount) span.className = 'locked';
-      keysPcEl.appendChild(span);
-    }
+    const red = document.createElement('span');
+    red.textContent = '\uD83D\uDD11';
+    red.style.color = hasRedKey ? '#ee2222' : 'rgba(255,255,255,0.28)';
+    if (!hasRedKey) red.style.filter = 'grayscale(1) brightness(0.5)';
+    keysPcEl.appendChild(red);
+    const blue = document.createElement('span');
+    blue.textContent = '\uD83D\uDD11';
+    blue.style.color = hasBlueKey ? '#3388ff' : 'rgba(255,255,255,0.28)';
+    if (!hasBlueKey) blue.style.filter = 'grayscale(1) brightness(0.5)';
+    keysPcEl.appendChild(blue);
+    drawKeysCanvas();
   }
   updateKeysUI();
 
@@ -968,9 +999,19 @@
     map: heartsTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
   });
   const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.07), heartsPlaneMat);
-  heartsPlane.position.set(-0.32, 0.28, -0.6);
+  heartsPlane.position.set(-0.15, 0.12, -0.6);
   heartsPlane.renderOrder = 10;
   camera.add(heartsPlane);
+
+  drawKeysCanvas();
+
+  const keysPlaneMat = new THREE.MeshBasicMaterial({
+    map: keysTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
+  });
+  const keysPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.10, 0.07), keysPlaneMat);
+  keysPlane.position.set(0.05, 0.12, -0.6);
+  keysPlane.renderOrder = 10;
+  camera.add(keysPlane);
 
   function playerIsInvulnerable() {
     return invulnTimer > 0 || stompInvulnTimer > 0;
@@ -1171,11 +1212,24 @@
         character.position.z += worldDir.z * MOVE_SPEED * dt;
         character.position.x = Math.max(-14, Math.min(14, character.position.x));
         character.position.z = Math.max(-58, Math.min(12, character.position.z));
-        if (!doorOpen && character.position.z < -50) {
-          character.position.z = -50;
+        // Bloqueio porta vermelha (z=-48)
+        if (!redDoorOpen && character.position.z < -48) {
+          character.position.z = -48;
         }
-        if (!doorOpen && character.position.z >= -50 && character.position.z <= -44) {
-          const t = (character.position.z + 50) / 6;
+        // Bloqueio porta azul (z=-51)
+        if (redDoorOpen && !blueDoorOpen && character.position.z < -51) {
+          character.position.z = -51;
+        }
+        // Funil: estreita conforme se aproxima do primeiro portão
+        if (!redDoorOpen && character.position.z >= -48 && character.position.z <= -44) {
+          const t = (character.position.z + 48) / 4;
+          const maxX = 3.5 + 6.5 * t;
+          if (Math.abs(character.position.x) > maxX) {
+            character.position.x = Math.sign(character.position.x) * maxX;
+          }
+        }
+        if (redDoorOpen && !blueDoorOpen && character.position.z >= -51 && character.position.z <= -44) {
+          const t = (character.position.z + 51) / 7;
           const maxX = 3.5 + 6.5 * t;
           if (Math.abs(character.position.x) > maxX) {
             character.position.x = Math.sign(character.position.x) * maxX;
@@ -1437,17 +1491,17 @@
         }
       }
 
-      // -------- pegar chave 1 (P4) --------
-      if (keysCount < 2 && puzzleSolved) {
+      // -------- pegar chave vermelha (P4) --------
+      if (!hasRedKey && puzzleSolved) {
         const dx = character.position.x - key1Mesh.position.x;
         const dz = character.position.z - key1Mesh.position.z;
         if (Math.sqrt(dx * dx + dz * dz) < 1.0) {
-          keysCount++;
+          hasRedKey = true;
           updateKeysUI();
           key1Mesh.visible = false;
           key1Handle.visible = false;
           playPickupSound();
-          showHint('Chave 1! Falta 1 chave.', 2000);
+          showHint('Chave vermelha obtida!', 2000);
         } else {
           key1Mesh.rotation.y += dt * 2;
           key1Handle.rotation.y += dt * 2;
@@ -1465,9 +1519,9 @@
               mb.mesh.material.color.setHex(0x22cc44);
               mb.mesh.material.emissive.setHex(0x118822);
               playPickupSound();
-              showHint('Correto! Chave 2 obtida!', 2000);
-              keysCount++;
+              hasBlueKey = true;
               updateKeysUI();
+              showHint('Correto! Chave azul obtida!', 2000);
             } else {
               mathGuardianRising = true;
               mathGuardianTimer = 0;
@@ -1489,16 +1543,23 @@
         }
       }
 
-      // -------- porta de ferro (P6): abre com 2 chaves --------
-      if (keysCount >= 2 && !doorOpen) {
-        doorOpen = true;
+      // -------- portões: vermelho abre com chave vermelha, azul com chave azul --------
+      if (hasRedKey && !redDoorOpen) {
+        redDoorOpen = true;
+        showHint('Portão vermelho aberto!', 2000);
+      }
+      if (hasBlueKey && !blueDoorOpen) {
+        blueDoorOpen = true;
         funnelWallL.visible = false;
         funnelWallR.visible = false;
         backWall.visible = false;
-        showHint('Portão aberto! Vá até a estrela!', 2500);
+        showHint('Portão azul aberto! Vá até a estrela!', 2500);
       }
-      if (doorOpen && ironDoor.position.y > -3) {
-        ironDoor.position.y -= 2.0 * dt;
+      if (redDoorOpen && redDoor.position.y > -3) {
+        redDoor.position.y -= 2.0 * dt;
+      }
+      if (blueDoorOpen && blueDoor.position.y > -3) {
+        blueDoor.position.y -= 2.0 * dt;
       }
 
       // -------- armadilhas: espinhos --------
