@@ -423,19 +423,35 @@
   spawnNormalEnemy(6, -44); spawnNormalEnemy(0, -46);
 
   // =========================================================================
-  // INIMIGOS ATIRADORES (P2: 3) — dropam arma ao morrer
+  // INIMIGOS ATIRADORES (P2: 3) — dropam arma ao morrer, Visual completamente
+  // diferente: corpo retangular azul escuro, olhos verdes, braço com arma
   // =========================================================================
   const shooterEnemies = [];
   function spawnShooterEnemy(x, z) {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), enemyMat);
-    body.position.y = 0.45;
-    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeMat);
-    eL.position.set(-0.16, 0.55, -0.38);
-    const eR = eL.clone(); eR.position.x = 0.16;
-    const gunM = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.35), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-    gunM.position.set(0.35, 0.55, -0.15);
-    g.add(body, eL, eR, gunM);
+    const shooterBodyMat = new THREE.MeshStandardMaterial({ color: 0x1a2a4a });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.85, 0.45), shooterBodyMat);
+    body.position.y = 0.55;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.4), shooterBodyMat);
+    head.position.y = 1.18;
+    const eyeMat2 = new THREE.MeshStandardMaterial({ color: 0x00ff66, emissive: 0x00cc44, emissiveIntensity: 0.8 });
+    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeMat2);
+    eL.position.set(-0.12, 1.22, -0.21);
+    const eR = eL.clone(); eR.position.x = 0.12;
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), shooterBodyMat);
+    armL.position.set(-0.42, 0.55, 0);
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), shooterBodyMat);
+    armR.position.set(0.42, 0.45, -0.1);
+    armR.rotation.x = -0.6;
+    const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.45), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+    gunBody.position.set(0.42, 0.35, -0.35);
+    const gunTip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.18, 6), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    gunTip.position.set(0.42, 0.35, -0.62);
+    gunTip.rotation.x = Math.PI / 2;
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.35, 0.14), new THREE.MeshStandardMaterial({ color: 0x0d1a30 }));
+    legL.position.set(-0.14, 0.17, 0);
+    const legR = legL.clone(); legR.position.x = 0.14;
+    g.add(body, head, eL, eR, armL, armR, gunBody, gunTip, legL, legR);
     g.position.set(x, 0, z);
     scene.add(g);
     shooterEnemies.push({ mesh: g, alive: true, hp: 3, baseX: x, baseZ: z, fireTimer: 0, fireInterval: 2.0 + Math.random() });
@@ -637,52 +653,60 @@
   scene.add(ironDoor);
   let doorOpen = false;
 
-  // Paredes laterais do portão (impedem de passar pelos lados)
+  // Paredes em funil que estreitam o caminho até o portão
   const gateWallMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.6, roughness: 0.4 });
-  const gateWallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.0, 1.0), gateWallMat);
-  gateWallL.position.set(-3.25, 1.5, -50);
-  scene.add(gateWallL);
-  const gateWallR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.0, 1.0), gateWallMat);
-  gateWallR.position.set(3.25, 1.5, -50);
-  scene.add(gateWallR);
+  // Parede esquerda angular: de x:-10 (z:-44) até x:-3.5 (z:-50)
+  const funnelGeoL = new THREE.BufferGeometry();
+  const fLv = new Float32Array([
+    -10, 0, -44,   -10, 3, -44,
+    -3.5, 3, -50,  -3.5, 0, -50
+  ]);
+  funnelGeoL.setAttribute('position', new THREE.BufferAttribute(fLv, 3));
+  funnelGeoL.setIndex([0,1,2, 0,2,3]);
+  funnelGeoL.computeVertexNormals();
+  const funnelWallL = new THREE.Mesh(funnelGeoL, gateWallMat);
+  scene.add(funnelWallL);
+  // Parede direita angular: de x:10 (z:-44) até x:3.5 (z:-50)
+  const funnelGeoR = new THREE.BufferGeometry();
+  const fRv = new Float32Array([
+    10, 0, -44,   10, 3, -44,
+    3.5, 3, -50,  3.5, 0, -50
+  ]);
+  funnelGeoR.setAttribute('position', new THREE.BufferAttribute(fRv, 3));
+  funnelGeoR.setIndex([0,2,1, 0,3,2]);
+  funnelGeoR.computeVertexNormals();
+  const funnelWallR = new THREE.Mesh(funnelGeoR, gateWallMat);
+  scene.add(funnelWallR);
+  // Parede traseira (bloqueia acesso por trás do portão)
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(20, 3, 0.5), gateWallMat);
+  backWall.position.set(0, 1.5, -44);
+  scene.add(backWall);
 
   // =========================================================================
-  // ARMADILHAS (P6) — espinhos e martelos
+  // ARMADILHAS (P6) — espinhos grandes e tenebrosos
   // =========================================================================
-  const spikeMat2 = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6 });
+  const spikeMat2 = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7, roughness: 0.3, emissive: 0x331111, emissiveIntensity: 0.3 });
   const spikeTraps = [];
   function spawnSpikeTrap(x, z) {
     const g = new THREE.Group();
-    for (let i = 0; i < 3; i++) {
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.6, 4), spikeMat2);
-      spike.position.set(-0.15 + i * 0.15, 0, 0);
+    for (let i = 0; i < 5; i++) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.14, 1.0, 5), spikeMat2);
+      spike.position.set(-0.3 + i * 0.15, 0, 0);
       g.add(spike);
     }
+    const base = new THREE.Mesh(
+      new THREE.BoxGeometry(1.0, 0.15, 0.5),
+      new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.5 })
+    );
+    base.position.y = -0.1;
+    g.add(base);
     g.position.set(x, -0.3, z);
     g.userData.baseY = -0.3;
     scene.add(g);
     spikeTraps.push({ mesh: g, timer: Math.random() * 3, interval: 2.5 + Math.random() * 2, active: false });
   }
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 12; i++) {
     spawnSpikeTrap(-7 + Math.random() * 14, -36 - Math.random() * 16);
-  }
-
-  const hammerMat = new THREE.MeshStandardMaterial({ color: 0x666666 });
-  const hammerTraps = [];
-  function spawnHammerTrap(x, z) {
-    const g = new THREE.Group();
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.0, 0.12), new THREE.MeshStandardMaterial({ color: 0x555555 }));
-    arm.position.y = 1.5;
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.4), hammerMat);
-    head.position.y = 2.5;
-    g.add(arm, head);
-    g.position.set(x, 0, z);
-    g.userData.baseRotZ = 0;
-    scene.add(g);
-    hammerTraps.push({ mesh: g, timer: Math.random() * 2, interval: 2.0 + Math.random() * 1.5, swinging: false, swingAngle: 0 });
-  }
-  for (let i = 0; i < 6; i++) {
-    spawnHammerTrap(-6 + Math.random() * 12, -37 - Math.random() * 14);
   }
 
   // =========================================================================
@@ -926,6 +950,17 @@
   }
   updateHeartsUI();
 
+  function updateKeysUI() {
+    keysPcEl.innerHTML = '';
+    for (let i = 0; i < 2; i++) {
+      const span = document.createElement('span');
+      span.textContent = '\uD83D\uDD11';
+      if (i >= keysCount) span.className = 'locked';
+      keysPcEl.appendChild(span);
+    }
+  }
+  updateKeysUI();
+
   // Painel de corações fixo no canto superior esquerdo da tela em VR:
   // preso à câmera, posicionado para aparecer no HUD como um painel
   // flutuante no canto, igual à HUD do PC.
@@ -1139,8 +1174,12 @@
         if (!doorOpen && character.position.z < -50) {
           character.position.z = -50;
         }
-        if (!doorOpen && Math.abs(character.position.x) > 3 && character.position.z < -49.5 && character.position.z > -51) {
-          character.position.x = character.position.x > 0 ? 3 : -3;
+        if (!doorOpen && character.position.z >= -50 && character.position.z <= -44) {
+          const t = (character.position.z + 50) / 6;
+          const maxX = 3.5 + 6.5 * t;
+          if (Math.abs(character.position.x) > maxX) {
+            character.position.x = Math.sign(character.position.x) * maxX;
+          }
         }
 
         if (!aimLocked) {
@@ -1443,18 +1482,7 @@
         mathGuardian.position.y = THREE.MathUtils.lerp(-5, 1.0, Math.min(mathGuardianTimer / 0.3, 1));
         if (mathGuardianTimer > 0.25) {
           hearts = 0;
-  updateHeartsUI();
-
-  function updateKeysUI() {
-    keysPcEl.innerHTML = '';
-    for (let i = 0; i < 2; i++) {
-      const span = document.createElement('span');
-      span.textContent = '\uD83D\uDD11';
-      if (i >= keysCount) span.className = 'locked';
-      keysPcEl.appendChild(span);
-    }
-  }
-  updateKeysUI();
+          updateHeartsUI();
           deathAnim = true;
           deathAnimTimer = 0;
           mathGuardianRising = false;
@@ -1464,8 +1492,9 @@
       // -------- porta de ferro (P6): abre com 2 chaves --------
       if (keysCount >= 2 && !doorOpen) {
         doorOpen = true;
-        gateWallL.visible = false;
-        gateWallR.visible = false;
+        funnelWallL.visible = false;
+        funnelWallR.visible = false;
+        backWall.visible = false;
         showHint('Portão aberto! Vá até a estrela!', 2500);
       }
       if (doorOpen && ironDoor.position.y > -3) {
@@ -1477,32 +1506,13 @@
         st.timer += dt;
         const cycle = st.timer % st.interval;
         st.active = cycle < 0.6;
-        st.mesh.position.y = st.active ? st.mesh.userData.baseY + 0.3 : st.mesh.userData.baseY - 0.2;
+        st.mesh.position.y = st.active ? st.mesh.userData.baseY + 0.5 : st.mesh.userData.baseY - 0.3;
         if (st.active) {
           const dx = character.position.x - st.mesh.position.x;
           const dz = character.position.z - st.mesh.position.z;
-          if (Math.sqrt(dx * dx + dz * dz) < 0.5 && character.position.y < 0.6) {
+          if (Math.sqrt(dx * dx + dz * dz) < 0.8 && character.position.y < 0.8) {
             takeHit();
           }
-        }
-      }
-
-      // -------- armadilhas: martelos --------
-      for (const ht of hammerTraps) {
-        ht.timer += dt;
-        const cycle = ht.timer % ht.interval;
-        if (cycle < 0.5) {
-          ht.swingAngle = Math.min(ht.swingAngle + dt * 8, Math.PI / 3);
-        } else if (cycle < 1.0) {
-          ht.swingAngle = Math.max(ht.swingAngle - dt * 12, -Math.PI / 3);
-        } else {
-          ht.swingAngle *= 0.85;
-        }
-        ht.mesh.rotation.z = ht.swingAngle;
-        const dx = character.position.x - ht.mesh.position.x;
-        const dz = character.position.z - ht.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.8 && character.position.y < 1.5) {
-          takeHit();
         }
       }
 
