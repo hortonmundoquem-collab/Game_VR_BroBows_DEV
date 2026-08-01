@@ -841,11 +841,12 @@
     scene.add(mesh);
     guardians.push({ mesh, alive: true, hp: GUARDIAN_HP, stompCooldown: 0, activated: false, jumping: false, jumpTimer: 0, jumpDuration: 0.55, jumpHeight: 2.2, jumpCooldown: 0.6 + Math.random() * 0.6, jumpStart: null, jumpTarget: null });
   }
-  spawnGuardian(-3, -42); spawnGuardian(3, -44); spawnGuardian(-4, -46);
-  spawnGuardian(4, -48); spawnGuardian(0, -40); spawnGuardian(-2, -50);
-  spawnGuardian(2, -50); spawnGuardian(0, -48);
+  // Reduzido de 12 para 6 — eles ativam ao se aproximar e depois perseguem
+  // o personagem indefinidamente por toda a arena, então metade da
+  // quantidade original já deixa a fase bem mais jogável.
   spawnGuardian(-6, -38); spawnGuardian(6, -40);
   spawnGuardian(-8, -44); spawnGuardian(8, -46);
+  spawnGuardian(-3, -50); spawnGuardian(4, -32);
 
   // =========================================================================
   // ARMA DROPADA (quando inimigo atirador morre) — cai no chão com forma de
@@ -1703,6 +1704,11 @@
       }
 
       // -------- gravidade --------
+      // Guarda se estava no chão ANTES desta atualização, para saber se o
+      // personagem acabou de sair do chão andando (sem pular) — é o
+      // instante exato em que ele "caiu num buraco" por andar direto pra
+      // fora da borda de uma plataforma.
+      const wasGrounded = grounded;
       velocityY -= GRAVITY * dt;
       character.position.y += velocityY * dt;
 
@@ -1714,6 +1720,18 @@
           lastGroundPos.set(character.position.x, 0, character.position.z);
           triggerBridgeFall(character.position.x, character.position.z);
           standingPlatform = findMovingPlatformAt(character.position.x, character.position.z);
+        } else if (wasGrounded) {
+          // Estava andando no chão e, neste quadro, não há mais chão sob os
+          // pés (não pulou — se tivesse pulado, a velocidade pra cima teria
+          // deixado position.y > 0 e caído no ramo de baixo). Isto é cair
+          // num buraco: pune IMEDIATAMENTE (tira coração e reposiciona),
+          // em vez de deixar o personagem continuar caindo — do contrário,
+          // segurar o controle pra um lado durante a queda podia levá-lo de
+          // volta a um pedaço de chão sólido antes do limite de queda
+          // (y < -7) e ele escapava sem perder coração.
+          grounded = false;
+          standingPlatform = null;
+          respawnFromPit();
         } else {
           grounded = false;
           standingPlatform = null;
@@ -2124,6 +2142,7 @@
           if (!gd.alive) continue;
           if (p.mesh.position.distanceTo(gd.mesh.position.clone().setY(0.7)) < 0.7) {
             gd.hp -= 1; hit = true;
+            gd.activated = true; // um tiro já acorda o guardião, não importa a distância
             if (gd.hp <= 0) { gd.alive = false; spawnImpactEffect(gd.mesh.position); squashMesh(gd.mesh, true); playDefeatSound(); }
             else { squashMesh(gd.mesh, false); playHitSound(); }
             break;
