@@ -12,16 +12,6 @@
     position:absolute; top:70px; left:14px; color:#fff; background:rgba(0,0,0,0.35);
     padding:10px 14px; border-radius:10px; font-size:13px; line-height:1.5; max-width:340px;
   }
-  #hearts-pc {
-    position:absolute; top:14px; left:14px; font-size:30px; line-height:1;
-    text-shadow:0 0 6px #000, 0 0 3px #000; letter-spacing:4px;
-  }
-  #hearts-pc span.lost { opacity:0.28; filter:grayscale(1); }
-  #keys-pc {
-    position:absolute; top:14px; left:160px; font-size:26px; line-height:1;
-    text-shadow:0 0 6px #000, 0 0 3px #000; letter-spacing:4px;
-  }
-  #keys-pc span.locked { opacity:0.28; filter:grayscale(1); }
   #vr-button {
     position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
     pointer-events:auto; padding:14px 28px; font-size:17px; font-weight:bold;
@@ -90,8 +80,6 @@
 </head>
 <body>
 <div id="ui">
-  <div id="hearts-pc"></div>
-  <div id="keys-pc"></div>
   <div id="info">
     <b>Fase VR - Aventura do Herói</b><br/>
     <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira<br/>
@@ -125,7 +113,7 @@
   // =========================================================================
   const START_POS   = new THREE.Vector3(0, 0, 9);
   const GRAVITY      = 18;
-  const JUMP_SPEED   = 9.2;
+  const JUMP_SPEED   = 10.2;
   // Quicar em cima de um inimigo (matando ou não) agora sobe com a MESMA
   // força de um pulo normal — como se fosse um novo pulo automático — para
   // dar tempo e altura de encadear vários pulos seguidos em inimigos de
@@ -172,11 +160,11 @@
   // 6 plataformas grandes conectadas por pedras.
   // cx/cz = centro, hw = metade largura (x), hd = metade profundidade (z)
   const PLATFORMS = [
-    { cx:0,  cz:8,   hw:3.5, hd:4,   color:0x6fbf4f }, // P1: início (5 inimigos normais)
-    { cx:0,  cz:-6,  hw:3.5, hd:4,   color:0x5fae44 }, // P2: atiradores (3, dropam arma)
+    { cx:0,  cz:8,   hw:3.5, hd:4,   color:0x6fbf4f }, // P1: início (2 inimigos normais)
+    { cx:0,  cz:-6,  hw:3.5, hd:4,   color:0x5fae44 }, // P2: 1 atirador (dropa arma)
     { cx:0,  cz:-19, hw:5,   hd:4,   color:0x7a6a3a }, // P3: rápidos aleatórios
-    { cx:-13,cz:-17, hw:3,   hd:3,   color:0x6a8a6a }, // P4: puzzle (empurrar pedra)
-    { cx:13, cz:-17, hw:3,   hd:3,   color:0x8a7a5a }, // P5: surpresa
+    { cx:-38,cz:-25, hw:3,   hd:3,   color:0x6a8a6a }, // P4: puzzle (empurrar pedra) — bem mais longe de P3
+    { cx:38, cz:-25, hw:3,   hd:3,   color:0x8a7a5a }, // P5: surpresa — bem mais longe de P3
     { cx:0,  cz:-42, hw:10,  hd:13,  color:0x8a8a5a }, // P6: arena final (estrela, armadilhas)
     { cx:0,  cz:-55, hw:2.5, hd:4,   color:0x7a7a4a }, // P7: corredor estreito (estrela)
   ];
@@ -185,10 +173,8 @@
     { x:0, z:3.5, r:1.1 }, { x:0, z:1.5, r:1.0 }, { x:0, z:-0.5, r:1.0 },
     // P2→P3
     { x:0, z:-10.5, r:1.0 }, { x:0, z:-12.5, r:1.0 }, { x:0, z:-14.5, r:1.0 },
-    // P3→P4 (esquerda)
-    { x:-6,  z:-17, r:1.0 }, { x:-8,  z:-17, r:1.0 }, { x:-10, z:-17, r:1.0 },
-    // P3→P5 (direita)
-    { x:6,  z:-17, r:1.0 }, { x:8,  z:-17, r:1.0 }, { x:10, z:-17, r:1.0 },
+    // P3→P4 e P3→P5 agora usam as 10 plataformas circulares dinâmicas
+    // (algumas móveis, algumas que caem) — ver BRIDGE_PLATFORMS mais abaixo.
     // P3→P6
     { x:0, z:-23.5, r:1.0 }, { x:0, z:-25.5, r:1.0 }, { x:0, z:-27.5, r:1.0 },
   ];
@@ -201,7 +187,44 @@
       const dx = x - s.x, dz = z - s.z;
       if (dx * dx + dz * dz <= s.r * s.r) return true;
     }
+    for (const b of bridgePlatforms) {
+      if (!b.solid) continue;
+      const dx = x - b.mesh.position.x, dz = z - b.mesh.position.z;
+      if (dx * dx + dz * dz <= b.r * b.r) return true;
+    }
     return false;
+  }
+
+  // Acha o ponto seguro mais próximo de (x,z) para reaparecer depois de cair
+  // num buraco. Usado por respawnFromPit(). Considera:
+  //  - as plataformas grandes (sempre sólidas) — usa o ponto mais próximo
+  //    DENTRO da plataforma, não o centro, pra reaparecer bem na borda mais
+  //    perto de onde caiu;
+  //  - os conectores fixos entre plataformas (sempre sólidos);
+  //  - as pedras de ponte, MAS só as que estão sólidas agora (b.solid). Uma
+  //    pedra "que cai" que esteja afundando/escondida/subindo fica de fora
+  //    dessa busca automaticamente, então o jogador nunca reaparece em cima
+  //    do nada — ele cai numa pedra próxima que ainda está lá (ou volta a
+  //    ficar lá, no caso de pedras que sobem de novo).
+  function findNearestSafeSpot(x, z) {
+    let best = null, bestDist = Infinity;
+    for (const p of PLATFORMS) {
+      const px = Math.max(p.cx - p.hw, Math.min(x, p.cx + p.hw));
+      const pz = Math.max(p.cz - p.hd, Math.min(z, p.cz + p.hd));
+      const d = (px - x) * (px - x) + (pz - z) * (pz - z);
+      if (d < bestDist) { bestDist = d; best = { x: px, z: pz }; }
+    }
+    for (const c of CONNECTORS) {
+      const d = (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
+      if (d < bestDist) { bestDist = d; best = { x: c.x, z: c.z }; }
+    }
+    for (const b of bridgePlatforms) {
+      if (!b.solid) continue;
+      const bx = b.mesh.position.x, bz = b.mesh.position.z;
+      const d = (bx - x) * (bx - x) + (bz - z) * (bz - z);
+      if (d < bestDist) { bestDist = d; best = { x: bx, z: bz }; }
+    }
+    return best || { x: START_POS.x, z: START_POS.z };
   }
 
   const STAR_POS = new THREE.Vector3(0, 1.4, -56);
@@ -341,6 +364,163 @@
     scene.add(stone);
   }
 
+  // =========================================================================
+  // PONTES DE PLATAFORMAS CIRCULARES (P3→P4 e P3→P5)
+  // Plataformas espalhadas em zigue-zague em cada caminho:
+  //  - caminho da esquerda (→ puzzle da chave, P4): paradas + que caem
+  //    (afundam pouco depois que o personagem pisa e voltam depois de um tempo)
+  //  - caminho da direita (→ puzzle da matemática, P5): paradas + que se
+  //    movem (andam de um lado pro outro e carregam o personagem)
+  // =========================================================================
+  const BRIDGE_COUNT   = 10;
+  const bridgePlatforms = [];
+  // Cada tipo tem cor E forma diferente, pra dar pra reconhecer de longe:
+  //  - paradas: cilindro liso, verde-musgo (comportamento normal, só andar)
+  //  - móveis:  octógono azul brilhante (andam de um lado pro outro e carregam o personagem)
+  //  - que caem: losango laranja/vermelho (afundam pouco depois que o personagem pisa)
+  const bridgeStaticMat = new THREE.MeshStandardMaterial({ color: 0x7fae5a, emissive: 0x2a4418, emissiveIntensity: 0.25 });
+  const bridgeFallMat   = new THREE.MeshStandardMaterial({ color: 0xd9542a, emissive: 0x7a2200, emissiveIntensity: 0.45 });
+  const bridgeMoveMat   = new THREE.MeshStandardMaterial({ color: 0x39a8e0, emissive: 0x0a4a66, emissiveIntensity: 0.45 });
+
+  function addBridgeStone(cx, cz, r, type, seed) {
+    let geo, mat;
+    if (type === 'static') {
+      geo = new THREE.CylinderGeometry(r * 0.95, r, 0.4, 16); // cilindro liso
+      mat = bridgeStaticMat;
+    } else if (type === 'moving') {
+      geo = new THREE.CylinderGeometry(r * 0.95, r, 0.42, 8); // octógono
+      mat = bridgeMoveMat;
+    } else {
+      geo = new THREE.CylinderGeometry(r * 0.95, r, 0.4, 4); // losango (4 lados)
+      mat = bridgeFallMat;
+    }
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(cx, -0.2, cz);
+    if (type === 'falling') mesh.rotation.y = Math.PI / 4; // losango "de ponta"
+    scene.add(mesh);
+    bridgePlatforms.push({
+      mesh, r, type,
+      baseX: cx, baseZ: cz, baseY: -0.2,
+      solid: true,
+      // -- comportamento das plataformas que SE MOVEM --
+      moveAxis: seed % 2 === 0 ? 'x' : 'z',
+      moveAmp: 1.4 + (seed % 3) * 0.35,
+      moveSpeed: 0.55 + (seed % 4) * 0.18,
+      movePhase: seed * 1.7,
+      prevX: cx, prevZ: cz, deltaX: 0, deltaZ: 0,
+      // -- comportamento das plataformas que CAEM --
+      fallState: 'idle', // idle -> triggered -> falling -> hidden -> rising -> idle
+      fallTimer: 0,
+    });
+  }
+
+  function buildBridge(fromX, fromZ, toX, toZ, dirSign, types, count) {
+    count = count || BRIDGE_COUNT;
+    const dx = toX - fromX, dz = toZ - fromZ;
+    for (let i = 0; i < count; i++) {
+      const tt = (i + 1) / (count + 1);
+      let x = fromX + dx * tt;
+      let z = fromZ + dz * tt;
+      // espalha as plataformas em zigue-zague, em vez de ficarem enfileiradas
+      x += Math.cos(i * 2.1) * dirSign * 1.9;
+      z += Math.sin(i * 1.6) * 2.3;
+      const type = types[i % types.length];
+      addBridgeStone(x, z, 1.15, type, i);
+    }
+  }
+
+  // Caminho da esquerda (P3 → P4, puzzle da chave): sem pedras paradas,
+  // só pedras que caem (afundam e voltam) — duas a mais para dar pra
+  // atravessar mesmo sem pedras paradas de apoio.
+  // P3 (cx:0, cz:-19, borda esquerda em x:-5) → P4 (bem mais longe agora)
+  buildBridge(-5, -19, PLATFORMS[3].cx + PLATFORMS[3].hw, PLATFORMS[3].cz, -1, ['falling'], BRIDGE_COUNT + 2);
+
+  // Caminho da direita (P3 → P5, puzzle da matemática): sem pedras paradas,
+  // só pedras que se movem (andam de um lado pro outro e carregam o
+  // personagem) — com uma plataforma móvel a mais para ajudar a atravessar.
+  // P3 (cx:0, cz:-19, borda direita em x:5) → P5 (bem mais longe agora)
+  buildBridge(5, -19, PLATFORMS[4].cx - PLATFORMS[4].hw, PLATFORMS[4].cz, 1, ['moving'], BRIDGE_COUNT + 1);
+
+  // Atualiza posição das plataformas móveis e a animação das que caem/sobem.
+  // Chamada a cada quadro em animate().
+  function updateBridgePlatforms(dt, t) {
+    for (const b of bridgePlatforms) {
+      if (b.type === 'static') {
+        b.solid = true;
+        b.deltaX = 0; b.deltaZ = 0;
+      } else if (b.type === 'moving') {
+        const off = Math.sin(t * b.moveSpeed + b.movePhase) * b.moveAmp;
+        const newX = b.moveAxis === 'x' ? b.baseX + off : b.baseX;
+        const newZ = b.moveAxis === 'z' ? b.baseZ + off : b.baseZ;
+        b.deltaX = newX - b.prevX;
+        b.deltaZ = newZ - b.prevZ;
+        b.mesh.position.x = newX;
+        b.mesh.position.z = newZ;
+        b.prevX = newX;
+        b.prevZ = newZ;
+        b.solid = true;
+      } else {
+        // plataforma que cai
+        switch (b.fallState) {
+          case 'triggered':
+            b.fallTimer -= dt;
+            if (b.fallTimer <= 0) { b.fallState = 'falling'; b.solid = false; }
+            break;
+          case 'falling':
+            b.mesh.position.y -= dt * 6.5;
+            if (b.mesh.position.y < -6) {
+              b.fallState = 'hidden';
+              b.fallTimer = 2.4;
+              b.mesh.visible = false;
+            }
+            break;
+          case 'hidden':
+            b.fallTimer -= dt;
+            if (b.fallTimer <= 0) {
+              b.fallState = 'rising';
+              b.mesh.position.y = -6;
+              b.mesh.visible = true;
+            }
+            break;
+          case 'rising':
+            b.mesh.position.y += dt * 6.5;
+            if (b.mesh.position.y >= b.baseY) {
+              b.mesh.position.y = b.baseY;
+              b.fallState = 'idle';
+              b.solid = true;
+            }
+            break;
+          default: // idle
+            b.solid = true;
+        }
+      }
+    }
+  }
+
+  // Retorna a plataforma móvel em que o personagem está apoiado (ou null),
+  // usada pra "grudar" o personagem nela enquanto ela se move.
+  function findMovingPlatformAt(x, z) {
+    for (const b of bridgePlatforms) {
+      if (b.type !== 'moving' || !b.solid) continue;
+      const dx = x - b.mesh.position.x, dz = z - b.mesh.position.z;
+      if (dx * dx + dz * dz <= b.r * b.r) return b;
+    }
+    return null;
+  }
+
+  // Dispara o afundamento de uma plataforma "que cai" assim que o jogador
+  // pisa (fica no chão) em cima dela.
+  function triggerBridgeFall(x, z) {
+    for (const b of bridgePlatforms) {
+      if (b.type !== 'falling' || b.fallState !== 'idle') continue;
+      const dx = x - b.mesh.position.x, dz = z - b.mesh.position.z;
+      if (dx * dx + dz * dz <= b.r * b.r) {
+        b.fallState = 'triggered';
+        b.fallTimer = 0.45;
+      }
+    }
+  }
+
   // buracos sob as plataformas
   for (let i = 0; i < PLATFORMS.length - 1; i++) {
     const a = PLATFORMS[i], b = PLATFORMS[i + 1];
@@ -359,20 +539,78 @@
   // PERSONAGEM
   // =========================================================================
   const character = new THREE.Group();
+  // Grupo interno com todas as partes visuais do personagem. A cambalhota
+  // (rotation.x) é aplicada aqui, e não no grupo "character" (que só cuida
+  // de posição e da direção que o personagem olha/anda). Assim a cambalhota
+  // sempre gira em torno do eixo esquerda-direita ATUAL do personagem —
+  // ou seja, sempre para frente de onde ele está olhando, não importa a
+  // direção do movimento.
+  const characterModel = new THREE.Group();
+  // A cambalhota (rotation.x) precisa girar em torno do CENTRO do
+  // personagem, não dos pés. "characterModel" é o pivô (fica na altura do
+  // centro do corpo) e todas as partes visuais entram dentro de "characterVisual",
+  // que é deslocado para baixo pela mesma distância — assim, com spin=0, tudo
+  // fica exatamente onde estava antes, mas ao girar o pivô, o personagem
+  // roda em torno do seu próprio centro, não em torno dos pés.
+  const CHAR_PIVOT_HEIGHT = 0.75; // altura aproximada do centro do corpo (pés=0, topo da cabeça≈1.53)
+  characterModel.position.y = CHAR_PIVOT_HEIGHT;
+  const characterVisual = new THREE.Group();
+  characterVisual.position.y = -CHAR_PIVOT_HEIGHT;
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe08a3c });
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.4), bodyMat);
   body.position.y = 0.55;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), bodyMat);
   head.position.set(0, 1.15, 0);
+
+  // -- rosto: olhos com esclera branca + pupila, sobrancelhas e boca --
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+  const eyeWL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 10), eyeWhiteMat);
+  eyeWL.position.set(-0.14, 1.2, -0.34);
+  const eyeWR = eyeWL.clone(); eyeWR.position.x = 0.14;
   const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), eyeMat);
-  eyeL.position.set(-0.14, 1.2, -0.32);
+  eyeL.position.set(-0.14, 1.2, -0.4);
   const eyeR = eyeL.clone(); eyeR.position.x = 0.14;
+  const browMat = new THREE.MeshStandardMaterial({ color: 0x5a3410 });
+  const browL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.05), browMat);
+  browL.position.set(-0.14, 1.33, -0.34);
+  browL.rotation.z = -0.12;
+  const browR = browL.clone(); browR.position.x = 0.14; browR.rotation.z = 0.12;
+  // boca sorridente: metade inferior de um toro forma uma curva em "U" (feliz)
+  const mouth = new THREE.Mesh(
+    new THREE.TorusGeometry(0.1, 0.022, 8, 16, Math.PI),
+    new THREE.MeshStandardMaterial({ color: 0x7a3020 })
+  );
+  mouth.position.set(0, 1.01, -0.38);
+  mouth.rotation.z = Math.PI; // vira a metade de cima (frown) para a metade de baixo (sorriso)
+
   const legMat = new THREE.MeshStandardMaterial({ color: 0x7a4a1e });
   const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.35, 0.22), legMat);
   legL.position.set(-0.16, 0.17, 0);
   const legR = legL.clone(); legR.position.x = 0.16;
-  character.add(body, head, eyeL, eyeR, legL, legR);
+
+  // -- braços: pivô no ombro (grupo), balançam ao andar --
+  const armMat = new THREE.MeshStandardMaterial({ color: 0xe08a3c });
+  const handMat = new THREE.MeshStandardMaterial({ color: 0xf0b070 });
+  const armL = new THREE.Group();
+  armL.position.set(-0.42, 0.82, 0);
+  const armLMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), armMat);
+  armLMesh.position.set(0, -0.25, 0);
+  const handL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), handMat);
+  handL.position.set(0, -0.52, 0);
+  armL.add(armLMesh, handL);
+
+  const armR = new THREE.Group();
+  armR.position.set(0.42, 0.82, 0);
+  const armRMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), armMat);
+  armRMesh.position.set(0, -0.25, 0);
+  const handR = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), handMat);
+  handR.position.set(0, -0.52, 0);
+  armR.add(armRMesh, handR);
+
+  characterVisual.add(body, head, eyeWL, eyeWR, eyeL, eyeR, browL, browR, mouth, legL, legR, armL, armR);
+  characterModel.add(characterVisual);
+  character.add(characterModel);
   character.position.copy(START_POS);
   scene.add(character);
 
@@ -383,18 +621,32 @@
   characterShadow.renderOrder = 1;
   scene.add(characterShadow);
 
+  // A arma fica presa na mão direita (braço), então ela acompanha o braço
+  // enquanto ele balança e fica parada junto com ele na hora de atirar.
   const gunOnPlayer = new THREE.Group();
-  const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.42), new THREE.MeshStandardMaterial({ color: 0x2b2b2b }));
-  gunBody.position.set(0.3, 0.7, -0.28);
-  const gunTip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.12), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-  gunTip.position.set(0.3, 0.7, -0.55);
-  gunOnPlayer.add(gunBody, gunTip);
+  const gunGripMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a });
+  const gunBodyMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b });
+  const gunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.08), gunGripMat);
+  gunGrip.position.set(0, -0.08, 0);
+  const gunSlide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.32), gunBodyMat);
+  gunSlide.position.set(0, 0, -0.12);
+  const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 8), gunBodyMat);
+  gunBarrel.rotation.x = Math.PI / 2;
+  gunBarrel.position.set(0, 0, -0.34);
+  gunOnPlayer.add(gunGrip, gunSlide, gunBarrel);
+  gunOnPlayer.position.set(0, -0.55, -0.05);
+  gunOnPlayer.rotation.x = -0.15;
   gunOnPlayer.visible = false;
-  character.add(gunOnPlayer);
+  // Marcador invisível na ponta do cano — usado para os projéteis nascerem
+  // exatamente na boca da arma, e não no centro do personagem.
+  const gunMuzzle = new THREE.Object3D();
+  gunMuzzle.position.set(0, 0, -0.42);
+  gunOnPlayer.add(gunMuzzle);
+  armR.add(gunOnPlayer);
   let hasGun = false;
 
   // =========================================================================
-  // INIMIGOS NORMAIS (P1:5, P2:3, P6:misturados)
+  // INIMIGOS NORMAIS (P1:2, P6:misturados)
   // =========================================================================
   const enemyMat = new THREE.MeshStandardMaterial({ color: 0xd63b3b });
   const normalEnemies = [];
@@ -402,18 +654,35 @@
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), enemyMat);
     body.position.y = 0.45;
-    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeMat);
-    eL.position.set(-0.16, 0.55, -0.38);
-    const eR = eL.clone(); eR.position.x = 0.16;
-    g.add(body, eL, eR);
+    // Rosto: olhos brancos com pupila preta, sobrancelhas bravas e uma boca
+    const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x101010 });
+    const eyeWL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), eyeWhiteMat);
+    eyeWL.position.set(-0.17, 0.56, -0.38);
+    const eyeWR = eyeWL.clone(); eyeWR.position.x = 0.17;
+    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), pupilMat);
+    pupilL.position.set(-0.17, 0.55, -0.47);
+    const pupilR = pupilL.clone(); pupilR.position.x = 0.17;
+    const browMat = new THREE.MeshStandardMaterial({ color: 0x3a0a0a });
+    const browL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.05), browMat);
+    browL.position.set(-0.15, 0.64, -0.4);
+    browL.rotation.z = -0.5; // ponta interna baixa, franzida = raiva
+    const browR = browL.clone(); browR.position.x = 0.15; browR.rotation.z = 0.5;
+    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x2a0505 });
+    // boca de raiva: metade de cima de um toro forma uma curva em arco (mal/bravo)
+    const mouth = new THREE.Mesh(
+      new THREE.TorusGeometry(0.12, 0.022, 8, 16, Math.PI),
+      mouthMat
+    );
+    mouth.position.set(0, 0.34, -0.42);
+    g.add(body, eyeWL, eyeWR, pupilL, pupilR, browL, browR, mouth);
     g.position.set(x, 0, z);
     scene.add(g);
     normalEnemies.push({ mesh: g, alive: true, hp: 1, baseX: x, baseZ: z, range: 1.5 + Math.random(), speed: 1.0 + Math.random() * 0.5 });
   }
-  // P1: 5 inimigos normais
-  for (let i = 0; i < 5; i++) {
-    spawnNormalEnemy(-2 + i * 1.0, 6 - i * 1.5);
-  }
+  // P1: 2 inimigos normais (ficam de frente para o personagem)
+  spawnNormalEnemy(-1.4, 6);
+  spawnNormalEnemy(1.4, 4);
   // P6: inimigos normais na arena
   spawnNormalEnemy(-3, -38); spawnNormalEnemy(3, -40);
   spawnNormalEnemy(-5, -44); spawnNormalEnemy(5, -46);
@@ -423,11 +692,11 @@
   spawnNormalEnemy(6, -44); spawnNormalEnemy(0, -46);
 
   // =========================================================================
-  // INIMIGOS ATIRADORES (P2: 3) — dropam arma ao morrer, Visual completamente
+  // INIMIGOS ATIRADORES (P2: 1, persegue dentro da plataforma) — dropam arma ao morrer, Visual completamente
   // diferente: corpo retangular azul escuro, olhos verdes, braço com arma
   // =========================================================================
   const shooterEnemies = [];
-  function spawnShooterEnemy(x, z) {
+  function spawnShooterEnemy(x, z, platformIdx) {
     const g = new THREE.Group();
     const shooterBodyMat = new THREE.MeshStandardMaterial({ color: 0x1a2a4a });
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.85, 0.45), shooterBodyMat);
@@ -438,6 +707,16 @@
     const eL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeMat2);
     eL.position.set(-0.12, 1.22, -0.21);
     const eR = eL.clone(); eR.position.x = 0.12;
+    const shooterBrowMat = new THREE.MeshStandardMaterial({ color: 0x0a1020 });
+    const shooterBrowL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.04), shooterBrowMat);
+    shooterBrowL.position.set(-0.11, 1.29, -0.2);
+    shooterBrowL.rotation.z = -0.45; // franzido = raiva
+    const shooterBrowR = shooterBrowL.clone(); shooterBrowR.position.x = 0.11; shooterBrowR.rotation.z = 0.45;
+    const shooterMouth = new THREE.Mesh(
+      new THREE.TorusGeometry(0.08, 0.016, 8, 16, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x0a1020 })
+    );
+    shooterMouth.position.set(0, 1.03, -0.21);
     const armL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), shooterBodyMat);
     armL.position.set(-0.42, 0.55, 0);
     const armR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), shooterBodyMat);
@@ -451,15 +730,17 @@
     const legL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.35, 0.14), new THREE.MeshStandardMaterial({ color: 0x0d1a30 }));
     legL.position.set(-0.14, 0.17, 0);
     const legR = legL.clone(); legR.position.x = 0.14;
-    g.add(body, head, eL, eR, armL, armR, gunBody, gunTip, legL, legR);
+    g.add(body, head, eL, eR, shooterBrowL, shooterBrowR, shooterMouth, armL, armR, gunBody, gunTip, legL, legR);
     g.position.set(x, 0, z);
     scene.add(g);
-    shooterEnemies.push({ mesh: g, alive: true, hp: 3, baseX: x, baseZ: z, fireTimer: 0, fireInterval: 2.0 + Math.random() });
+    shooterEnemies.push({ mesh: g, alive: true, hp: 3, baseX: x, baseZ: z, fireTimer: 0, fireInterval: 2.0 + Math.random(), platformIdx: platformIdx, speed: 1.3 + Math.random() * 0.4 });
   }
-  spawnShooterEnemy(-1.5, -5); spawnShooterEnemy(1.5, -7); spawnShooterEnemy(0, -9);
-  // P6: atiradores na arena
-  spawnShooterEnemy(-6, -40); spawnShooterEnemy(6, -42);
-  spawnShooterEnemy(0, -45);
+  // P2: 1 único atirador — persegue o personagem, mas sem sair da própria plataforma
+  spawnShooterEnemy(0, -6, 1);
+  // P6: atiradores da arena final — mesmo comportamento do atirador da P2
+  // (perseguem o personagem, mas sem sair da própria plataforma)
+  spawnShooterEnemy(-6, -40, 5); spawnShooterEnemy(6, -42, 5);
+  spawnShooterEnemy(0, -45, 5);
 
   // =========================================================================
   // INIMIGOS RÁPIDOS ALEATÓRIOS (P3)
@@ -468,13 +749,22 @@
   const fastEnemies = [];
   function spawnFastEnemy(x, z) {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.8, 6), fastMat);
-    body.position.y = 0.45;
+    // Corpo bem baixo e achatado, rente ao chão — baixo o suficiente para
+    // os tiros do personagem (que saem na altura da mão/arma) passarem por
+    // cima sem acertar.
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.34, 6), fastMat);
+    body.position.y = 0.19;
     const eMat3 = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 });
-    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), eMat3);
-    eL.position.set(-0.1, 0.55, -0.25);
-    const eR = eL.clone(); eR.position.x = 0.1;
-    g.add(body, eL, eR);
+    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), eMat3);
+    eL.position.set(-0.09, 0.24, -0.22);
+    const eR = eL.clone(); eR.position.x = 0.09;
+    // Chifres no topo — por causa deles, pisar em cima também machuca o personagem
+    const hornMat = new THREE.MeshStandardMaterial({ color: 0x150a1a });
+    const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 6), hornMat);
+    hornL.position.set(-0.11, 0.4, 0.03);
+    hornL.rotation.x = 0.35;
+    const hornR = hornL.clone(); hornR.position.x = 0.11;
+    g.add(body, eL, eR, hornL, hornR);
     g.position.set(x, 0, z);
     scene.add(g);
     const ang = Math.random() * Math.PI * 2;
@@ -505,7 +795,14 @@
     const eL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), eMat4);
     eL.position.set(-0.16, 0.85, -0.32);
     const eR = eL.clone(); eR.position.x = 0.16;
-    g.add(bodyM, eL, eR);
+    // Chifres na cabeça
+    const hornMat2 = new THREE.MeshStandardMaterial({ color: 0x120810 });
+    const hornL2 = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.4, 6), hornMat2);
+    hornL2.position.set(-0.18, 1.05, -0.05);
+    hornL2.rotation.x = 0.3;
+    hornL2.rotation.z = 0.25;
+    const hornR2 = hornL2.clone(); hornR2.position.x = 0.18; hornR2.rotation.z = -0.25;
+    g.add(bodyM, eL, eR, hornL2, hornR2);
     return g;
   }
   const GUARDIAN_CHASE_SPEED = 2.8;
@@ -515,7 +812,7 @@
     const mesh = makeGuardianMesh();
     mesh.position.set(x, 0, z);
     scene.add(mesh);
-    guardians.push({ mesh, alive: true, hp: GUARDIAN_HP, stompCooldown: 0, activated: false });
+    guardians.push({ mesh, alive: true, hp: GUARDIAN_HP, stompCooldown: 0, activated: false, jumping: false, jumpTimer: 0, jumpDuration: 0.55, jumpHeight: 2.2, jumpCooldown: 0.6 + Math.random() * 0.6, jumpStart: null, jumpTarget: null });
   }
   spawnGuardian(-3, -42); spawnGuardian(3, -44); spawnGuardian(-4, -46);
   spawnGuardian(4, -48); spawnGuardian(0, -40); spawnGuardian(-2, -50);
@@ -524,17 +821,37 @@
   spawnGuardian(-8, -44); spawnGuardian(8, -46);
 
   // =========================================================================
-  // ARMA DROPADA (quando inimigo atirador morre)
+  // ARMA DROPADA (quando inimigo atirador morre) — cai no chão com forma de
+  // arma de verdade; o personagem só a equipa se encostar nela.
   // =========================================================================
   let gunPickups = [];
+  const GUN_GROUND_Y = 0.16;
   function spawnGunPickup(pos) {
     const g = new THREE.Group();
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.6), new THREE.MeshStandardMaterial({ color: 0x3a3a3a, emissive: 0x111111 }));
-    b.position.y = 0.5;
-    g.add(b);
-    g.position.set(pos.x, 0, pos.z);
+    const gripMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a });
+    const bodyMat2 = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, emissive: 0x222222, emissiveIntensity: 0.3 });
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.22, 0.1), gripMat);
+    grip.position.set(0, -0.08, 0.05);
+    grip.rotation.x = 0.25;
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.42), bodyMat2);
+    slide.position.set(0, 0.06, -0.12);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.18, 8), bodyMat2);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.06, -0.42);
+    g.add(grip, slide, barrel);
+    // Nasce na altura da mão do inimigo (não no chão) e cai com física,
+    // saltando um pouco para o lado — só pode ser pega depois de pousar.
+    const ang = Math.random() * Math.PI * 2;
+    g.position.set(pos.x, 1.0, pos.z);
+    g.rotation.y = Math.random() * Math.PI * 2;
     scene.add(g);
-    gunPickups.push(g);
+    gunPickups.push({
+      mesh: g,
+      vy: 1.2,
+      vx: Math.cos(ang) * 1.1,
+      vz: Math.sin(ang) * 1.1,
+      landed: false
+    });
   }
 
   // =========================================================================
@@ -545,7 +862,7 @@
     new THREE.CylinderGeometry(0.5, 0.5, 0.05, 14),
     new THREE.MeshStandardMaterial({ color: 0xccaa33, emissive: 0x886600, emissiveIntensity: 0.4 })
   );
-  puzzlePlate.position.set(-13, 0.03, -15.5);
+  puzzlePlate.position.set(-38, 0.03, -23.5);
   scene.add(puzzlePlate);
 
   // Pedra empurrável
@@ -553,30 +870,25 @@
     new THREE.BoxGeometry(0.8, 0.8, 0.8),
     new THREE.MeshStandardMaterial({ color: 0x888877 })
   );
-  puzzleStone.position.set(-13, 0.4, -14.5);
+  puzzleStone.position.set(-38, 0.4, -22.5);
   scene.add(puzzleStone);
   let puzzleSolved = false;
 
-  // Parede que bloqueia a chave (atrás da placa)
-  const puzzleWall = new THREE.Mesh(
-    new THREE.BoxGeometry(6, 2.5, 0.4),
-    new THREE.MeshStandardMaterial({ color: 0x6a5a4a })
-  );
-  puzzleWall.position.set(-13, 1.25, -17.5);
-  scene.add(puzzleWall);
-
-  // Chave 1 vermelha (atrás da parede em P4)
+  // Chave 1 vermelha (fica invisível até o puzzle ser resolvido, sem parede
+  // bloqueando — ela simplesmente aparece quando a pedra pisa na placa)
   const key1Mesh = new THREE.Mesh(
     new THREE.BoxGeometry(0.15, 0.4, 0.08),
     new THREE.MeshStandardMaterial({ color: 0xee2222, emissive: 0xaa1111, emissiveIntensity: 0.6 })
   );
-  key1Mesh.position.set(-13, 0.6, -19);
+  key1Mesh.position.set(-38, 0.6, -27);
+  key1Mesh.visible = false;
   scene.add(key1Mesh);
   const key1Handle = new THREE.Mesh(
     new THREE.TorusGeometry(0.12, 0.03, 8, 12),
     new THREE.MeshStandardMaterial({ color: 0xee2222, emissive: 0xaa1111, emissiveIntensity: 0.6 })
   );
-  key1Handle.position.set(-13, 0.85, -19);
+  key1Handle.position.set(-38, 0.85, -27);
+  key1Handle.visible = false;
   scene.add(key1Handle);
   let hasRedKey = false;
   let hasBlueKey = false;
@@ -587,10 +899,10 @@
   const mathAnswer = -2;
   const mathOptions = [2, -2, 8, -8];
   const mathBtnPositions = [
-    { x:11.5, z:-15.5, val:2 },
-    { x:14.5, z:-15.5, val:-2 },
-    { x:11.5, z:-18.5, val:8 },
-    { x:14.5, z:-18.5, val:-8 },
+    { x:36.5, z:-23.5, val:2 },
+    { x:39.5, z:-23.5, val:-2 },
+    { x:36.5, z:-26.5, val:8 },
+    { x:39.5, z:-26.5, val:-8 },
   ];
   const mathBtnMeshes = [];
   for (const opt of mathOptions) {
@@ -631,14 +943,14 @@
     new THREE.PlaneGeometry(3, 1.5),
     new THREE.MeshBasicMaterial({ map: mathTex, side: THREE.DoubleSide })
   );
-  mathSign.position.set(13, 2.5, -17);
+  mathSign.position.set(38, 2.5, -25);
   scene.add(mathSign);
 
   let mathSolved = false;
 
   // Guardião escondido debaixo dos botões (mata com 1 hit se errar)
   const mathGuardian = makeGuardianMesh();
-  mathGuardian.position.set(13, -5, -17);
+  mathGuardian.position.set(38, -5, -25);
   scene.add(mathGuardian);
   let mathGuardianRising = false;
   let mathGuardianTimer = 0;
@@ -868,6 +1180,21 @@
   // =========================================================================
   let velocityY = 0;
   let grounded = true;
+  let charSpin = 0; // ângulo da cambalhota do personagem no ar (estilo Crash Bandicoot)
+  let spinTimer = 0; // tempo decorrido da cambalhota atual (zera ao aterrissar)
+  let airTimer = 0; // tempo decorrido desde que os pés saíram do chão (zera ao aterrissar)
+  // A cambalhota, no Crash Bandicoot, é rápida e termina bem antes do
+  // personagem voltar a tocar o chão — ela NÃO se estica pra durar o pulo
+  // inteiro. Por isso a duração do giro é um valor fixo e curto, independente
+  // do tempo total de ar do pulo (que depende de JUMP_SPEED/GRAVITY).
+  const SPIN_DURATION = 0.32; // segundos para completar 1 volta inteira
+  const JUMP_SPIN_SPEED = (2 * Math.PI) / SPIN_DURATION;
+  // Tempo até o ápice do pulo (metade do tempo total de ar). A cambalhota
+  // deve acontecer centrada nesse instante — lá em cima — e não colada no
+  // chão logo que o personagem decola.
+  const JUMP_APEX_TIME = JUMP_SPEED / GRAVITY;
+  const SPIN_START_TIME = Math.max(0, JUMP_APEX_TIME - SPIN_DURATION / 2);
+  let standingPlatform = null; // plataforma móvel em que o personagem está apoiado (ou null)
   let gameWon = false;
   let facingAngle = 0;
   let arenaActivated = false;
@@ -879,6 +1206,11 @@
   // antes parecia "o jogo reseta a cada lapada", já que o combate corpo a
   // corpo acontece bem perto do inimigo que atira.
   let stompInvulnTimer = 0;
+
+  // Última posição segura (no chão) do personagem. Atualizada toda vez que
+  // ele está de pé numa plataforma. Usada para reposicioná-lo caso caia
+  // num buraco entre as plataformas.
+  let lastGroundPos = new THREE.Vector3(START_POS.x, 0, START_POS.z);
 
   // -------- VIDA (3 corações) --------
   const MAX_HEARTS = 3;
@@ -912,8 +1244,6 @@
   const hintEl      = document.getElementById('hint');
   const crosshairEl = document.getElementById('crosshair');
   const fadeEl      = document.getElementById('fade');
-  const heartsPcEl  = document.getElementById('hearts-pc');
-  const keysPcEl    = document.getElementById('keys-pc');
   const restartButtonEl = document.getElementById('restart-button');
   restartButtonEl.addEventListener('click', () => { window.location.reload(); });
 
@@ -948,13 +1278,6 @@
   }
 
   function updateHeartsUI() {
-    heartsPcEl.innerHTML = '';
-    for (let i = 0; i < MAX_HEARTS; i++) {
-      const span = document.createElement('span');
-      span.textContent = '\u2665';
-      if (i >= hearts) span.className = 'lost';
-      heartsPcEl.appendChild(span);
-    }
     drawHeartsCanvas();
   }
   updateHeartsUI();
@@ -977,29 +1300,17 @@
   }
 
   function updateKeysUI() {
-    keysPcEl.innerHTML = '';
-    const red = document.createElement('span');
-    red.textContent = '\uD83D\uDD11';
-    red.style.color = hasRedKey ? '#ee2222' : 'rgba(255,255,255,0.28)';
-    if (!hasRedKey) red.style.filter = 'grayscale(1) brightness(0.5)';
-    keysPcEl.appendChild(red);
-    const blue = document.createElement('span');
-    blue.textContent = '\uD83D\uDD11';
-    blue.style.color = hasBlueKey ? '#3388ff' : 'rgba(255,255,255,0.28)';
-    if (!hasBlueKey) blue.style.filter = 'grayscale(1) brightness(0.5)';
-    keysPcEl.appendChild(blue);
     drawKeysCanvas();
   }
   updateKeysUI();
 
-  // Painel de corações fixo no canto superior esquerdo da tela em VR:
-  // preso à câmera, posicionado para aparecer no HUD como um painel
-  // flutuante no canto, igual à HUD do PC.
+  // Painel de corações e chaves — preso à câmera, no canto superior
+  // esquerdo da tela (única HUD do jogo, tanto no PC quanto em VR).
   const heartsPlaneMat = new THREE.MeshBasicMaterial({
     map: heartsTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
   });
-  const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.07), heartsPlaneMat);
-  heartsPlane.position.set(-0.15, 0.12, -0.6);
+  const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.06), heartsPlaneMat);
+  heartsPlane.position.set(-0.34, 0.24, -0.6);
   heartsPlane.renderOrder = 10;
   camera.add(heartsPlane);
 
@@ -1008,8 +1319,8 @@
   const keysPlaneMat = new THREE.MeshBasicMaterial({
     map: keysTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
   });
-  const keysPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.10, 0.07), keysPlaneMat);
-  keysPlane.position.set(0.05, 0.12, -0.6);
+  const keysPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.06), keysPlaneMat);
+  keysPlane.position.set(-0.34, 0.16, -0.6);
   keysPlane.renderOrder = 10;
   camera.add(keysPlane);
 
@@ -1021,6 +1332,27 @@
   // Tira "amount" corações (1 por padrão), dá knockback e deixa o
   // personagem piscando e invencível por HURT_BLINK_TIME segundos. Se os
   // corações acabarem, ativa a animação de morte.
+  // Chamada quando o personagem cai num buraco entre plataformas: tira 1
+  // coração e o teleporta de volta para a última posição segura no chão,
+  // em vez de deixá-lo continuar caindo para sempre.
+  function respawnFromPit() {
+    if (deathAnim) return;
+    hearts = Math.max(0, hearts - 1);
+    updateHeartsUI();
+    playHurtSound();
+    if (hearts <= 0) {
+      deathAnim = true;
+      deathAnimTimer = 0;
+      return;
+    }
+    const spot = findNearestSafeSpot(character.position.x, character.position.z);
+    character.position.set(spot.x, 0, spot.z);
+    velocityY = 0;
+    grounded = true;
+    standingPlatform = null;
+    invulnTimer = HURT_BLINK_TIME;
+  }
+
   function takeHit(amount) {
     if (playerIsInvulnerable()) return;
     if (deathAnim) return;
@@ -1040,6 +1372,7 @@
     character.position.z -= kb.z * 0.18;
     velocityY = 1.8;
     grounded = false;
+    standingPlatform = null;
   }
 
   function winGame() {
@@ -1161,6 +1494,12 @@
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
 
+    updateBridgePlatforms(dt, t);
+    if (standingPlatform && grounded) {
+      character.position.x += standingPlatform.deltaX;
+      character.position.z += standingPlatform.deltaZ;
+    }
+
     // Lido sempre, mesmo com o jogo já ganho, para servir de fallback do
     // botão "Repetir fase" dentro do VR (caso o dom-overlay não seja
     // suportado pelo navegador do headset): qualquer botão reinicia.
@@ -1210,7 +1549,7 @@
 
         character.position.x += worldDir.x * MOVE_SPEED * dt;
         character.position.z += worldDir.z * MOVE_SPEED * dt;
-        character.position.x = Math.max(-14, Math.min(14, character.position.x));
+        character.position.x = Math.max(-42, Math.min(42, character.position.x));
         character.position.z = Math.max(-58, Math.min(12, character.position.z));
         // Bloqueio porta vermelha (z=-48)
         if (!redDoorOpen && character.position.z < -48) {
@@ -1270,10 +1609,42 @@
       const shootPressed = keys['KeyF'] || xr.shootBtn || pad.shootBtn;
       if (hasGun && shootPressed && shootCooldown <= 0) {
         const fwd = forwardVectorFromAngle(aimLocked ? lockedFacingAngle : facingAngle);
-        const origin = character.position.clone().add(new THREE.Vector3(0, 0.75, 0)).add(fwd.clone().multiplyScalar(0.6));
+        // origem real: a ponta do cano da arma no mundo, não o centro do personagem
+        const origin = new THREE.Vector3();
+        gunMuzzle.getWorldPosition(origin);
+        origin.addScaledVector(fwd, 0.1);
         spawnPlayerProjectile(origin, fwd);
         playShootSound();
         shootCooldown = SHOOT_INTERVAL;
+      }
+
+      // -------- braços --------
+      // Ao atirar, o braço direito trava esticado para frente, na posição
+      // de segurar a arma (não para trás/para cima). O braço esquerdo
+      // continua balançando normalmente se o personagem estiver andando
+      // (só fica parado se estiver parado).
+      const AIM_ARM_ROTATION_X = 1.35; // braço esticado à frente, altura do ombro
+      const GUN_REST_ROTATION_X = -0.15; // arma parada, braço caído ao lado do corpo
+      // A arma é filha do braço, então sua rotação soma com a do braço. Ao
+      // mirar, cancelamos a rotação do braço (+ leve inclinação pra baixo)
+      // para o cano continuar apontando para frente, e não para cima.
+      const GUN_AIM_ROTATION_X = -AIM_ARM_ROTATION_X + 0.1;
+      if (hasGun && shootPressed) {
+        armR.rotation.x += (AIM_ARM_ROTATION_X - armR.rotation.x) * 0.4;
+        gunOnPlayer.rotation.x += (GUN_AIM_ROTATION_X - gunOnPlayer.rotation.x) * 0.4;
+        if (moveX !== 0 || moveZ !== 0) {
+          armL.rotation.x = -Math.sin(t * 10) * 0.5;
+        } else {
+          armL.rotation.x *= 0.8;
+        }
+      } else if (moveX !== 0 || moveZ !== 0) {
+        armL.rotation.x = -Math.sin(t * 10) * 0.5;
+        armR.rotation.x = Math.sin(t * 10) * 0.5;
+        gunOnPlayer.rotation.x += (GUN_REST_ROTATION_X - gunOnPlayer.rotation.x) * 0.4;
+      } else {
+        armL.rotation.x *= 0.8;
+        armR.rotation.x *= 0.8;
+        gunOnPlayer.rotation.x += (GUN_REST_ROTATION_X - gunOnPlayer.rotation.x) * 0.4;
       }
 
       // -------- gravidade --------
@@ -1285,15 +1656,41 @@
           character.position.y = 0;
           velocityY = 0;
           grounded = true;
+          lastGroundPos.set(character.position.x, 0, character.position.z);
+          triggerBridgeFall(character.position.x, character.position.z);
+          standingPlatform = findMovingPlatformAt(character.position.x, character.position.z);
         } else {
           grounded = false;
+          standingPlatform = null;
         }
       } else {
         grounded = false;
+        standingPlatform = null;
       }
 
+      // -------- cambalhota no pulo (estilo Crash Bandicoot) --------
+      // Gira o personagem rapidamente por uma volta completa, centrada no
+      // ÁPICE do pulo (lá em cima), e não colada no chão logo na decolagem.
+      // Fora dessa janela ele fica parado (em pé) — a cambalhota não se
+      // estica pra acompanhar a altura/duração do pulo, ela acontece rápido
+      // e some, exatamente como no Crash.
+      if (!grounded) {
+        airTimer += dt;
+        if (airTimer >= SPIN_START_TIME && spinTimer < SPIN_DURATION) {
+          spinTimer += dt;
+          if (spinTimer > SPIN_DURATION) spinTimer = SPIN_DURATION;
+          charSpin = -JUMP_SPIN_SPEED * spinTimer;
+        }
+      } else {
+        charSpin = 0;
+        spinTimer = 0;
+        airTimer = 0;
+      }
+      character.rotation.x = 0; // garante que o grupo externo nunca acumula essa rotação
+      characterModel.rotation.x = charSpin;
+
       if (character.position.y < -7) {
-        takeHit();
+        respawnFromPit();
       }
 
       // Colisão corpo-a-corpo baseada em ALTURA real, não só em "está no
@@ -1341,6 +1738,8 @@
         if (!ne.alive) continue;
         ne.mesh.position.x = ne.baseX + Math.sin(t * 1.3) * ne.range;
         ne.mesh.position.z = ne.baseZ + Math.cos(t * 1.1) * ne.range * 0.5;
+        ne.mesh.lookAt(character.position.x, ne.mesh.position.y, character.position.z);
+        ne.mesh.rotation.y += Math.PI; // o rosto fica no lado -Z; sem isso, o lookAt virava o rosto pro lado contrário
         const dx = character.position.x - ne.mesh.position.x;
         const dz = character.position.z - ne.mesh.position.z;
         const distXZ = Math.sqrt(dx * dx + dz * dz);
@@ -1363,10 +1762,25 @@
       // -------- inimigos atiradores (P2) --------
       for (const se of shooterEnemies) {
         if (!se.alive) continue;
+        // Se tiver plataforma associada, persegue o personagem em X/Z mas
+        // fica travado dentro dos limites da própria plataforma.
+        if (se.platformIdx !== undefined) {
+          const plat = PLATFORMS[se.platformIdx];
+          const tdx = character.position.x - se.mesh.position.x;
+          const tdz = character.position.z - se.mesh.position.z;
+          const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
+          if (tdist > 0.15) {
+            se.mesh.position.x += (tdx / tdist) * se.speed * dt;
+            se.mesh.position.z += (tdz / tdist) * se.speed * dt;
+          }
+          se.mesh.position.x = Math.max(plat.cx - plat.hw + 0.6, Math.min(plat.cx + plat.hw - 0.6, se.mesh.position.x));
+          se.mesh.position.z = Math.max(plat.cz - plat.hd + 0.6, Math.min(plat.cz + plat.hd - 0.6, se.mesh.position.z));
+        }
         const dx = character.position.x - se.mesh.position.x;
         const dz = character.position.z - se.mesh.position.z;
         const distXZ = Math.sqrt(dx * dx + dz * dz);
         se.mesh.lookAt(character.position.x, se.mesh.position.y, character.position.z);
+        se.mesh.rotation.y += Math.PI; // arma/olhos ficam no lado -Z; sem isso, o lookAt virava o inimigo de costas para o personagem
         se.fireTimer += dt;
         if (se.fireTimer >= se.fireInterval && distXZ < 15) {
           se.fireTimer = 0;
@@ -1419,23 +1833,10 @@
         const dz = character.position.z - fe.mesh.position.z;
         const distXZ = Math.sqrt(dx * dx + dz * dz);
         if (distXZ < 0.75) {
+          // Estes inimigos têm chifres: qualquer contato, inclusive pisar
+          // em cima, machuca o personagem. Só morrem atirando neles.
           const contact = meleeContact(0.9);
-          if (contact === 'stomp') {
-            fe.hp -= 1;
-            spawnImpactEffect(fe.mesh.position);
-            if (fe.hp <= 0) {
-              fe.alive = false;
-              squashMesh(fe.mesh, true);
-              velocityY = KILL_BOUNCE_SPEED;
-              stompInvulnTimer = STOMP_SAFE_TIME;
-              playDefeatSound();
-            } else {
-              squashMesh(fe.mesh, false);
-              velocityY = KILL_BOUNCE_SPEED;
-              stompInvulnTimer = STOMP_SAFE_TIME;
-              playHitSound();
-            }
-          } else if (contact === 'hit') {
+          if (contact !== 'none') {
             takeHit();
           }
         }
@@ -1456,11 +1857,40 @@
         if (!gd.activated && distXZ < 8) {
           gd.activated = true;
         }
-        if (gd.activated && distXZ > 0.3) {
-          const nx = dx / distXZ, nz = dz / distXZ;
-          gd.mesh.position.x += nx * GUARDIAN_CHASE_SPEED * dt;
-          gd.mesh.position.z += nz * GUARDIAN_CHASE_SPEED * dt;
-          gd.mesh.rotation.y = Math.atan2(-nx, -nz);
+        if (gd.activated) {
+          if (gd.jumping) {
+            // Meio do ataque: voa em arco até a posição travada no início
+            // do pulo, pousando em cima do personagem.
+            gd.jumpTimer += dt;
+            const frac = Math.min(gd.jumpTimer / gd.jumpDuration, 1);
+            gd.mesh.position.x = gd.jumpStart.x + (gd.jumpTarget.x - gd.jumpStart.x) * frac;
+            gd.mesh.position.z = gd.jumpStart.z + (gd.jumpTarget.z - gd.jumpStart.z) * frac;
+            gd.mesh.position.y = Math.sin(frac * Math.PI) * gd.jumpHeight;
+            if (frac >= 1) {
+              gd.jumping = false;
+              gd.mesh.position.y = 0;
+              gd.jumpCooldown = 1.3 + Math.random() * 0.8;
+            }
+          } else if (gd.jumpCooldown > 0) {
+            gd.jumpCooldown -= dt;
+            if (distXZ > 0.3) {
+              const nx = dx / distXZ, nz = dz / distXZ;
+              gd.mesh.position.x += nx * GUARDIAN_CHASE_SPEED * dt;
+              gd.mesh.position.z += nz * GUARDIAN_CHASE_SPEED * dt;
+              gd.mesh.rotation.y = Math.atan2(-nx, -nz);
+            }
+          } else if (distXZ < 5.5) {
+            // Perto o bastante: dispara o ataque de pulo em cima do personagem
+            gd.jumping = true;
+            gd.jumpTimer = 0;
+            gd.jumpStart = { x: gd.mesh.position.x, z: gd.mesh.position.z };
+            gd.jumpTarget = { x: character.position.x, z: character.position.z };
+          } else if (distXZ > 0.3) {
+            const nx = dx / distXZ, nz = dz / distXZ;
+            gd.mesh.position.x += nx * GUARDIAN_CHASE_SPEED * dt;
+            gd.mesh.position.z += nz * GUARDIAN_CHASE_SPEED * dt;
+            gd.mesh.rotation.y = Math.atan2(-nx, -nz);
+          }
         }
         if (gd.activated && distXZ < 0.8 && character.position.y <= 1.7) {
           takeHit(3);
@@ -1485,9 +1915,10 @@
         if (Math.sqrt(pdx * pdx + pdz * pdz) < 0.45) {
           puzzleSolved = true;
           puzzleStone.position.y = 0.05;
-          puzzleWall.visible = false;
+          key1Mesh.visible = true;
+          key1Handle.visible = true;
           playPickupSound();
-          showHint('Passagem aberta! Pegue a chave!', 2000);
+          showHint('Chave apareceu! Vá pegá-la!', 2000);
         }
       }
 
@@ -1577,21 +2008,35 @@
         }
       }
 
-      // -------- pegar arma (drops) --------
+      // -------- arma dropada: cai da mão do inimigo até o chão --------
       for (let i = gunPickups.length - 1; i >= 0; i--) {
         const gp = gunPickups[i];
-        const dx = character.position.x - gp.position.x;
-        const dz = character.position.z - gp.position.z;
+        if (!gp.landed) {
+          // física simples de queda: gravidade + atrito no ar
+          gp.vy -= 4.5 * dt;
+          gp.mesh.position.x += gp.vx * dt;
+          gp.mesh.position.z += gp.vz * dt;
+          gp.mesh.position.y += gp.vy * dt;
+          gp.mesh.rotation.x += dt * 6;
+          if (gp.mesh.position.y <= GUN_GROUND_Y) {
+            gp.mesh.position.y = GUN_GROUND_Y;
+            gp.landed = true;
+            gp.mesh.rotation.x = 0;
+            gp.mesh.rotation.z = 0;
+          }
+          continue; // ainda caindo: não pode ser pega
+        }
+        gp.mesh.rotation.y += dt * 1.5;
+        const dx = character.position.x - gp.mesh.position.x;
+        const dz = character.position.z - gp.mesh.position.z;
         if (Math.sqrt(dx * dx + dz * dz) < 1.0) {
           hasGun = true;
           gunOnPlayer.visible = true;
           crosshairEl.style.display = 'block';
-          scene.remove(gp);
+          scene.remove(gp.mesh);
           gunPickups.splice(i, 1);
           playPickupSound();
           showHint('Arma equipada! Atire com F.', 2000);
-        } else {
-          gp.rotation.y += dt * 1.5;
         }
       }
 
@@ -1611,10 +2056,11 @@
             break;
           }
         }
-        // rápidos
+        // rápidos — baixos demais: só acerta se o projétil estiver bem
+        // perto do chão (tiros na altura normal de mira passam por cima)
         if (!hit) for (const fe of fastEnemies) {
           if (!fe.alive) continue;
-          if (p.mesh.position.distanceTo(fe.mesh.position.clone().setY(0.5)) < 0.5) {
+          if (p.mesh.position.distanceTo(fe.mesh.position.clone().setY(0.2)) < 0.32) {
             fe.hp -= 1; hit = true;
             if (fe.hp <= 0) { fe.alive = false; spawnImpactEffect(fe.mesh.position); squashMesh(fe.mesh, true); playDefeatSound(); }
             else { squashMesh(fe.mesh, false); playHitSound(); }
@@ -1653,7 +2099,15 @@
         p.life += dt;
         const dx = character.position.x - p.mesh.position.x;
         const dz = character.position.z - p.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.6) {
+        const distXZ = Math.sqrt(dx * dx + dz * dz);
+        // Hitbox mais justa: além da distância horizontal, o tiro só acerta
+        // se a altura dele realmente cruzar o corpo do personagem. Antes só
+        // a distância X/Z era checada, então pular por cima de um tiro que
+        // passava rente ao chão ainda acertava, mesmo "longe" na prática.
+        const charFeet = character.position.y;
+        const charHead = character.position.y + 1.55;
+        const heightOverlap = p.mesh.position.y >= charFeet - 0.15 && p.mesh.position.y <= charHead;
+        if (distXZ < 0.45 && heightOverlap) {
           takeHit();
           scene.remove(p.mesh);
           enemyProjectiles.splice(i, 1);
