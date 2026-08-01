@@ -82,8 +82,8 @@
 <div id="ui">
   <div id="info">
     <b>Fase VR - Aventura do Herói</b><br/>
-    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira, 4/6 gira câmera 45°<br/>
-    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, analógico direito gira câmera 45°<br/>
+    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira, 4/6 gira câmera 45°, 8/2 sobe/desce a câmera, 5 reseta a câmera<br/>
+    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, analógico direito gira/sobe/desce a câmera, clique do analógico direito (R3) reseta a câmera<br/>
     6 plataformas + corredor final: inimigos normais, atiradores (dropam arma), rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar chave 1. Plataforma direita (P5): quiz matemático 3-5=? — acerte -2 para ganhar chave 2, errou morre. Com as 2 chaves, o portão da arena abre. Guardiões perseguem, espinhos e martelos. Ache a estrela no corredor!
   </div>
   <button id="vr-button">Entrar em VR</button>
@@ -159,6 +159,14 @@
   // novo ângulo (não é instantâneo, mas também não gira livremente sozinho).
   const CAM_YAW_STEP = Math.PI / 4;
   const CAM_YAW_LERP = 6.0;
+  // Altura/distância da câmera também ajustável manualmente, em níveis fixos
+  // (analógico direito p/ cima-baixo no VR / teclas 8 e 2 no PC). Cada nível
+  // acrescenta altura E distância atrás do personagem, pra "ver de cima"
+  // sem a câmera acabar em cima da cabeça dele.
+  const CAM_HEIGHT_STEP = 1.15;
+  const CAM_BACK_STEP   = 1.6;
+  const CAM_HEIGHT_LEVEL_MAX = 3;
+  const CAM_ZOOM_LERP = 6.0;
 
   // =========================================================================
   // GEOMETRIA DA FASE
@@ -1193,6 +1201,13 @@
   let prevCamKeyLeft = false;  // estado anterior da tecla 4 (PC), pra detectar só o toque
   let prevCamKeyRight = false; // estado anterior da tecla 6 (PC)
   let prevCamStickDir = 0;     // -1/0/1: lado anterior do analógico direito (VR)
+  // -------- altura/distância manual da câmera (níveis fixos) --------
+  let camHeightLevel = 0;      // 0 = altura original da fase; sobe até CAM_HEIGHT_LEVEL_MAX
+  let prevCamKeyUp = false;    // estado anterior da tecla 8 (PC)
+  let prevCamKeyDown = false;  // estado anterior da tecla 2 (PC)
+  let prevCamStickVert = 0;    // -1/0/1: lado anterior do analógico direito (cima/baixo, VR)
+  let prevCamResetKey = false; // estado anterior da tecla 5 (PC)
+  let prevCamResetStick = false; // estado anterior do clique do analógico direito (R3, VR)
   let gameWon = false;
   let facingAngle = 0;
   let arenaActivated = false;
@@ -1413,7 +1428,8 @@
   // ENTRADA: CONTROLE VR (Quest)
   // =========================================================================
   function getXRInput() {
-    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false, rightStickX = 0;
+    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false,
+        rightStickX = 0, rightStickY = 0, rightStickClick = false;
     const session = renderer.xr.getSession && renderer.xr.getSession();
     if (session) {
       for (const src of session.inputSources) {
@@ -1426,19 +1442,25 @@
         if (src.handedness === 'right') {
           if (gp.buttons[0] && gp.buttons[0].pressed) shootBtn = true;
           if (gp.buttons[1] && gp.buttons[1].pressed) gripRightBtn = true;
+          // botão 3 é o clique do analógico (R3) — usado pra resetar a
+          // câmera, então fica de fora do loop genérico de pulo abaixo.
+          if (gp.buttons[3] && gp.buttons[3].pressed) rightStickClick = true;
           for (let bi = 2; bi < gp.buttons.length; bi++) {
+            if (bi === 3) continue;
             if (gp.buttons[bi] && gp.buttons[bi].pressed) { jumpBtn = true; break; }
           }
           // analógico direito: usado só pra girar a câmera em saltos de 45°
-          // (ver handleCameraYawInput), não pra mover o personagem.
+          // e mudar a altura dela (ver o bloco de câmera em animate()), não
+          // pra mover o personagem.
           rightStickX = sx;
+          rightStickY = sy;
         } else {
           if (Math.abs(sx) > 0.15) moveX += sx;
           if (Math.abs(sy) > 0.15) moveY += sy;
         }
       }
     }
-    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn, rightStickX };
+    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn, rightStickX, rightStickY, rightStickClick };
   }
 
   // =========================================================================
@@ -1562,10 +1584,17 @@
         aimLocked = false;
       }
 
-      // -------- mover personagem (eixos fixos do mundo; a câmera nunca gira,
-      // então "para frente" é sempre a mesma direção do mundo, -Z) --------
+      // -------- mover personagem (relativo à câmera: "frente" é sempre
+      // pra onde a câmera está olhando agora, então o controle continua
+      // fazendo sentido depois de girar a câmera em saltos de 45°) --------
       if (moveX !== 0 || moveZ !== 0) {
-        const worldDir = new THREE.Vector3(moveX, 0, moveZ);
+        const camYaw = camPivot.rotation.y;
+        const cosY = Math.cos(camYaw), sinY = Math.sin(camYaw);
+        const worldDir = new THREE.Vector3(
+          moveX * cosY + moveZ * sinY,
+          0,
+          -moveX * sinY + moveZ * cosY
+        );
 
         character.position.x += worldDir.x * MOVE_SPEED * dt;
         character.position.z += worldDir.z * MOVE_SPEED * dt;
@@ -2221,6 +2250,42 @@
     while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
     camPivot.rotation.y += yawDiff * Math.min(1, CAM_YAW_LERP * dt);
+
+    // -------- altura/distância da câmera em níveis fixos (analógico direito
+    // pra cima/baixo no VR / teclas 8 e 2 no PC) — sobe e afasta pra ver o
+    // jogo mais de cima; desce de volta pro normal --------
+    const d8 = !!keys['Digit8'];
+    const d2 = !!keys['Digit2'];
+    if (d8 && !prevCamKeyUp)   camHeightLevel = Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + 1);
+    if (d2 && !prevCamKeyDown) camHeightLevel = Math.max(0, camHeightLevel - 1);
+    prevCamKeyUp = d8;
+    prevCamKeyDown = d2;
+    // analógico pra cima manda o eixo Y negativo (mesma convenção já usada
+    // pelo analógico esquerdo pra andar pra frente) — precisa voltar ao
+    // centro antes de contar outro "toque".
+    let stickVert = 0;
+    if (xr.rightStickY < -0.6) stickVert = 1;
+    else if (xr.rightStickY > 0.6) stickVert = -1;
+    if (stickVert !== 0 && prevCamStickVert === 0) {
+      camHeightLevel = Math.max(0, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + stickVert));
+    }
+    prevCamStickVert = stickVert;
+
+    // -------- resetar a câmera pro estado original (tecla 5 no PC / clique
+    // do analógico direito, R3, no VR) --------
+    const d5 = !!keys['Digit5'];
+    const stickClick = !!xr.rightStickClick;
+    if ((d5 && !prevCamResetKey) || (stickClick && !prevCamResetStick)) {
+      camYawTarget = 0;
+      camHeightLevel = 0;
+    }
+    prevCamResetKey = d5;
+    prevCamResetStick = stickClick;
+
+    const camHeightTarget = CAM_HEIGHT + camHeightLevel * CAM_HEIGHT_STEP;
+    const camBackTarget = CAM_BACK_OFFSET + camHeightLevel * CAM_BACK_STEP;
+    dolly.position.y += (camHeightTarget - dolly.position.y) * Math.min(1, CAM_ZOOM_LERP * dt);
+    dolly.position.z += (camBackTarget - dolly.position.z) * Math.min(1, CAM_ZOOM_LERP * dt);
 
     renderer.render(scene, camera);
   }
