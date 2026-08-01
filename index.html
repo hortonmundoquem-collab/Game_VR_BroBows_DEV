@@ -82,8 +82,8 @@
 <div id="ui">
   <div id="info">
     <b>Fase VR - Aventura do Herói</b><br/>
-    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira, 4/6 gira câmera 45°, 8/2 sobe/desce a câmera, 5 reseta a câmera<br/>
-    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, analógico direito gira/sobe/desce a câmera, clique do analógico direito (R3) reseta a câmera<br/>
+    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira, 4/6 gira câmera 45°, 8/2 sobe/desce a câmera (o nível mais baixo é primeira pessoa), 5 reseta a câmera<br/>
+    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, analógico direito gira/sobe/desce a câmera (o nível mais baixo é primeira pessoa), clique do analógico direito (R3) reseta a câmera<br/>
     6 plataformas + corredor final: inimigos normais, atiradores (dropam arma), rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar chave 1. Plataforma direita (P5): quiz matemático 3-5=? — acerte -2 para ganhar chave 2, errou morre. Com as 2 chaves, o portão da arena abre. Guardiões perseguem, espinhos e martelos. Ache a estrela no corredor!
   </div>
   <button id="vr-button">Entrar em VR</button>
@@ -165,8 +165,25 @@
   // sem a câmera acabar em cima da cabeça dele.
   const CAM_HEIGHT_STEP = 1.15;
   const CAM_BACK_STEP   = 1.6;
-  const CAM_HEIGHT_LEVEL_MAX = 3;
+  // Níveis de zoom: negativos aproximam (mais perto do que o antigo padrão),
+  // positivos afastam. 0 é o antigo "padrão" (o que já existia antes).
+  // CAM_HEIGHT_LEVEL_DEFAULT é o nível em que a câmera realmente começa/
+  // reseta agora: 1 nível mais afastado do que o antigo padrão (0).
+  // O nível mais baixo de todos (CAM_HEIGHT_LEVEL_MIN) é especial: em vez de
+  // seguir a progressão linear de altura/distância, ele vira uma câmera em
+  // PRIMEIRA PESSOA, plantada na altura dos olhos do personagem e olhando
+  // exatamente para onde ele está olhando.
+  const CAM_HEIGHT_LEVEL_MIN = -3;
+  const CAM_HEIGHT_LEVEL_MAX = 5;
+  const CAM_HEIGHT_LEVEL_DEFAULT = 1;
   const CAM_ZOOM_LERP = 6.0;
+  // Câmera em primeira pessoa: altura dos "olhos" do personagem (o modelo
+  // tem a cabeça centrada em y=1.15) e um pequeno recuo pra trás/pra frente
+  // em Z (0 = bem no centro da cabeça). O personagem some (fica invisível)
+  // enquanto essa câmera estiver ativa, pra não atrapalhar a visão.
+  const FP_EYE_HEIGHT = 1.15;
+  const FP_BACK_OFFSET = 0;
+  const FP_YAW_LERP = 10.0;
 
   // =========================================================================
   // GEOMETRIA DA FASE
@@ -1202,7 +1219,7 @@
   let prevCamKeyRight = false; // estado anterior da tecla 6 (PC)
   let prevCamStickDir = 0;     // -1/0/1: lado anterior do analógico direito (VR)
   // -------- altura/distância manual da câmera (níveis fixos) --------
-  let camHeightLevel = 0;      // 0 = altura original da fase; sobe até CAM_HEIGHT_LEVEL_MAX
+  let camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT;      // nível inicial/padrão da câmera; varia de CAM_HEIGHT_LEVEL_MIN a CAM_HEIGHT_LEVEL_MAX
   let prevCamKeyUp = false;    // estado anterior da tecla 8 (PC)
   let prevCamKeyDown = false;  // estado anterior da tecla 2 (PC)
   let prevCamStickVert = 0;    // -1/0/1: lado anterior do analógico direito (cima/baixo, VR)
@@ -2225,8 +2242,17 @@
     // para as plataformas laterais (P4/P5). A câmera nunca gira sozinha —
     // só se move para manter o personagem centralizado, e só gira (em
     // saltos de 45°) quando o jogador pede, via handleCameraYawInput().
+    // No nível mais baixo (primeira pessoa) não pode haver atraso nenhum no
+    // eixo X, senão a "cabeça" do jogador fica visivelmente atrasada em
+    // relação ao corpo enquanto ele anda para os lados.
+    const isFirstPerson = camHeightLevel === CAM_HEIGHT_LEVEL_MIN;
     camPivot.position.z = character.position.z;
-    camPivot.position.x += (character.position.x - camPivot.position.x) * 3.5 * dt;
+    if (isFirstPerson) {
+      camPivot.position.x = character.position.x;
+    } else {
+      camPivot.position.x += (character.position.x - camPivot.position.x) * 3.5 * dt;
+    }
+    character.visible = !isFirstPerson;
 
     // -------- girar a câmera em saltos de 45° (analógico direito do VR /
     // teclas 4 e 6 no PC) --------
@@ -2246,10 +2272,17 @@
     }
     prevCamStickDir = stickDir;
 
-    let yawDiff = camYawTarget - camPivot.rotation.y;
+    // Em primeira pessoa a câmera não usa o giro manual de 45° — ela segue
+    // direto a direção que o personagem está olhando (facingAngle), como
+    // os próprios "olhos" dele. O giro manual continua sendo registrado
+    // (camYawTarget) enquanto isso, então ao subir de novo pro modo normal
+    // a câmera volta suavemente pro ângulo manual que estava antes.
+    const camYawEffectiveTarget = isFirstPerson ? character.rotation.y : camYawTarget;
+    const camYawEffectiveLerp = isFirstPerson ? FP_YAW_LERP : CAM_YAW_LERP;
+    let yawDiff = camYawEffectiveTarget - camPivot.rotation.y;
     while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-    camPivot.rotation.y += yawDiff * Math.min(1, CAM_YAW_LERP * dt);
+    camPivot.rotation.y += yawDiff * Math.min(1, camYawEffectiveLerp * dt);
 
     // -------- altura/distância da câmera em níveis fixos (analógico direito
     // pra cima/baixo no VR / teclas 8 e 2 no PC) — sobe e afasta pra ver o
@@ -2257,7 +2290,7 @@
     const d8 = !!keys['Digit8'];
     const d2 = !!keys['Digit2'];
     if (d8 && !prevCamKeyUp)   camHeightLevel = Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + 1);
-    if (d2 && !prevCamKeyDown) camHeightLevel = Math.max(0, camHeightLevel - 1);
+    if (d2 && !prevCamKeyDown) camHeightLevel = Math.max(CAM_HEIGHT_LEVEL_MIN, camHeightLevel - 1);
     prevCamKeyUp = d8;
     prevCamKeyDown = d2;
     // analógico pra cima manda o eixo Y negativo (mesma convenção já usada
@@ -2267,7 +2300,7 @@
     if (xr.rightStickY < -0.6) stickVert = 1;
     else if (xr.rightStickY > 0.6) stickVert = -1;
     if (stickVert !== 0 && prevCamStickVert === 0) {
-      camHeightLevel = Math.max(0, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + stickVert));
+      camHeightLevel = Math.max(CAM_HEIGHT_LEVEL_MIN, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + stickVert));
     }
     prevCamStickVert = stickVert;
 
@@ -2277,15 +2310,33 @@
     const stickClick = !!xr.rightStickClick;
     if ((d5 && !prevCamResetKey) || (stickClick && !prevCamResetStick)) {
       camYawTarget = 0;
-      camHeightLevel = 0;
+      camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT;
     }
     prevCamResetKey = d5;
     prevCamResetStick = stickClick;
 
-    const camHeightTarget = CAM_HEIGHT + camHeightLevel * CAM_HEIGHT_STEP;
-    const camBackTarget = CAM_BACK_OFFSET + camHeightLevel * CAM_BACK_STEP;
+    // No modo primeira pessoa a altura acompanha a altura ATUAL do
+    // personagem (inclusive pulando), na altura dos olhos, e a distância
+    // fica praticamente zero (a câmera fica dentro da cabeça dele, que está
+    // invisível). Nos outros níveis, mantém a progressão linear de sempre.
+    const camHeightTarget = isFirstPerson
+      ? character.position.y + FP_EYE_HEIGHT
+      : CAM_HEIGHT + camHeightLevel * CAM_HEIGHT_STEP;
+    const camBackTarget = isFirstPerson
+      ? FP_BACK_OFFSET
+      : CAM_BACK_OFFSET + camHeightLevel * CAM_BACK_STEP;
     dolly.position.y += (camHeightTarget - dolly.position.y) * Math.min(1, CAM_ZOOM_LERP * dt);
     dolly.position.z += (camBackTarget - dolly.position.z) * Math.min(1, CAM_ZOOM_LERP * dt);
+
+    // A inclinação fixa pra baixo (CAM_TILT_DOWN) só faz sentido pra olhar
+    // o personagem de cima nos modos de terceira pessoa; em primeira pessoa
+    // a câmera deve ficar nivelada (olhando reto pra frente). Isso só se
+    // aplica no modo desktop — em VR o Three.js substitui a rotação da
+    // câmera pela pose real do headset de qualquer forma.
+    if (!renderer.xr.isPresenting) {
+      const tiltTarget = isFirstPerson ? 0 : -CAM_TILT_DOWN;
+      camera.rotation.x += (tiltTarget - camera.rotation.x) * Math.min(1, CAM_ZOOM_LERP * dt);
+    }
 
     renderer.render(scene, camera);
   }
