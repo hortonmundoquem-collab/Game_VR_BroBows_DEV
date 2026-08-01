@@ -82,8 +82,8 @@
 <div id="ui">
   <div id="info">
     <b>Fase VR - Aventura do Herói</b><br/>
-    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira<br/>
-    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira<br/>
+    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira, 4/6 gira câmera 45°<br/>
+    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, analógico direito gira câmera 45°<br/>
     6 plataformas + corredor final: inimigos normais, atiradores (dropam arma), rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar chave 1. Plataforma direita (P5): quiz matemático 3-5=? — acerte -2 para ganhar chave 2, errou morre. Com as 2 chaves, o portão da arena abre. Guardiões perseguem, espinhos e martelos. Ache a estrela no corredor!
   </div>
   <button id="vr-button">Entrar em VR</button>
@@ -153,6 +153,12 @@
   const CAM_BACK_OFFSET = 6.4;   // distância atrás do personagem (mais longe que antes)
   const CAM_HEIGHT      = 3.6;   // altura do "assento" da câmera acima do chão (mais alta, para ver o jogo de cima)
   const CAM_TILT_DOWN   = 0.52;  // inclinação p/ baixo (radianos) usada só no modo desktop, compensando a altura maior
+  // Rotação manual da câmera ao redor do personagem, em saltos fixos de 45°
+  // (analógico direito no VR / teclas 4 e 6 no PC). CAM_YAW_STEP é o tamanho
+  // de cada salto; CAM_YAW_LERP controla a suavidade da transição até o
+  // novo ângulo (não é instantâneo, mas também não gira livremente sozinho).
+  const CAM_YAW_STEP = Math.PI / 4;
+  const CAM_YAW_LERP = 6.0;
 
   // =========================================================================
   // GEOMETRIA DA FASE
@@ -251,14 +257,20 @@
   });
 
   // ---- DOLLY / RIG DA CÂMERA -------------------------------------------------
-  // dolly: grupo que representa o "trilho" da câmera. Só a posição Z dele
-  // muda, a cada quadro, para seguir o personagem para frente. X e Y do
-  // dolly ficam sempre em 0.
+  // camPivot: grupo "de baixo", fica sempre no chão, acompanha o X/Z do
+  // personagem e é o único que gira (rotation.y), em saltos de 45°, quando o
+  // jogador troca o ângulo da câmera (analógico direito no VR / teclas 4 e 6
+  // no PC).
+  // dolly: filho de camPivot, com um deslocamento LOCAL fixo (atrás e acima)
+  // que nunca muda — ao girar o camPivot, esse deslocamento gira junto, como
+  // se a câmera estivesse presa numa haste que gira em torno do personagem.
+  const camPivot = new THREE.Group();
+  camPivot.position.set(0, 0, START_POS.z);
+  scene.add(camPivot);
+
   const dolly = new THREE.Group();
-  // O dolly já nasce na posição final da "câmera de Crash Bandicoot": atrás
-  // e acima do personagem. A cada quadro, só o Z dele muda (ver animate()).
-  dolly.position.set(0, CAM_HEIGHT, START_POS.z + CAM_BACK_OFFSET);
-  scene.add(dolly);
+  dolly.position.set(0, CAM_HEIGHT, CAM_BACK_OFFSET);
+  camPivot.add(dolly);
 
   // A câmera é filha do dolly. Em modo DESKTOP (sem VR), ela fica com uma
   // leve inclinação fixa pra baixo, definida uma única vez aqui e nunca mais
@@ -272,7 +284,8 @@
   // terceira pessoa de verdade: o jogador "flutua" naquele ponto fixo e pode
   // virar a cabeça livremente pra olhar a cena, como em Moss ou Astro Bot
   // Rescue Mission — mas o ponto de observação em si só avança pra frente
-  // junto com o personagem, nunca se aproxima nem gira sozinho.
+  // junto com o personagem (ou gira em saltos de 45°, quando pedido), nunca
+  // se aproxima nem gira sozinho.
   dolly.add(camera);
   camera.position.set(0, 0, 0);
   camera.rotation.set(-CAM_TILT_DOWN, 0, 0);
@@ -977,31 +990,11 @@
   scene.add(blueDoor);
   let blueDoorOpen = false;
 
-  // Paredes em funil que estreitam o caminho até os portões
-  const gateWallMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.6, roughness: 0.4 });
-  const funnelGeoL = new THREE.BufferGeometry();
-  const fLv = new Float32Array([
-    -10, 0, -44,   -10, 3, -44,
-    -3.5, 3, -52,  -3.5, 0, -52
-  ]);
-  funnelGeoL.setAttribute('position', new THREE.BufferAttribute(fLv, 3));
-  funnelGeoL.setIndex([0,1,2, 0,2,3]);
-  funnelGeoL.computeVertexNormals();
-  const funnelWallL = new THREE.Mesh(funnelGeoL, gateWallMat);
-  scene.add(funnelWallL);
-  const funnelGeoR = new THREE.BufferGeometry();
-  const fRv = new Float32Array([
-    10, 0, -44,   10, 3, -44,
-    3.5, 3, -52,  3.5, 0, -52
-  ]);
-  funnelGeoR.setAttribute('position', new THREE.BufferAttribute(fRv, 3));
-  funnelGeoR.setIndex([0,2,1, 0,3,2]);
-  funnelGeoR.computeVertexNormals();
-  const funnelWallR = new THREE.Mesh(funnelGeoR, gateWallMat);
-  scene.add(funnelWallR);
-  const backWall = new THREE.Mesh(new THREE.BoxGeometry(20, 3, 0.5), gateWallMat);
-  backWall.position.set(0, 1.5, -44);
-  scene.add(backWall);
+  // As paredes cinzas em funil (que ficavam pretas na prática, sob a luz da
+  // cena) foram removidas — o caminho até os portões agora não tem mais
+  // nenhuma parede visual extra. Só os portões vermelho e azul continuam
+  // existindo (já bloqueiam a passagem sozinhos via colisão, sem precisar
+  // de parede ao redor).
 
   // =========================================================================
   // ARMADILHAS (P6) — espinhos grandes e tenebrosos
@@ -1195,6 +1188,11 @@
   const JUMP_APEX_TIME = JUMP_SPEED / GRAVITY;
   const SPIN_START_TIME = Math.max(0, JUMP_APEX_TIME - SPIN_DURATION / 2);
   let standingPlatform = null; // plataforma móvel em que o personagem está apoiado (ou null)
+  // -------- rotação manual da câmera (saltos de 45°) --------
+  let camYawTarget = 0;       // ângulo alvo do camPivot, sempre múltiplo de CAM_YAW_STEP
+  let prevCamKeyLeft = false;  // estado anterior da tecla 4 (PC), pra detectar só o toque
+  let prevCamKeyRight = false; // estado anterior da tecla 6 (PC)
+  let prevCamStickDir = 0;     // -1/0/1: lado anterior do analógico direito (VR)
   let gameWon = false;
   let facingAngle = 0;
   let arenaActivated = false;
@@ -1282,20 +1280,22 @@
   }
   updateHeartsUI();
 
-  // Canvas para chaves VR (vermelha + azul)
+  // Canvas para chaves VR (vermelha + azul). Largura maior que a de corações
+  // pra caber os dois ícones de chave inteiros — antes a segunda chave
+  // ficava cortada na borda direita do canvas.
   const keysCanvas = document.createElement('canvas');
-  keysCanvas.width = 128; keysCanvas.height = 96;
+  keysCanvas.width = 180; keysCanvas.height = 96;
   const keysCtx = keysCanvas.getContext('2d');
   const keysTexture = new THREE.CanvasTexture(keysCanvas);
 
   function drawKeysCanvas() {
     keysCtx.clearRect(0, 0, keysCanvas.width, keysCanvas.height);
-    keysCtx.font = '64px sans-serif';
+    keysCtx.font = '58px sans-serif';
     keysCtx.textBaseline = 'middle';
     keysCtx.fillStyle = hasRedKey ? '#ee2222' : 'rgba(255,255,255,0.28)';
-    keysCtx.fillText('\uD83D\uDD11', 10, 52);
+    keysCtx.fillText('\uD83D\uDD11', 12, 52);
     keysCtx.fillStyle = hasBlueKey ? '#3388ff' : 'rgba(255,255,255,0.28)';
-    keysCtx.fillText('\uD83D\uDD11', 64, 52);
+    keysCtx.fillText('\uD83D\uDD11', 92, 52);
     keysTexture.needsUpdate = true;
   }
 
@@ -1306,11 +1306,17 @@
 
   // Painel de corações e chaves — preso à câmera, no canto superior
   // esquerdo da tela (única HUD do jogo, tanto no PC quanto em VR).
+  // Em VR a mesma posição local da câmera cai visualmente mais alta e mais
+  // à esquerda do que no PC (por causa do FOV/render por olho do headset),
+  // então usamos âncoras diferentes para cada modo — ver updateHudAnchors().
+  const HUD_DESKTOP = { x: -0.34, heartsY: 0.24, keysY: 0.16, z: -0.6 };
+  const HUD_VR      = { x: -0.20, heartsY: 0.13, keysY: 0.055, z: -0.6 };
+
   const heartsPlaneMat = new THREE.MeshBasicMaterial({
     map: heartsTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
   });
   const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.06), heartsPlaneMat);
-  heartsPlane.position.set(-0.34, 0.24, -0.6);
+  heartsPlane.position.set(HUD_DESKTOP.x, HUD_DESKTOP.heartsY, HUD_DESKTOP.z);
   heartsPlane.renderOrder = 10;
   camera.add(heartsPlane);
 
@@ -1319,10 +1325,21 @@
   const keysPlaneMat = new THREE.MeshBasicMaterial({
     map: keysTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
   });
-  const keysPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.06), keysPlaneMat);
-  keysPlane.position.set(-0.34, 0.16, -0.6);
+  const keysPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.1125, 0.06), keysPlaneMat);
+  keysPlane.position.set(HUD_DESKTOP.x, HUD_DESKTOP.keysY, HUD_DESKTOP.z);
   keysPlane.renderOrder = 10;
   camera.add(keysPlane);
+
+  // Troca a âncora da HUD (corações/chaves) entre PC e VR assim que a
+  // sessão XR entra/sai — chamado pelos listeners 'sessionstart'/'sessionend'
+  // do renderer mais abaixo.
+  function updateHudAnchors() {
+    const anchor = renderer.xr.isPresenting ? HUD_VR : HUD_DESKTOP;
+    heartsPlane.position.set(anchor.x, anchor.heartsY, anchor.z);
+    keysPlane.position.set(anchor.x, anchor.keysY, anchor.z);
+  }
+  renderer.xr.addEventListener('sessionstart', updateHudAnchors);
+  renderer.xr.addEventListener('sessionend', updateHudAnchors);
 
   function playerIsInvulnerable() {
     return invulnTimer > 0 || stompInvulnTimer > 0;
@@ -1396,7 +1413,7 @@
   // ENTRADA: CONTROLE VR (Quest)
   // =========================================================================
   function getXRInput() {
-    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false;
+    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false, rightStickX = 0;
     const session = renderer.xr.getSession && renderer.xr.getSession();
     if (session) {
       for (const src of session.inputSources) {
@@ -1412,13 +1429,16 @@
           for (let bi = 2; bi < gp.buttons.length; bi++) {
             if (gp.buttons[bi] && gp.buttons[bi].pressed) { jumpBtn = true; break; }
           }
+          // analógico direito: usado só pra girar a câmera em saltos de 45°
+          // (ver handleCameraYawInput), não pra mover o personagem.
+          rightStickX = sx;
         } else {
           if (Math.abs(sx) > 0.15) moveX += sx;
           if (Math.abs(sy) > 0.15) moveY += sy;
         }
       }
     }
-    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn };
+    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn, rightStickX };
   }
 
   // =========================================================================
@@ -1981,9 +2001,6 @@
       }
       if (hasBlueKey && !blueDoorOpen) {
         blueDoorOpen = true;
-        funnelWallL.visible = false;
-        funnelWallR.visible = false;
-        backWall.visible = false;
         showHint('Portão azul aberto! Vá até a estrela!', 2500);
       }
       if (redDoorOpen && redDoor.position.y > -3) {
@@ -2174,12 +2191,36 @@
     characterShadow.position.z = character.position.z;
     shadowMat.opacity = THREE.MathUtils.clamp(0.42 - character.position.y * 0.13, 0.08, 0.42);
 
-    // -------- câmera: dolly acompanha o personagem em Z (atrás) e em X
+    // -------- câmera: camPivot acompanha o personagem em Z (atrás) e em X
     // (lateralmente), como um jogo de scroll lateral quando o personagem vai
-    // para as plataformas laterais (P4/P5). A câmera nunca gira — só se
-    // move para manter o personagem centralizado.
-    dolly.position.z = character.position.z + CAM_BACK_OFFSET;
-    dolly.position.x += (character.position.x - dolly.position.x) * 3.5 * dt;
+    // para as plataformas laterais (P4/P5). A câmera nunca gira sozinha —
+    // só se move para manter o personagem centralizado, e só gira (em
+    // saltos de 45°) quando o jogador pede, via handleCameraYawInput().
+    camPivot.position.z = character.position.z;
+    camPivot.position.x += (character.position.x - camPivot.position.x) * 3.5 * dt;
+
+    // -------- girar a câmera em saltos de 45° (analógico direito do VR /
+    // teclas 4 e 6 no PC) --------
+    const d4 = !!keys['Digit4'];
+    const d6 = !!keys['Digit6'];
+    if (d4 && !prevCamKeyLeft)  camYawTarget += CAM_YAW_STEP;
+    if (d6 && !prevCamKeyRight) camYawTarget -= CAM_YAW_STEP;
+    prevCamKeyLeft = d4;
+    prevCamKeyRight = d6;
+    // precisa o analógico voltar pro centro antes de contar outro "toque",
+    // senão giraria continuamente enquanto o jogador segurasse pro lado.
+    let stickDir = 0;
+    if (xr.rightStickX > 0.6) stickDir = 1;
+    else if (xr.rightStickX < -0.6) stickDir = -1;
+    if (stickDir !== 0 && prevCamStickDir === 0) {
+      camYawTarget += stickDir > 0 ? -CAM_YAW_STEP : CAM_YAW_STEP;
+    }
+    prevCamStickDir = stickDir;
+
+    let yawDiff = camYawTarget - camPivot.rotation.y;
+    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+    camPivot.rotation.y += yawDiff * Math.min(1, CAM_YAW_LERP * dt);
 
     renderer.render(scene, camera);
   }
