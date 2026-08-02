@@ -76,15 +76,33 @@
   }
   #win-overlay .btn-play { background:#2ea043; }
   #win-overlay .btn-play:hover { background:#258a38; }
+  #dialogue-box {
+    position:absolute; bottom:8%; left:50%; transform:translateX(-50%);
+    width:min(560px, 82vw); pointer-events:auto; cursor:pointer;
+    background:rgba(15,15,25,0.86); border:2px solid #ff7a1a; border-radius:14px;
+    padding:16px 20px; box-shadow:0 6px 20px rgba(0,0,0,0.5); display:none;
+  }
+  #dialogue-name {
+    color:#ff9a3a; font-weight:bold; font-size:14px; margin-bottom:6px;
+    text-transform:uppercase; letter-spacing:0.5px;
+  }
+  #dialogue-text {
+    color:#fff; font-size:18px; line-height:1.4; text-shadow:0 0 6px #000;
+  }
+  #dialogue-hint {
+    color:#ffcc99; font-size:12px; text-align:right; margin-top:10px;
+    animation:dialogue-blink 1.1s infinite;
+  }
+  @keyframes dialogue-blink { 0%,100%{opacity:0.35;} 50%{opacity:1;} }
 </style>
 </head>
 <body>
 <div id="ui">
   <div id="info">
     <b>Fase VR - Aventura do Herói</b><br/>
-    <u>Desktop:</u> WASD/Setas anda, Espaço pula, F atira (com arma), G trava a mira, 4/6 gira câmera 45°, 8 aproxima/2 afasta a câmera, 5 reseta a câmera<br/>
-    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, analógico direito gira/aproxima-afasta a câmera, clique do analógico direito (R3) reseta a câmera<br/>
-    6 plataformas + corredor final: inimigos normais, atiradores (dropam arma), rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar chave 1. Plataforma direita (P5): quiz matemático 3-5=? — acerte -2 para ganhar chave 2, errou morre. Com as 2 chaves, o portão da arena abre. Guardiões perseguem, espinhos e martelos. Ache a estrela no corredor!
+    <u>Desktop:</u> WASD anda, Espaço/B/seta ↑ pula, seta ↓ agacha (parado) / cabeçada-dash (andando; partindo do chão atravessa buraco sem cair — pulo logo depois completa o salto) / no ar pancada forte, F/V/seta ← atira (com arma), G/seta → trava a mira, 4/6 gira câmera 45°, 8 aproxima/2 afasta a câmera, 5 reseta a câmera<br/>
+    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, GRIP esquerdo agacha/dash (partindo do chão atravessa buraco sem cair; pulo logo depois completa o salto), analógico direito gira/aproxima-afasta a câmera, clique do analógico direito (R3) reseta a câmera<br/>
+    Tutorial (7 plataformas): comece sem saber pular, evolua suas habilidades no caminho. Na 2ª plataforma (T2, metade do tamanho), 5 inimigos resistentes (só morrem com a pancada forte) — derrote os 5 para abrir o portão transparente; atrás dele, a ARMA (item da fase, atiradores não dropam mais) e 5 pedras redondas até a 3ª plataforma (que também é METADE do tamanho de T1). Lá, pegue o upgrade da TRAVA DE MIRA (G/seta →/GRIP direito) — a partir daí é um TREINO: uma fila GIGANTE de inimigos RÁPIDOS COM CHIFRES (velocidade em DOBRO e 30 deles, metade do que era antes) vindo da FRENTE, de longe, sem parar — mal dá tempo de atirar em pé; os chifres impedem pular em cima deles, então segure G para travar a mira e atire pra frente para derrubá-los! O portão transparente da T3 só abre quando TODOS forem derrotados. Logo atrás desse portão, na 1ª pedra, está o upgrade de ANDAR ABAIXADO (seta ↓ / GRIP esquerdo no chão, PARADO, agacha — a arma desce quase até o chão) — em seguida vem a T4, uma plataforma MENOR cheia de inimigos rápidos BAIXOS com chifres (40 deles, o dobro de antes, e em velocidade dobrada): de pé os tiros passam por cima, só ABAIXADO (arma perto do chão) acerta. No FINAL da T4, o upgrade do DASH: mesma tecla do agachar, mas com o personagem EM MOVIMENTO dispara uma CABEÇADA pra frente na direção em que anda — mata qualquer inimigo no caminho e pega velocidade (estilo Crash Bandicoot). Depois dele, as plataformas vazias e as pedras foram removidas e o resto do jogo foi trazido pra cá, mas a P1 ficou a 13 unidades de distância da T4 — um vão GRANDE que exige o DASH SEGURADO + pulo na janela pra cruzar (dash sozinho ou pulo sozinho NÃO chegam). 6 plataformas + corredor final: inimigos normais, atiradores, rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar chave 1. Plataforma direita (P5): quiz matemático 3-5=? — acerte -2 para ganhar chave 2, errou morre. Com as 2 chaves, o portão da arena abre. Guardiões perseguem, espinhos. Ache a estrela no corredor!
   </div>
   <button id="vr-button">Entrar em VR</button>
   <div id="message"></div>
@@ -98,6 +116,11 @@
     <button class="btn btn-play" id="playagain-button">Jogar Novamente</button>
   </div>
   <div id="hint"></div>
+  <div id="dialogue-box">
+    <div id="dialogue-name">Herói</div>
+    <div id="dialogue-text"></div>
+    <div id="dialogue-hint">▼ toque, mova-se ou aguarde para continuar</div>
+  </div>
   <div id="crosshair"></div>
   <div id="fade" style="position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.12s ease;"></div>
   <div style="position:absolute;bottom:6px;right:8px;color:#fff8;font-size:11px;pointer-events:none;">build: câmera-crash-v1 (reconstruído do zero)</div>
@@ -111,14 +134,52 @@
   // =========================================================================
   // CONFIG GERAL
   // =========================================================================
-  const START_POS   = new THREE.Vector3(0, 0, 9);
+  // Início agora é na T1, a primeira das 7 plataformas do tutorial (bem
+  // atrás de P1, que era o início antigo). T1-T7 têm todas exatamente o
+  // mesmo tamanho; T1 foi empurrada bem mais para trás (z=314) para abrir
+  // espaço para as 6 novas e para o vão maior entre T1 e T2. O personagem
+  // nasce bem na borda de trás da T1 (que agora vai até z=332) — só uma
+  // margem mínima pra não ficar preso na quina — e anda para frente (Z
+  // decrescente) por todo o tutorial até chegar em P1.
+  const START_POS   = new THREE.Vector3(0, 0, 331.7);
+  // -------- CHECKPOINT (vale só durante a partida) --------
+  // O checkpoint fica ao lado do item do DASH (fim da T4). Ao encostar na
+  // placa, ela vira uma BANDEIRA de checkpoint e o personagem passa a
+  // reaparecer ali (mantendo as habilidades) quando morre — mas apenas
+  // DENTRO da mesma partida. Ao abrir ou recarregar a página, o jogo
+  // sempre começa do início (T1), sem salvar nada no localStorage.
+  const checkpointPos = new THREE.Vector3(START_POS.x, 0, START_POS.z);
   const GRAVITY      = 18;
+  // O mundo é "achatado": toda plataforma/pedra fica na mesma altura (y=0),
+  // e hasGroundAt() só olha X/Z, sem checar a altura real. Isso é ótimo pra
+  // pousar de um pulo normal (que sempre volta a cruzar y=0 pertinho do
+  // alvo), mas tem um efeito colateral: se o personagem já estiver caindo
+  // de verdade dentro de um buraco (bem abaixo de y=0) e o jogador segurar
+  // a direção de volta pra debaixo de uma plataforma vizinha, o jogo achava
+  // "há chão em X/Z" e o grudava de volta em y=0 na hora — parecendo que
+  // ele "subiu" a plataforma por baixo, em vez de continuar caindo.
+  // GROUND_SNAP_MIN_Y resolve isso: só é permitido "pousar" (reconectar ao
+  // chão) enquanto a altura ainda está bem pertinho de 0 — ou seja, é
+  // mesmo o instante de tocar o chão (pulo normal ou um passo pequeno),
+  // não uma recuperação no meio de uma queda profunda. Uma vez ultrapassado
+  // esse limite, hasGroundAt() deixa de valer até o personagem realmente
+  // reaparecer (respawnFromPit), então ele não consegue mais "escalar" a
+  // plataforma pelo ar durante a queda.
+  const GROUND_SNAP_MIN_Y = -0.6;
   const JUMP_SPEED   = 10.2;
   // Quicar em cima de um inimigo (matando ou não) agora sobe com a MESMA
   // força de um pulo normal — como se fosse um novo pulo automático — para
   // dar tempo e altura de encadear vários pulos seguidos em inimigos de
   // várias lapadas (ex.: o chefão, que precisa de 3).
   const KILL_BOUNCE_SPEED = JUMP_SPEED;
+  // -------- pulo de tamanho variável --------
+  // Segurando o botão de pulo, a subida usa a força cheia (JUMP_SPEED /
+  // KILL_BOUNCE_SPEED), exatamente como já funcionava — o tamanho máximo
+  // não muda. Se o botão for solto ENQUANTO o personagem ainda está
+  // subindo, a velocidade vertical é cortada para este valor menor,
+  // resultando num pulo (ou quique em cima de um inimigo) mais baixo —
+  // igual à maioria dos jogos de plataforma 3D.
+  const JUMP_MIN_SPEED = JUMP_SPEED * 0.45;
   // Tempo que o quique leva pra subir e voltar a cair (2*v/g), mais uma
   // margem de segurança. Usado para o cooldown/invulnerabilidade de cada
   // inimigo de várias lapadas: ele TEM que durar pelo menos esse tempo,
@@ -132,6 +193,11 @@
   // jogador consiga pisar de novo antes de tocar o chão.
   const STOMP_CHAIN_COOLDOWN = 0.35;
   const MOVE_SPEED   = 4.2;
+  // Velocidade ao andar agachado (stealth): bem mais lento que o andar normal.
+  const CROUCH_MOVE_SPEED = MOVE_SPEED * 0.4;
+  // Velocidade de queda da "pancada forte" (ground pound): bem mais rápida
+  // que qualquer queda normal, pra dar a sensação de golpe pesado.
+  const GROUND_POUND_SPEED = -16;
   const TURN_LERP    = 0.25;
 
   // A câmera nunca se move sozinha, nunca gira e nunca muda de distância.
@@ -172,31 +238,87 @@
   const CAM_HEIGHT_LEVEL_MIN = -3;
   const CAM_HEIGHT_LEVEL_MAX = 5;
   const CAM_HEIGHT_LEVEL_DEFAULT = -2;
+  // O jogo em modo DESKTOP agora começa (e volta, ao resetar com a tecla 5)
+  // 2 níveis de zoom mais alto/afastado que o padrão de VR — câmera mais
+  // alta, vendo mais o cenário de cima, como pedido. O VR continua usando
+  // CAM_HEIGHT_LEVEL_DEFAULT sem nenhuma mudança.
+  const CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP = CAM_HEIGHT_LEVEL_DEFAULT + 2;
   const CAM_ZOOM_LERP = 6.0;
 
   // =========================================================================
   // GEOMETRIA DA FASE
   // =========================================================================
-  // 6 plataformas grandes conectadas por pedras.
+  // 7 plataformas principais (P1-P7) + 4 do tutorial (T1-T4).
   // cx/cz = centro, hw = metade largura (x), hd = metade profundidade (z)
+  // O bloco P1-P7 (o "jogo" em si) foi deslocado +141 em Z (pra chegar
+  // onde o item do DASH é pego, no fim da T4) e depois mais -13 em Z: a
+  // borda norte da P1 (z=155) agora fica a 13 unidades da borda sul da
+  // T4 (z=168) — um vão GRANDE que só dá pra cruzar com o DASH segurado
+  // + pulo na janela. As plataformas vazias T5/T6/T7 e as pedras que
+  // havia entre a T4 e a P1 foram todas removidas.
+  // Depois o bloco T2-P7 inteiro foi deslocado +15 em Z (mais para perto
+  // da T1): o vão T1→T2 ficou mais curto e só tem 5 inimigos enfileirados.
   const PLATFORMS = [
-    { cx:0,  cz:8,   hw:3.5, hd:4,   color:0x6fbf4f }, // P1: início (2 inimigos normais)
-    { cx:0,  cz:-6,  hw:3.5, hd:4,   color:0x5fae44 }, // P2: 1 atirador (dropa arma)
-    { cx:0,  cz:-19, hw:5,   hd:4,   color:0x7a6a3a }, // P3: rápidos aleatórios
-    { cx:-38,cz:-25, hw:3,   hd:3,   color:0x6a8a6a }, // P4: puzzle (empurrar pedra) — bem mais longe de P3
-    { cx:38, cz:-25, hw:3,   hd:3,   color:0x8a7a5a }, // P5: surpresa — bem mais longe de P3
-    { cx:0,  cz:-42, hw:10,  hd:13,  color:0x8a8a5a }, // P6: arena final (estrela, armadilhas)
-    { cx:0,  cz:-55, hw:2.5, hd:4,   color:0x7a7a4a }, // P7: corredor estreito (estrela)
+    { cx:0,  cz:151, hw:3.5, hd:4,   color:0x6fbf4f }, // P1: 1ª plataforma com inimigos — separada da T4 por um vão de 13 unidades que SÓ o dash+pulo cruza (2 inimigos normais)
+    { cx:0,  cz:137, hw:3.5, hd:4,   color:0x5fae44 }, // P2: 1 atirador (dropa arma)
+    { cx:0,  cz:124, hw:5,   hd:4,   color:0x7a6a3a }, // P3: rápidos aleatórios
+    { cx:-38,cz:118, hw:3,   hd:3,   color:0x6a8a6a }, // P4: puzzle (empurrar pedra)
+    { cx:38, cz:118, hw:3,   hd:3,   color:0x8a7a5a }, // P5: surpresa (quiz matemática)
+    { cx:0,  cz:101, hw:10,  hd:13,  color:0x8a8a5a }, // P6: arena final (estrela, armadilhas)
+    { cx:0,  cz:88,  hw:2.5, hd:4,   color:0x7a7a4a }, // P7: corredor estreito (estrela)
+    // -------- TUTORIAL: 4 plataformas ANTES de P1 --------
+    // O personagem começa na T1 (a mais longe/atrás) e anda para frente
+    // (Z decrescente) até chegar em P1, que passa a ser o "final" desse
+    // tutorial. Cada uma vai ganhando uma mecânica nova ao longo do
+    // caminho.
+    // T1: comprimento continua dobrado (hd=18), mas a largura foi deixada
+    // 50% mais estreita do que estava (hw 6→3), da esquerda para a
+    // direita — plataforma mais comprida e mais apertada. T1 foi empurrada
+    // bem mais para trás (cz 84→314) para abrir espaço para as novas
+    // plataformas T2-T4 (mesmo tamanho de T1) e para o vão bem maior entre
+    // T1 e T2. Tudo que fica dentro da T1 (inimigos, item de pulo, ponto
+    // de nascimento, limite de câmera) foi deslocado junto, em bloco, pelo
+    // mesmo valor (+230 em Z), então nada mudou lá dentro; só a "casa"
+    // inteira da T1 foi movida para trás.
+    // T5/T6/T7 (que ficavam DEPOIS do DASH, no fim da T4) foram REMOVIDAS:
+    // eram plataformas vazias, sem inimigos. Como o bloco P1-P7 inteiro foi
+    // trazido +141 em Z e depois afastado -13 (ver comentário no topo do
+    // array), entre a T4 e a P1 agora só existe o vão GRANDE de 13 unidades
+    // que exige dash+pulo: não há pedra nenhuma pra apoiar no meio.
+    { cx:0, cz:314, hw:3, hd:18, color:0x6bcb3b }, // T1: início do tutorial (mais estreita, longa, só andar)
+    { cx:0, cz:261, hw:3, hd:9, color:0x74cd44 }, // T2: METADE do tamanho de T1 (18→9) — item de pisão forte + inimigos resistentes (para não ficar enjoativo)
+    { cx:0, cz:219, hw:3, hd:9, color:0x7dcf4d }, // T3: METADE do tamanho de T1 (18→9) — treino da trava de mira (fila da frente, rápida, sem parar)
+    { cx:0, cz:177, hw:3, hd:9, color:0x86d156 }, // T4: MENOR (18→9, metade) — cheia de inimigos rápidos baixos com chifres (matar atirando abaixado) + item do DASH no fim
   ];
   const CONNECTORS = [
     // P1→P2
-    { x:0, z:3.5, r:1.1 }, { x:0, z:1.5, r:1.0 }, { x:0, z:-0.5, r:1.0 },
+    { x:0, z:146.5, r:1.1 }, { x:0, z:144.5, r:1.0 }, { x:0, z:142.5, r:1.0 },
     // P2→P3
-    { x:0, z:-10.5, r:1.0 }, { x:0, z:-12.5, r:1.0 }, { x:0, z:-14.5, r:1.0 },
+    { x:0, z:132.5, r:1.0 }, { x:0, z:130.5, r:1.0 }, { x:0, z:128.5, r:1.0 },
     // P3→P4 e P3→P5 agora usam as 10 plataformas circulares dinâmicas
     // (algumas móveis, algumas que caem) — ver BRIDGE_PLATFORMS mais abaixo.
     // P3→P6
-    { x:0, z:-23.5, r:1.0 }, { x:0, z:-25.5, r:1.0 }, { x:0, z:-27.5, r:1.0 },
+    { x:0, z:119.5, r:1.0 }, { x:0, z:117.5, r:1.0 }, { x:0, z:115.5, r:1.0 },
+    // -------- TUTORIAL: conectores entre as plataformas T --------
+    // (T1→T2 NÃO tem conector fixo aqui — esse vão agora é bem maior e
+    // sem pedras de apoio contínuas: é atravessado pulando em cima de
+    // pedras redondas PARADAS e, nas últimas, com inimigos vermelhos
+    // redondos pousados nelas — ver addBridgeStone()/spawnNormalEnemy()
+    // mais abaixo, logo depois da criação das plataformas T.)
+    // (T4→P1 NÃO tem conector: o bloco P1-P7 foi deslocado +141 em Z e
+    // depois afastado -13 — a borda norte da P1 (z=155) fica a 13 unidades
+    // da borda sul da T4 (z=168). O vão é grande demais pro dash sozinho e
+    // pro pulo sozinho: só o DASH segurado + pulo na janela cruza, e não há
+    // pedra nenhuma pra apoiar no meio.)
+    // T3→T4 (vão de 186 a 210): T3 ficou MENOR (hd 18→9), então a travessia
+    // virou mais longa — 5 pedras de apoio em saltos de 4 unidades. A 1ª
+    // pedra (z=206) fica logo atrás do portão transparente da T3 — é nela
+    // que o personagem pega o item de andar abaixado antes de saltar.
+    { x:0, z:206, r:1.0 }, { x:0, z:202, r:1.0 }, { x:0, z:198, r:1.0 }, { x:0, z:194, r:1.0 }, { x:0, z:190, r:1.0 },
+    // T2→T3 (vão de 228 a 252): T3 ficou MENOR, então a travessia virou mais
+    // longa — 5 pedras redondas de apoio, em saltos de 4 unidades cada até a
+    // borda de trás da 3ª plataforma
+    { x:0, z:248, r:1.0 }, { x:0, z:244, r:1.0 }, { x:0, z:240, r:1.0 }, { x:0, z:236, r:1.0 }, { x:0, z:232, r:1.0 },
   ];
 
   function hasGroundAt(x, z) {
@@ -213,6 +335,28 @@
       if (dx * dx + dz * dz <= b.r * b.r) return true;
     }
     return false;
+  }
+
+  // A sombra do personagem também deve aparecer em cima de um inimigo vivo
+  // quando o personagem está sobre ele — e, pra ficar realmente visível (e
+  // não escondida atrás/dentro do corpo do próprio inimigo, já que a sombra
+  // normal fica rente ao chão), ela precisa subir e desenhar em cima das
+  // costas dele, não no chão embaixo dele. Por isso esta função devolve o
+  // mesh do inimigo encontrado (não só um booleano) — quem chama usa isso
+  // pra reposicionar a sombra na altura certa. Checa os quatro tipos de
+  // inimigo vivos (normais, atiradores, rápidos e guardiões), usando um
+  // raio parecido com o raio de contato (meleeContact) já usado pra
+  // detectar o pisão.
+  function findEnemyMeshAt(x, z) {
+    const ENEMY_SHADOW_R = 0.75;
+    for (const list of [normalEnemies, shooterEnemies, fastEnemies, guardians]) {
+      for (const e of list) {
+        if (!e.alive) continue;
+        const dx = x - e.mesh.position.x, dz = z - e.mesh.position.z;
+        if (dx * dx + dz * dz <= ENEMY_SHADOW_R * ENEMY_SHADOW_R) return e.mesh;
+      }
+    }
+    return null;
   }
 
   // Acha o ponto seguro mais próximo de (x,z) para reaparecer depois de cair
@@ -247,7 +391,7 @@
     return best || { x: START_POS.x, z: START_POS.z };
   }
 
-  const STAR_POS = new THREE.Vector3(0, 1.4, -56);
+  const STAR_POS = new THREE.Vector3(0, 1.4, 87);
 
   // =========================================================================
   // THREE.JS SETUP
@@ -279,7 +423,7 @@
   // que nunca muda — ao girar o camPivot, esse deslocamento gira junto, como
   // se a câmera estivesse presa numa haste que gira em torno do personagem.
   const camPivot = new THREE.Group();
-  camPivot.position.set(0, 0, START_POS.z);
+  camPivot.position.set(checkpointPos.x, 0, checkpointPos.z);
   scene.add(camPivot);
 
   const dolly = new THREE.Group();
@@ -335,6 +479,8 @@
     osc.stop(t0 + dur + 0.02);
   }
   function playJumpSound()   { beep(260, 700, 0.14, 'square', 0.18); }
+  function playPoundSound()  { beep(150, 40,  0.16, 'sawtooth', 0.22); }
+  function playPoundLandSound() { beep(120, 30, 0.22, 'square', 0.28); }
   function playShootSound()  { beep(950, 220, 0.09, 'sawtooth', 0.15); }
   function playBounceSound() { beep(500, 260, 0.10, 'square', 0.15); }
   function playHitSound()    { beep(180, 90,  0.15, 'square', 0.20); }
@@ -364,12 +510,12 @@
     scene.add(g);
   }
   for (let i = 0; i < 6; i++) {
-    const z = 10 - i * 3.2;
+    const z = 138 - i * 3.2;
     makeTree(-4.4 - Math.random() * 1.2, z, 0.9 + Math.random() * 0.4);
     makeTree(4.4 + Math.random() * 1.2, z, 0.9 + Math.random() * 0.4);
   }
   for (let i = 0; i < 5; i++) {
-    const z = -22 - i * 2.3;
+    const z = 106 - i * 2.3;
     makeTree(-7.2 - Math.random() * 1.2, z, 1.0 + Math.random() * 0.3);
     makeTree(7.2 + Math.random() * 1.2, z, 1.0 + Math.random() * 0.3);
   }
@@ -459,14 +605,25 @@
   // Caminho da esquerda (P3 → P4, puzzle da chave): sem pedras paradas,
   // só pedras que caem (afundam e voltam) — duas a mais para dar pra
   // atravessar mesmo sem pedras paradas de apoio.
-  // P3 (cx:0, cz:-19, borda esquerda em x:-5) → P4 (bem mais longe agora)
-  buildBridge(-5, -19, PLATFORMS[3].cx + PLATFORMS[3].hw, PLATFORMS[3].cz, -1, ['falling'], BRIDGE_COUNT + 2);
+  // P3 (cx:0, cz:124, borda esquerda em x:-5) → P4 (bem mais longe agora)
+  buildBridge(-5, PLATFORMS[2].cz, PLATFORMS[3].cx + PLATFORMS[3].hw, PLATFORMS[3].cz, -1, ['falling'], BRIDGE_COUNT + 2);
 
   // Caminho da direita (P3 → P5, puzzle da matemática): sem pedras paradas,
   // só pedras que se movem (andam de um lado pro outro e carregam o
   // personagem) — com uma plataforma móvel a mais para ajudar a atravessar.
-  // P3 (cx:0, cz:-19, borda direita em x:5) → P5 (bem mais longe agora)
-  buildBridge(5, -19, PLATFORMS[4].cx - PLATFORMS[4].hw, PLATFORMS[4].cz, 1, ['moving'], BRIDGE_COUNT + 1);
+  // P3 (cx:0, cz:124, borda direita em x:5) → P5 (bem mais longe agora)
+  buildBridge(5, PLATFORMS[2].cz, PLATFORMS[4].cx - PLATFORMS[4].hw, PLATFORMS[4].cz, 1, ['moving'], BRIDGE_COUNT + 1);
+
+  // Tutorial T1→T2: vão ainda maior (26, contra 6 dos demais do
+  // tutorial), sem conector fixo. Logo na saída da T1 há só DUAS pedras
+  // redondas PARADAS (mesmo tipo 'static' usado nas outras pontes) — só
+  // pra confirmar o pulo básico. Depois delas não há mais nenhum apoio
+  // sólido: o resto do vão, até T2, é atravessado só pulando de cabeça em
+  // cabeça em cima de inimigos vermelhos redondos (adicionados junto com
+  // os outros inimigos da T1, logo abaixo — spawnNormalEnemy ainda não
+  // existe aqui nesse ponto do arquivo).
+  addBridgeStone(0, 292, 1.3, 'static', 0);
+  addBridgeStone(0, 288, 1.3, 'static', 1);
 
   // Atualiza posição das plataformas móveis e a animação das que caem/sobem.
   // Chamada a cada quadro em animate().
@@ -533,6 +690,20 @@
       if (dx * dx + dz * dz <= b.r * b.r) return b;
     }
     return null;
+  }
+
+  // Verifica se existe uma pedra "que cai" (tipo 'falling') afundando
+  // (fallState 'falling') bem embaixo de (x, z) — mesmo já não sendo mais
+  // sólida. Usado para diferenciar "o chão sumiu porque a pedra afundou
+  // debaixo dos pés" (deve deixar cair de verdade) de "andou pra fora da
+  // borda de uma plataforma" (deve punir na hora, como já era).
+  function fallingPlatformBeneath(x, z) {
+    for (const b of bridgePlatforms) {
+      if (b.type !== 'falling' || b.fallState !== 'falling') continue;
+      const dx = x - b.mesh.position.x, dz = z - b.mesh.position.z;
+      if (dx * dx + dz * dz <= b.r * b.r) return true;
+    }
+    return false;
   }
 
   // Dispara o afundamento de uma plataforma "que cai" assim que o jogador
@@ -612,7 +783,8 @@
   mouth.rotation.z = Math.PI; // vira a metade de cima (frown) para a metade de baixo (sorriso)
 
   const legMat = new THREE.MeshStandardMaterial({ color: 0x7a4a1e });
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.35, 0.22), legMat);
+  const LEG_HEIGHT = 0.35;
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, LEG_HEIGHT, 0.22), legMat);
   legL.position.set(-0.16, 0.17, 0);
   const legR = legL.clone(); legR.position.x = 0.16;
 
@@ -635,10 +807,18 @@
   handR.position.set(0, -0.52, 0);
   armR.add(armRMesh, handR);
 
-  characterVisual.add(body, head, eyeWL, eyeWR, eyeL, eyeR, browL, browR, mouth, legL, legR, armL, armR);
+  // Grupo com tudo que fica ACIMA das pernas (tronco, cabeça, rosto,
+  // braços). Ao agachar, só este grupo desce/inclina — corpo e cabeça
+  // mantêm o tamanho normal (sem esticar/achatar), só mudam de posição.
+  // Isso evita o efeito "esmagado" de escalar o personagem inteiro: o
+  // agachamento fica por conta das pernas se dobrando (ver animate()).
+  const upperBody = new THREE.Group();
+  upperBody.add(body, head, eyeWL, eyeWR, eyeL, eyeR, browL, browR, mouth, armL, armR);
+
+  characterVisual.add(upperBody, legL, legR);
   characterModel.add(characterVisual);
   character.add(characterModel);
-  character.position.copy(START_POS);
+  character.position.copy(checkpointPos);
   scene.add(character);
 
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false });
@@ -647,6 +827,10 @@
   characterShadow.position.set(character.position.x, 0.02, character.position.z);
   characterShadow.renderOrder = 1;
   scene.add(characterShadow);
+  // Caixa reaproveitada (evita criar um THREE.Box3 novo a cada frame) só
+  // pra medir a altura do topo de um inimigo quando a sombra precisa
+  // desenhar em cima das costas dele em vez de no chão.
+  const enemyShadowBox = new THREE.Box3();
 
   // A arma fica presa na mão direita (braço), então ela acompanha o braço
   // enquanto ele balança e fica parada junto com ele na hora de atirar.
@@ -676,8 +860,17 @@
   // INIMIGOS NORMAIS (P1:2, P6:misturados)
   // =========================================================================
   const enemyMat = new THREE.MeshStandardMaterial({ color: 0xd63b3b });
+  // Material dos inimigos "resistentes" (stompOnly, ver spawnNormalEnemy):
+  // vermelho mais escuro e metálico, pra dar pra reconhecer de longe que
+  // um pisão normal não mata esses — só a pancada forte.
+  const stompOnlyEnemyMat = new THREE.MeshStandardMaterial({ color: 0x7a1010, metalness: 0.4, roughness: 0.5, emissive: 0x2a0000, emissiveIntensity: 0.3 });
+  // Material das asas dos inimigos VOADORES da T3 (fase do treino de
+  // "pular e atirar pra frente"): asinhas finas e escuras, batendo
+  // enquanto o inimigo voa em linha reta na direção do personagem.
+  const flyerWingMat = new THREE.MeshStandardMaterial({ color: 0x553322, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
   const normalEnemies = [];
-  function spawnNormalEnemy(x, z) {
+  function spawnNormalEnemy(x, z, opts) {
+    opts = opts || {};
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), enemyMat);
     body.position.y = 0.45;
@@ -703,20 +896,255 @@
     );
     mouth.position.set(0, 0.34, -0.42);
     g.add(body, eyeWL, eyeWR, pupilL, pupilR, browL, browR, mouth);
-    g.position.set(x, 0, z);
+    // Voador (T3): ganha um par de asinhas e nasce já lá em cima, na
+    // altura de voo. O corpo é deslocado para cima (flyHeight), assim o
+    // jogador precisa PULAR e atirar pra frente para acertá-lo.
+    let wingL = null, wingR = null;
+    if (opts.flying) {
+      wingL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 0.2), flyerWingMat);
+      wingL.position.set(-0.55, 0.5, 0);
+      wingL.rotation.z = -0.3;
+      wingR = wingL.clone();
+      wingR.position.x = 0.55;
+      wingR.rotation.z = 0.3;
+      g.add(wingL, wingR);
+    }
+    // Chifrado (horned): ganha um par de CHIFRES BEM GRANDES no topo — por
+    // causa deles, PISAR em cima também machuca (qualquer contato fere o
+    // personagem, que não pode pular em cima pra matar). Só morre atirando.
+    // Usado nos inimigos do treino da trava de mira da T3.
+    if (opts.horned) {
+      const hornMat = new THREE.MeshStandardMaterial({ color: 0x150a1a });
+      const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.65, 8), hornMat);
+      hornL.position.set(-0.25, 0.95, 0.05);
+      hornL.rotation.x = 0.35;
+      const hornR = hornL.clone();
+      hornR.position.x = 0.25;
+      g.add(hornL, hornR);
+    }
+    g.position.set(x, opts.flying ? (opts.flyHeight || 2.0) : 0, z);
+    // Inimigo "resistente" (stompOnly): só morre com a pancada forte —
+    // um pisão normal apenas faz o personagem quicar em cima dele, sem
+    // matá-lo (ele fica "quicando infinitamente" até o jogador ter e usar
+    // a pancada forte). Usado nos inimigos-desafio da T2.
+    if (opts.stompOnly) {
+      body.material = stompOnlyEnemyMat;
+    }
     scene.add(g);
-    normalEnemies.push({ mesh: g, alive: true, hp: 1, baseX: x, baseZ: z, range: 1.5 + Math.random(), speed: 1.0 + Math.random() * 0.5 });
+    normalEnemies.push({
+      mesh: g, alive: true, hp: 1, baseX: x, baseZ: z,
+      range: opts.range !== undefined ? opts.range : 1.5 + Math.random(),
+      speed: opts.speed !== undefined ? opts.speed : 1.0 + Math.random() * 0.5,
+      patrolSpeed: opts.patrolSpeed !== undefined ? opts.patrolSpeed : 1.0,
+      stompOnly: !!opts.stompOnly,
+      gateGuard: !!opts.gateGuard,
+      // approach: em vez de patrulhar parado, o inimigo anda em linha reta
+      // na direção do personagem (sem sair da própria plataforma) — usado
+      // na T3 para os inimigos virem da esquerda, da direita e da frente.
+      approach: !!opts.approach,
+      platformIdx: opts.platformIdx,
+      // clampBox: limite X/Z customizado para o modo approach (em vez de
+      // ficar preso ao platformIdx). Usado na T3 para inimigos que vêm de
+      // FORA da plataforma (pela direita/esquerda) e andam para dentro.
+      clampBox: opts.clampBox,
+      // t3Phase: número da fase do treino da T3 a que este inimigo
+      // pertence — usado para saber quando a fase acabou (todos mortos) e
+      // liberar a próxima onda. Hoje o treino tem só a fase 1 (fila da
+      // frente); t3Phase=2 já abre o portão.
+      t3Phase: opts.t3Phase,
+      // flying: inimigo VOADOR (treino de "pular e atirar pra frente" da
+      // T3) — nasce lá em cima (flyHeight), voa em linha reta na direção
+      // do personagem nessa altura e só morre com tiros (pisão não
+      // alcança). As asinhas (wingL/wingR) batem durante o voo.
+      flying: !!opts.flying,
+      flyHeight: opts.flyHeight || 2.0,
+      flyPhase: Math.random() * Math.PI * 2,
+      wingL: wingL, wingR: wingR,
+      // horned: inimigo com chifres — pisar em cima machuca (qualquer
+      // contato fere), só morre atirando.
+      horned: !!opts.horned,
+    });
   }
+  // T1 (tutorial, início do jogo): só inimigos vermelhos redondos. O
+  // personagem ainda não sabe pular, então só dá pra desviar andando.
+  // O personagem nasce em z≈331.7, bem no início da T1 (borda de trás).
+  // Toda a T1 foi deslocada +230 em Z (T1 empurrada de cz=84 para 314
+  // para abrir espaço às novas T2-T4 e ao vão maior antes de T2), então
+  // todos os inimigos abaixo têm exatamente as mesmas posições relativas
+  // de antes, só com +230.
+  // Primeira leva, espalhada, cobrindo o trecho logo depois do
+  // nascimento (com 2 extras intercalados pra aumentar a densidade).
+  spawnNormalEnemy(1.6, 327);
+  spawnNormalEnemy(-1.0, 325);
+  spawnNormalEnemy(-1.6, 323);
+  spawnNormalEnemy(1.6, 319);
+  spawnNormalEnemy(1.0, 317);
+  spawnNormalEnemy(-1.6, 315);
+  spawnNormalEnemy(1.6, 311);
+  // Zigue-zague ao longo do trecho seguinte, até perto do item de pulo —
+  // os três inimigos originais, mais um novo intercalado entre eles pra
+  // dificultar ainda mais.
+  spawnNormalEnemy(-1.6, 308);
+  spawnNormalEnemy(1.6, 304);
+  spawnNormalEnemy(0.0, 306);
+  spawnNormalEnemy(-1.6, 300);
+  // Por fim, sete inimigos vermelhos redondos bem próximos uns dos
+  // outros (usando toda a largura da plataforma) em duas fileiras
+  // escalonadas, fechando quase toda a passagem. Fica bem mais difícil
+  // atravessar só andando reto: o personagem precisa desviar de verdade
+  // entre eles, logo antes de chegar no upgrade do pulo.
+  spawnNormalEnemy(-2.4, 299.2);
+  spawnNormalEnemy(-1.6, 297.6);
+  spawnNormalEnemy(-0.8, 299.2);
+  spawnNormalEnemy(0.0, 297.6);
+  spawnNormalEnemy(0.8, 299.2);
+  spawnNormalEnemy(1.6, 297.6);
+  spawnNormalEnemy(2.4, 299.2);
+  // T1→T2: vão ainda maior que antes (32, contra 6 dos demais vãos do
+  // tutorial). Logo na saída da T1 há só DUAS pedras redondas paradas
+  // (ver addBridgeStone() logo após a criação das plataformas) — o
+  // suficiente pra confirmar o pulo básico. Dali em diante, até T2, não
+  // há mais nenhum apoio sólido: só inimigos vermelhos redondos, PARADOS
+  // (range:0 — não patrulham, ficam fixos no lugar) um atrás do outro, e
+  // o personagem precisa ir pulando de cabeça em cabeça (matando cada um
+  // ao pisar, como em qualquer outro pisão) para atravessar o vão até T2.
+  // O bloco T2-P7 foi trazido +15 em Z (mais perto da T1), então o vão
+  // ficou mais curto e só há CINCO inimigos enfileirados.
+  spawnNormalEnemy(0, 284, { range: 0 });
+  spawnNormalEnemy(0, 281, { range: 0 });
+  spawnNormalEnemy(0, 278, { range: 0 });
+  spawnNormalEnemy(0, 275, { range: 0 });
+  spawnNormalEnemy(0, 272, { range: 0 });
+  // T2: CINCO inimigos "resistentes" (gateGuard) — só morrem com a pancada
+  // forte, andam bem mais rápido que os vermelhos normais e barram a
+  // passagem para a T3. O portão transparente no fim de T2 só abre quando
+  // TODOS os 5 forem derrotados.
+  spawnNormalEnemy(-1.5, 268, { stompOnly: true, range: 1.2, patrolSpeed: 2.2, gateGuard: true });
+  spawnNormalEnemy(0.0, 265, { stompOnly: true, range: 1.2, patrolSpeed: 2.2, gateGuard: true });
+  spawnNormalEnemy(1.5, 262, { stompOnly: true, range: 1.2, patrolSpeed: 2.2, gateGuard: true });
+  spawnNormalEnemy(-1.2, 259, { stompOnly: true, range: 1.2, patrolSpeed: 2.2, gateGuard: true });
+  spawnNormalEnemy(1.2, 256, { stompOnly: true, range: 1.2, patrolSpeed: 2.2, gateGuard: true });
+
+  // T3: logo na entrada (borda de trás, z≈228) o personagem pega o item
+  // da TRAVA DE MIRA (z=226). O momento em que pega dispara o TREINO de
+  // mira travada, em fases:
+  // =========================================================================
+  // TREINO DA T3 — fila vinda da FRENTE, em quantidade:
+  //   Assim que o personagem pega a trava de mira, os inimigos JÁ começam
+  //   a vir da frente, de longe, sem parar e em quantidade — treinando
+  //   segurar G/seta →/GRIP direito (travar a mira) e atirar pra frente.
+  //   (Não há mais a fase de cercar por todos os lados nem os voadores.)
+  //   A T3 é MENOR (hd 18→9) e os inimigos são RÁPIDOS (8.8), então dá pra
+  //   atirar em pé por pouco tempo: precisa travar a mira pra derrubar a
+  //   fila que chega sem parar.
+  // O portão transparente da T3 (z=210) só abre depois que TODOS os
+  // inimigos da fila forem derrotados (t3Phase=2).
+  function spawnT3Wave() {
+    t3Phase = 1;
+    t3StreamLeft = 30;
+    t3StreamTimer = 0;
+    t3PhaseDelay = 1.2;
+    playPickupSound();
+    showHint('Inimigos vindo da FRENTE, sem parar! Segure G para travar a mira!', 2500);
+  }
+  let t3WaveSpawned = false;
+  // ---------- máquina de fases do treino da T3 ----------
+  let t3Phase = 0;        // 0 = treino não começou; 1 = fila da frente; 2 = concluído (portão abre)
+  let t3StreamLeft = 0;   // quantos inimigos faltam spawnar no stream da frente
+  let t3StreamTimer = 0;  // intervalo entre cada spawn do stream
+  let t3PhaseDelay = 0;   // pausa curta entre o fim da fila e a abertura do portão
+
+  function spawnT3FrontEnemy() {
+    // Sempre nasce BEM À FRENTE do personagem (na borda da frente da T3),
+    // assim a "fila" vai chegando de longe, sem parar, vinda do rumo que
+    // ele enfrenta. Velocidade em DOBRO (8.8): mal dá tempo de atirar em pé
+    // — precisa travar a mira e despejar tiros pra frente pra derrubar.
+    // Horned: têm chifres no topo, então NÃO dá pra pular em cima (pisar
+    // machuca) — o único jeito é derrubar ATIRANDO com a mira travada.
+    const x = -2 + Math.random() * 4;
+    const z = Math.max(210, character.position.z - 16);
+    spawnNormalEnemy(x, z, { approach: true, speed: 8.8, range: 2.4, platformIdx: 9, t3Phase: t3Phase, horned: true });
+  }
+  function startNextT3Phase() {
+    t3Phase++;
+    t3StreamLeft = 0;
+    t3StreamTimer = 0;
+    t3PhaseDelay = 1.2;
+    switch (t3Phase) {
+      case 2:
+        t3GateOpen = true;
+        t3Gate.position.y = 2;
+        showHint('T3 completa! O portão abriu, siga para a T4!', 2600);
+        playPickupSound();
+        break;
+    }
+  }
+  function updateT3Training(dt) {
+    if (t3Phase < 1 || t3Phase > 2) return;
+    const isStream = t3Phase === 1;
+    if (isStream && t3StreamLeft > 0) {
+      t3StreamTimer -= dt;
+      if (t3StreamTimer <= 0) {
+        t3StreamTimer = 0.6;
+        spawnT3FrontEnemy();
+        t3StreamLeft--;
+      }
+    }
+    let alive = 0;
+    for (const ne of normalEnemies) if (ne.alive && ne.t3Phase === t3Phase) alive++;
+    if (alive === 0 && (!isStream || t3StreamLeft === 0)) {
+      t3PhaseDelay -= dt;
+      if (t3PhaseDelay <= 0) startNextT3Phase();
+    }
+  }
+
+  // =========================================================================
+  // PORTÃO TRANSPARENTE (T2→T3) — bloqueia o caminho até a terceira
+  // plataforma; só abre quando os 5 inimigos resistentes (gateGuard) de
+  // T2 forem derrotados.
+  // =========================================================================
+  const t2GateMat = new THREE.MeshStandardMaterial({
+    color: 0x66ccff, transparent: true, opacity: 0.35,
+    emissive: 0x2266aa, emissiveIntensity: 0.4, side: THREE.DoubleSide
+  });
+  const t2Gate = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 0.25), t2GateMat);
+  t2Gate.position.set(0, 2, 252);
+  scene.add(t2Gate);
+  let t2GateOpen = false;
+  // Portão transparente da T3 (T3→T4): na borda da frente da T3 (z=210,
+  // onde começam as pedras para a T4). Só abre quando TODOS os inimigos da
+  // fila da frente do treino forem derrotados — até lá o personagem não passa.
+  const t3GateMat = new THREE.MeshStandardMaterial({
+    color: 0x66ccff, transparent: true, opacity: 0.35,
+    emissive: 0x2266aa, emissiveIntensity: 0.4, side: THREE.DoubleSide
+  });
+  const t3Gate = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 0.25), t3GateMat);
+  t3Gate.position.set(0, 2, 210);
+  scene.add(t3Gate);
+  let t3GateOpen = false;
+  // Portão transparente da P1 (T4→P1): na borda norte da P1 (z=155), logo
+  // depois do vão de 13 unidades que só o dash+pulo cruza. Só abre quando o
+  // personagem pega o item do DASH no fim da T4 — até lá, além de segurar o
+  // personagem, ele BLOQUEIA os tiros: o jogador não pode acertar os
+  // inimigos da P1 (e de trás dela) antes de ter o dash em mãos.
+  const dashGateMat = new THREE.MeshStandardMaterial({
+    color: 0x66ccff, transparent: true, opacity: 0.35,
+    emissive: 0x2266aa, emissiveIntensity: 0.4, side: THREE.DoubleSide
+  });
+  const dashGate = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 0.25), dashGateMat);
+  dashGate.position.set(0, 2, 155);
+  scene.add(dashGate);
+  let dashGateOpen = false;
   // P1: 2 inimigos normais (ficam de frente para o personagem)
-  spawnNormalEnemy(-1.4, 6);
-  spawnNormalEnemy(1.4, 4);
+  spawnNormalEnemy(-1.4, 149);
+  spawnNormalEnemy(1.4, 147);
   // P6: inimigos normais na arena
-  spawnNormalEnemy(-3, -38); spawnNormalEnemy(3, -40);
-  spawnNormalEnemy(-5, -44); spawnNormalEnemy(5, -46);
-  spawnNormalEnemy(-7, -36); spawnNormalEnemy(7, -38);
-  spawnNormalEnemy(-4, -48); spawnNormalEnemy(4, -50);
-  spawnNormalEnemy(0, -42); spawnNormalEnemy(-6, -42);
-  spawnNormalEnemy(6, -44); spawnNormalEnemy(0, -46);
+  spawnNormalEnemy(-3, 105); spawnNormalEnemy(3, 103);
+  spawnNormalEnemy(-5, 99); spawnNormalEnemy(5, 97);
+  spawnNormalEnemy(-7, 107); spawnNormalEnemy(7, 105);
+  spawnNormalEnemy(-4, 95); spawnNormalEnemy(4, 93);
+  spawnNormalEnemy(0, 101); spawnNormalEnemy(-6, 101);
+  spawnNormalEnemy(6, 99); spawnNormalEnemy(0, 97);
 
   // =========================================================================
   // INIMIGOS ATIRADORES (P2: 1, persegue dentro da plataforma) — dropam arma ao morrer, Visual completamente
@@ -763,42 +1191,71 @@
     shooterEnemies.push({ mesh: g, alive: true, hp: 3, baseX: x, baseZ: z, fireTimer: 0, fireInterval: 2.0 + Math.random(), platformIdx: platformIdx, speed: 1.3 + Math.random() * 0.4 });
   }
   // P2: 1 único atirador — persegue o personagem, mas sem sair da própria plataforma
-  spawnShooterEnemy(0, -6, 1);
+  spawnShooterEnemy(0, 137, 1);
+  // T3 (tutorial): 1 atirador logo na entrada, junto com os inimigos
+  // normais — mostra o uso da arma + visor assim que o personagem chega
+  spawnShooterEnemy(0, 224, 9);
   // P6: atiradores da arena final — mesmo comportamento do atirador da P2
   // (perseguem o personagem, mas sem sair da própria plataforma)
-  spawnShooterEnemy(-6, -40, 5); spawnShooterEnemy(6, -42, 5);
-  spawnShooterEnemy(0, -45, 5);
+  spawnShooterEnemy(-6, 103, 5); spawnShooterEnemy(6, 101, 5);
+  spawnShooterEnemy(0, 98, 5);
 
   // =========================================================================
   // INIMIGOS RÁPIDOS ALEATÓRIOS (P3)
   // =========================================================================
   const fastMat = new THREE.MeshStandardMaterial({ color: 0x2a1030 });
   const fastEnemies = [];
-  function spawnFastEnemy(x, z) {
+  function spawnFastEnemy(x, z, platformIdx, frozen, needCrouch, speedMult) {
+    speedMult = speedMult || 1;
+    const isT4 = !!needCrouch;
     const g = new THREE.Group();
     // Corpo bem baixo e achatado, rente ao chão — baixo o suficiente para
     // os tiros do personagem (que saem na altura da mão/arma) passarem por
-    // cima sem acertar.
-    const body = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.34, 6), fastMat);
+    // cima sem acertar. Os da T4 (isT4) são um POUCO maiores NA LARGURA (e a
+    // cabeça/corpo com olhos e chifres um pouco maiores) — pra acertar
+    // abaixado com mais facilidade — mas continuam BAIXOS: a altura do
+    // corpo/chifres não muda, e o needCrouch mais abaixo garante que tiro
+    // EM PÉ nunca acerta.
+    const body = new THREE.Mesh(new THREE.ConeGeometry(isT4 ? 0.46 : 0.35, 0.34, 6), fastMat);
     body.position.y = 0.19;
     const eMat3 = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 });
-    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), eMat3);
-    eL.position.set(-0.09, 0.24, -0.22);
-    const eR = eL.clone(); eR.position.x = 0.09;
+    const eL = new THREE.Mesh(new THREE.SphereGeometry(isT4 ? 0.06 : 0.05, 6, 6), eMat3);
+    eL.position.set(-(isT4 ? 0.15 : 0.09), 0.24, -0.22);
+    const eR = eL.clone(); eR.position.x = isT4 ? 0.15 : 0.09;
     // Chifres no topo — por causa deles, pisar em cima também machuca o personagem
     const hornMat = new THREE.MeshStandardMaterial({ color: 0x150a1a });
-    const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 6), hornMat);
-    hornL.position.set(-0.11, 0.4, 0.03);
+    const hornL = new THREE.Mesh(new THREE.ConeGeometry(isT4 ? 0.075 : 0.06, isT4 ? 0.18 : 0.16, 6), hornMat);
+    hornL.position.set(-(isT4 ? 0.17 : 0.11), isT4 ? 0.41 : 0.4, 0.03);
     hornL.rotation.x = 0.35;
-    const hornR = hornL.clone(); hornR.position.x = 0.11;
+    const hornR = hornL.clone(); hornR.position.x = isT4 ? 0.17 : 0.11;
     g.add(body, eL, eR, hornL, hornR);
     g.position.set(x, 0, z);
     scene.add(g);
     const ang = Math.random() * Math.PI * 2;
-    fastEnemies.push({ mesh: g, alive: true, hp: 2, baseX: x, baseZ: z, dirX: Math.cos(ang), dirZ: Math.sin(ang), speed: 3.5 + Math.random() * 1.5, changeTimer: 0 });
+    // hitY/hitR = onde os projéteis precisam chegar pra acertar. Os da T4
+    // (hitY 0.22, hitR 0.34) são maiores que antes (0.1/0.18) — o tiro
+    // ABAIXADO sai em y≈0.22, então agora praticamente não perde por altura
+    // e o raio de acerto acompanha a cabeça/corpo mais largo. Ainda assim
+    // continuam baixos e o needCrouch garante que tiro EM PÉ nunca acerta.
+    // Os da P3 agora são IDÊNTICOS aos da T4: mesmo hitY/hitR e corpo maior
+    // (hitY 0.22, hitR 0.34), e TODOS os inimigos baixos morrem com UM tiro.
+    fastEnemies.push({ mesh: g, alive: true, hp: needCrouch ? 1 : 2, baseX: x, baseZ: z, dirX: Math.cos(ang), dirZ: Math.sin(ang), speed: (3.5 + Math.random() * 1.5) * speedMult, changeTimer: 0, platformIdx: platformIdx === undefined ? 2 : platformIdx, frozen: !!frozen, needCrouch: !!needCrouch, hitY: needCrouch ? 0.22 : 0.2, hitR: needCrouch ? 0.34 : 0.32 });
   }
+  // P3: 8 rápidos aleatórios (andam rápido e mudam de direção sem aviso).
+  // Agora são EXATAMENTE iguais aos da T4 (início da fase): mesma forma e
+  // tamanho baixos com chifres, exigem tiro ABAIXADO (needCrouch=true) e
+  // morrem com UM tiro.
   for (let i = 0; i < 8; i++) {
-    spawnFastEnemy(-3 + Math.random() * 6, -17 + Math.random() * 4);
+    spawnFastEnemy(-3 + Math.random() * 6, 126 + Math.random() * 4, 2, false, true);
+  }
+  // T4 (PLATFORMS[10]) é MENOR (hw:3, hd:9, cz:177 → x -3..3, z 168..186):
+  // espalha DOBRADO eles pela plataforma (40, o dobro de antes), com uma
+  // margem pra não ficarem grudados na borda. Já nascem SE MOVENDO desde o
+  // início, mesmo antes do personagem chegar. needCrouch=true: SÓ dá pra
+  // acertar ABAIXADO (em pé o tiro passa por cima deles). Velocidade em
+  // DOBRO também (speedMult=2 → 7..10).
+  for (let i = 0; i < 40; i++) {
+    spawnFastEnemy(-2.5 + Math.random() * 5, 170 + Math.random() * 14, 10, false, true, 2);
   }
 
   // =========================================================================
@@ -839,14 +1296,14 @@
     const mesh = makeGuardianMesh();
     mesh.position.set(x, 0, z);
     scene.add(mesh);
-    guardians.push({ mesh, alive: true, hp: GUARDIAN_HP, stompCooldown: 0, activated: false, jumping: false, jumpTimer: 0, jumpDuration: 0.55, jumpHeight: 2.2, jumpCooldown: 0.6 + Math.random() * 0.6, jumpStart: null, jumpTarget: null });
+    guardians.push({ mesh, alive: true, hp: GUARDIAN_HP, baseX: x, baseZ: z, stompCooldown: 0, activated: false, jumping: false, jumpTimer: 0, jumpDuration: 0.55, jumpHeight: 2.2, jumpCooldown: 0.6 + Math.random() * 0.6, jumpStart: null, jumpTarget: null });
   }
   // Reduzido de 12 para 6 — eles ativam ao se aproximar e depois perseguem
   // o personagem indefinidamente por toda a arena, então metade da
   // quantidade original já deixa a fase bem mais jogável.
-  spawnGuardian(-6, -38); spawnGuardian(6, -40);
-  spawnGuardian(-8, -44); spawnGuardian(8, -46);
-  spawnGuardian(-3, -50); spawnGuardian(4, -32);
+  spawnGuardian(-6, 105); spawnGuardian(6, 103);
+  spawnGuardian(-8, 99); spawnGuardian(8, 97);
+  spawnGuardian(-3, 93); spawnGuardian(4, 111);
 
   // =========================================================================
   // ARMA DROPADA (quando inimigo atirador morre) — cai no chão com forma de
@@ -883,6 +1340,218 @@
   }
 
   // =========================================================================
+  // ITEM DE PULO (tutorial, T1) — o personagem começa sem saber pular；ao
+  // encostar neste item, ganha a habilidade. Visual: uma seta verde
+  // brilhante apontando pra cima dentro de um anel, flutuando e girando.
+  // =========================================================================
+  let jumpPickups = [];
+  function spawnJumpPickup(x, z) {
+    const g = new THREE.Group();
+    const jumpMat = new THREE.MeshStandardMaterial({ color: 0x33ff77, emissive: 0x22cc55, emissiveIntensity: 0.9 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 10, 20), jumpMat);
+    ring.rotation.x = Math.PI / 2;
+    const arrowShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.34, 8), jumpMat);
+    const arrowHead = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.22, 10), jumpMat);
+    arrowHead.position.y = 0.28;
+    g.add(ring, arrowShaft, arrowHead);
+    g.position.set(x, 0.9, z);
+    scene.add(g);
+    jumpPickups.push({ mesh: g, baseY: 0.9 });
+  }
+  // Fica no fim da T1, na própria plataforma verde (e não na pedra
+  // conectora redonda que vem depois dela) — logo depois dos inimigos
+  // vermelhos redondos, perto da borda da frente (z=296.5, já com o
+  // deslocamento de +230 aplicado à T1 inteira), mas ainda dentro da T1.
+  // O prêmio por atravessar só andando.
+  spawnJumpPickup(0, 296.5);
+
+  // =========================================================================
+  // ITEM DE PANCADA FORTE (tutorial, T2) — o personagem começa sem poder
+  // pisar forte (seta ↓ no ar não faz nada); ao encostar neste item, ganha
+  // a habilidade. Visual: uma seta laranja brilhante apontando pra BAIXO
+  // dentro de um anel (o oposto do item de pulo), flutuando e girando.
+  // =========================================================================
+  let stompPickups = [];
+  function spawnStompPickup(x, z) {
+    const g = new THREE.Group();
+    const stompMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xcc4400, emissiveIntensity: 0.9 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 10, 20), stompMat);
+    ring.rotation.x = Math.PI / 2;
+    const arrowShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.34, 8), stompMat);
+    const arrowHead = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.22, 10), stompMat);
+    arrowHead.position.y = -0.28;
+    arrowHead.rotation.x = Math.PI; // ponta pra baixo (oposto do item de pulo)
+    g.add(ring, arrowShaft, arrowHead);
+    g.position.set(x, 0.9, z);
+    scene.add(g);
+    stompPickups.push({ mesh: g, baseY: 0.9 });
+  }
+  // Fica logo na entrada de T2 (perto da borda de trás, z=268), assim que
+  // o personagem termina de atravessar o vão pulando em cima dos
+  // inimigos — é o primeiro upgrade dessa plataforma, antes dos inimigos
+  // resistentes que só morrem com essa pancada.
+  spawnStompPickup(0, 268);
+
+  // =========================================================================
+  // ITEM DA ARMA (tutorial, T2) — a arma agora é um ITEM da fase, atrás do
+  // portão transparente de T2 (os atiradores não dropam mais arma ao
+  // morrer). Fica no caminho das pedras conectoras logo depois do portão
+  // (que só abre com os 5 inimigos resistentes derrotados). Visual: arma
+  // flutuando dentro de um anel azul brilhante, girando e subindo/descendo.
+  // =========================================================================
+  let gunItems = [];
+  function spawnGunItem(x, z) {
+    const g = new THREE.Group();
+    const gunItemMat = new THREE.MeshStandardMaterial({ color: 0x44aaff, emissive: 0x1166cc, emissiveIntensity: 0.9 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.05, 10, 20), gunItemMat);
+    ring.rotation.x = Math.PI / 2;
+    const gripMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a });
+    const bodyMat2 = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, emissive: 0x222222, emissiveIntensity: 0.3 });
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.22, 0.1), gripMat);
+    grip.position.set(0, -0.08, 0.05);
+    grip.rotation.x = 0.25;
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.42), bodyMat2);
+    slide.position.set(0, 0.06, -0.12);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.18, 8), bodyMat2);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.06, -0.42);
+    g.add(ring, grip, slide, barrel);
+    g.position.set(x, 0.9, z);
+    scene.add(g);
+    gunItems.push({ mesh: g, baseY: 0.9 });
+  }
+  // Logo atrás do portão, em cima da 1ª pedra conectora (z=249) — o
+  // personagem pega a arma já no primeiro salto rumo à T3.
+  spawnGunItem(0, 249);
+
+  // =========================================================================
+  // ITEM DA TRAVA DE MIRA (tutorial, T3) — fica logo na borda de trás da
+  // 3ª plataforma (z=226, onde o personagem chega pulando pelas pedras).
+  // Ao encostar, o personagem "aprende a travar a mira": segurar G/seta →
+  // /grip direito congela o ângulo de mira enquanto ele se move — essencial
+  // para atirar para frente enquanto desvia dos inimigos que vêm cercando.
+  // Visual: anel verde com uma "mira" (cruzeta) dentro, girando.
+  // =========================================================================
+  let aimLockItems = [];
+  function spawnAimLockItem(x, z) {
+    const g = new THREE.Group();
+    const aimMat = new THREE.MeshStandardMaterial({ color: 0x66ff44, emissive: 0x33cc11, emissiveIntensity: 0.9 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.05, 10, 20), aimMat);
+    ring.rotation.x = Math.PI / 2;
+    const crossMat = new THREE.MeshStandardMaterial({ color: 0xccff88, emissive: 0x88ff33, emissiveIntensity: 0.8 });
+    const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.06), crossMat);
+    const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), crossMat);
+    const crossC = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), crossMat);
+    g.add(ring, crossH, crossV, crossC);
+    g.position.set(x, 0.9, z);
+    scene.add(g);
+    aimLockItems.push({ mesh: g, baseY: 0.9 });
+  }
+  // Na borda de trás da T3 (z=226), assim que o personagem chega pulando.
+  spawnAimLockItem(0, 226);
+
+  // =========================================================================
+  // ITEM DE ANDAR ABAIXADO (portão T3→T4) — fica em cima da 1ª pedra
+  // conectora (z=206), logo atrás do portão transparente da T3. Ao encostar,
+  // o personagem "aprende a andar abaixado": segurar a seta ↓ no chão agacha
+  // o corpo (arma desce junto) — essencial para acertar os inimigos rápidos
+  // baixos de chifres da T4, cujos tiros em pé passam por cima.
+  // Visual: uma "banana" deitada (lua/meia-lua amarela) rodando.
+  // =========================================================================
+  let crouchItems = [];
+  function spawnCrouchItem(x, z) {
+    const g = new THREE.Group();
+    const crouchMat = new THREE.MeshStandardMaterial({ color: 0xffcc22, emissive: 0xff9900, emissiveIntensity: 0.9 });
+    // Arco (meia-lua) deitado — lê-se como "abaixar"
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 10, 20, Math.PI), crouchMat);
+    arc.rotation.x = Math.PI / 2;
+    arc.rotation.z = Math.PI;
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 8), crouchMat);
+    arrow.rotation.x = Math.PI / 2;
+    arrow.position.set(0, 0, -0.22);
+    g.add(arc, arrow);
+    g.position.set(x, 0.9, z);
+    scene.add(g);
+    crouchItems.push({ mesh: g, baseY: 0.9 });
+  }
+  // Logo atrás do portão da T3, em cima da 1ª pedra conectora (z=206) —
+  // impossível de não ver ao atravessar o portão rumo à T4.
+  spawnCrouchItem(0, 206);
+
+  // =========================================================================
+  // ITEM DO DASH (cabeçada pra frente) — fim da T4
+  // =========================================================================
+  // Visual: dois chevrons (setas de "avançar rápido") vermelhos apontando
+  // pra frente da plataforma (sentido -Z, direção em que o jogador anda).
+  // Só dá o dash depois de pegar este upgrade — até lá a seta ↓ continua
+  // sendo só o agachar.
+  let dashItems = [];
+  function spawnDashItem(x, z) {
+    const g = new THREE.Group();
+    const dashMat = new THREE.MeshStandardMaterial({ color: 0xff5522, emissive: 0xff3300, emissiveIntensity: 0.9 });
+    const c1 = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.2, 8), dashMat);
+    c1.rotation.x = -Math.PI / 2;
+    c1.position.set(0, 0, -0.14);
+    const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.2, 8), dashMat);
+    c2.rotation.x = -Math.PI / 2;
+    c2.position.set(0, 0, -0.32);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.36, 8), dashMat);
+    bar.rotation.x = Math.PI / 2;
+    g.add(c1, c2, bar);
+    g.position.set(x, 0.9, z);
+    scene.add(g);
+    dashItems.push({ mesh: g, baseY: 0.9 });
+  }
+  // No final da T4 (z≈170), bem na borda de trás — a P1 (primeira
+  // plataforma com inimigos) fica a 13 unidades adiante (z=155): o vão só
+  // se cruza com o DASH segurado + pulo na janela, sem pedras no meio.
+  spawnDashItem(0, 170);
+
+  // =========================================================================
+  // CHECKPOINT (fim da T4, ao lado DIREITO do item do dash) — placa que
+  // vira bandeira ao ser tocada (como a placa de save do Crash 2)
+  // =========================================================================
+  // Antes: uma PLACA de sinalização de madeira em pé (tábua com um ✓), bem
+  // na borda da T4. Ao encostar, a placa SOME e vira a BANDEIRA de
+  // checkpoint — poste alto com bandeira vermelha balançando — e o jogo
+  // passa a reaparecer ali (só dentro da mesma partida). O jogador anda no sentido
+  // -Z, então o lado direito dele é o +X: a placa fica em x≈2.2, sobre a
+  // mesma plataforma da T4 (x -3..3, z 168..186), ao lado do item do dash.
+  let checkpoint = null;
+  function spawnCheckpoint(x, z) {
+    const group = new THREE.Group();
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x9a7a4a, roughness: 0.95 });
+    // Poste curto da placa
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.5, 8), woodMat);
+    post.position.y = 0.25;
+    // Placa (tábua de sinalização, de frente pra quem chega — -Z)
+    const board = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.05), woodMat);
+    board.position.set(0, 0.58, -0.12);
+    // "✓" claro na placa (duas barrinhas em ângulo)
+    const chkMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const chk1 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.025, 0.02), chkMat);
+    chk1.position.set(-0.02, -0.02, 0.045);
+    chk1.rotation.z = Math.PI / 4;
+    const chk2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.025, 0.02), chkMat);
+    chk2.position.set(0.03, 0.045, 0.045);
+    chk2.rotation.z = -Math.PI / 4;
+    // Bandeira escondida: poste alto + bandeira que balança (aparece ao ativar)
+    const flagGroup = new THREE.Group();
+    flagGroup.visible = false;
+    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xd0d0d0 }));
+    flagPole.position.y = 0.75;
+    const flagMat = new THREE.MeshStandardMaterial({ color: 0xff4444, emissive: 0x992222, emissiveIntensity: 0.35 });
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.26, 0.03), flagMat);
+    flag.position.set(0.3, 1.4, 0);
+    flagGroup.add(flagPole, flag);
+    group.add(post, board, chk1, chk2, flagGroup);
+    group.position.set(x, 0, z);
+    scene.add(group);
+    return { mesh: group, flagGroup, flag, board, activated: false };
+  }
+  checkpoint = spawnCheckpoint(2.2, 170);
+
+  // =========================================================================
   // PUZZLE (P4) — pedra empurrável + placa + parede que some + chave
   // =========================================================================
   // Placa de pressão (marca no chão)
@@ -890,7 +1559,7 @@
     new THREE.CylinderGeometry(0.5, 0.5, 0.05, 14),
     new THREE.MeshStandardMaterial({ color: 0xccaa33, emissive: 0x886600, emissiveIntensity: 0.4 })
   );
-  puzzlePlate.position.set(-38, 0.03, -23.5);
+  puzzlePlate.position.set(-38, 0.03, 119.5);
   scene.add(puzzlePlate);
 
   // Pedra empurrável
@@ -898,7 +1567,7 @@
     new THREE.BoxGeometry(0.8, 0.8, 0.8),
     new THREE.MeshStandardMaterial({ color: 0x888877 })
   );
-  puzzleStone.position.set(-38, 0.4, -22.5);
+  puzzleStone.position.set(-38, 0.4, 120.5);
   scene.add(puzzleStone);
   let puzzleSolved = false;
 
@@ -908,14 +1577,14 @@
     new THREE.BoxGeometry(0.15, 0.4, 0.08),
     new THREE.MeshStandardMaterial({ color: 0xee2222, emissive: 0xaa1111, emissiveIntensity: 0.6 })
   );
-  key1Mesh.position.set(-38, 0.6, -27);
+  key1Mesh.position.set(-38, 0.6, 116);
   key1Mesh.visible = false;
   scene.add(key1Mesh);
   const key1Handle = new THREE.Mesh(
     new THREE.TorusGeometry(0.12, 0.03, 8, 12),
     new THREE.MeshStandardMaterial({ color: 0xee2222, emissive: 0xaa1111, emissiveIntensity: 0.6 })
   );
-  key1Handle.position.set(-38, 0.85, -27);
+  key1Handle.position.set(-38, 0.85, 116);
   key1Handle.visible = false;
   scene.add(key1Handle);
   let hasRedKey = false;
@@ -927,10 +1596,10 @@
   const mathAnswer = -2;
   const mathOptions = [2, -2, 8, -8];
   const mathBtnPositions = [
-    { x:36.5, z:-23.5, val:2 },
-    { x:39.5, z:-23.5, val:-2 },
-    { x:36.5, z:-26.5, val:8 },
-    { x:39.5, z:-26.5, val:-8 },
+    { x:36.5, z:119.5, val:2 },
+    { x:39.5, z:119.5, val:-2 },
+    { x:36.5, z:116.5, val:8 },
+    { x:39.5, z:116.5, val:-8 },
   ];
   const mathBtnMeshes = [];
   for (const opt of mathOptions) {
@@ -971,14 +1640,14 @@
     new THREE.PlaneGeometry(3, 1.5),
     new THREE.MeshBasicMaterial({ map: mathTex, side: THREE.DoubleSide })
   );
-  mathSign.position.set(38, 2.5, -25);
+  mathSign.position.set(38, 2.5, 118);
   scene.add(mathSign);
 
   let mathSolved = false;
 
   // Guardião escondido debaixo dos botões (mata com 1 hit se errar)
   const mathGuardian = makeGuardianMesh();
-  mathGuardian.position.set(38, -5, -25);
+  mathGuardian.position.set(38, -5, 118);
   scene.add(mathGuardian);
   let mathGuardianRising = false;
   let mathGuardianTimer = 0;
@@ -990,7 +1659,7 @@
     new THREE.BoxGeometry(6.0, 3.0, 0.3),
     new THREE.MeshStandardMaterial({ color: 0xcc2222, emissive: 0x661111, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.3 })
   );
-  redDoor.position.set(0, 1.5, -48);
+  redDoor.position.set(0, 1.5, 95);
   scene.add(redDoor);
   let redDoorOpen = false;
 
@@ -1001,7 +1670,7 @@
     new THREE.BoxGeometry(6.0, 3.0, 0.3),
     new THREE.MeshStandardMaterial({ color: 0x2244cc, emissive: 0x112266, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.3 })
   );
-  blueDoor.position.set(0, 1.5, -51);
+  blueDoor.position.set(0, 1.5, 92);
   scene.add(blueDoor);
   let blueDoorOpen = false;
 
@@ -1035,7 +1704,7 @@
     spikeTraps.push({ mesh: g, timer: Math.random() * 3, interval: 2.5 + Math.random() * 2, active: false });
   }
   for (let i = 0; i < 12; i++) {
-    spawnSpikeTrap(-7 + Math.random() * 14, -36 - Math.random() * 16);
+    spawnSpikeTrap(-7 + Math.random() * 14, 107 - Math.random() * 16);
   }
 
   // =========================================================================
@@ -1171,10 +1840,21 @@
   }
 
   function spawnPlayerProjectile(origin, dir) {
+    // Se o personagem está ABAIXADO, garante que o tiro sai bem perto do
+    // chão (na altura dos inimigos baixos de chifres da T4): mesmo que o
+    // cano visual fique um pouquinho mais alto, o projétil nasce baixo pra
+    // não passar por cima deles.
+    if (crouching && origin.y > 0.22) {
+      origin = origin.clone();
+      origin.y = 0.22;
+    }
     const mesh = makeOutlinedProjectile(0.09, 0xffffaa, 0x666600);
     mesh.position.copy(origin);
     scene.add(mesh);
-    playerProjectiles.push({ mesh, dir: dir.clone(), life: 0 });
+    // fromCrouch: o tiro foi disparado com o corpo ABAIXADO. Os inimigos
+    // rápidos da T4 (needCrouch) só podem ser acertados por tiros assim —
+    // em pé, o cano da arma fica acima deles e o tiro passa por cima.
+    playerProjectiles.push({ mesh, dir: dir.clone(), life: 0, fromCrouch: crouching });
   }
   function spawnEnemyProjectile(origin, dir) {
     const mesh = makeOutlinedProjectile(0.11, 0xff2222, 0x660000);
@@ -1188,9 +1868,116 @@
   // =========================================================================
   let velocityY = 0;
   let grounded = true;
+  // true enquanto o personagem está numa subida que ainda pode ser "cortada"
+  // ao soltar o botão de pulo (pulo normal OU quique em cima de um inimigo).
+  let jumping = false;
+  // true se o pulo/quique atual está mantendo a força MÁXIMA (botão ainda
+  // segurado desde o início da subida, ou já passou do ápice sem ter sido
+  // cortado). Vira false no instante em que o botão é solto cedo — e é essa
+  // flag que decide se a cambalhota pode acontecer.
+  let jumpFull = false;
+  // true enquanto o personagem está agachado (parado ou andando devagar,
+  // estilo stealth). Só pode ficar true no chão.
+  let crouching = false;
+  // -------- dash (cabeçada pra frente, estilo Crash Bandicoot) --------
+  // MESMA tecla do agachar (seta ↓ / grip esquerdo): se o personagem está
+  // PARADO no chão, o botão abaixa (crouch); se está EM MOVIMENTO (no chão
+  // OU no ar), o botão dispara um DASH na direção em que está andando —
+  // com a cabeça à frente, matando inimigos no caminho e ganhando velocidade.
+  // SÓ QUANDO PARTE DO CHÃO o dash atravessa buracos reto, sem cair (uma
+  // vez, como o deslize do Crash) — e o PULO é SEMPRE o botão de pulo
+  //   (Espaço/B/seta ↑): apertar o pulo durante o dash ou logo depois
+  //   (janela dashJumpGrace) completa o salto por cima do vão, carregando o
+  //   impulso do trajeto. Dash que parte do AR cai normalmente.
+  // O dash NÃO começa habilidade inicial: só é ganho ao pegar o item do
+  // DASH no fim da T4 (liberando a cabeçada). Até lá, a seta ↓ só agacha.
+  let hasDashAbility = false;
+  let dashing = false;         // true durante o trajeto do dash
+  let dashTimer = 0;           // tempo decorrido do dash atual
+  let dashDur = 0;             // duração total do dash atual (cresce segurando o botão)
+  let dashDirX = 0;            // direção (X) do dash
+  let dashDirZ = 0;            // direção (Z) do dash
+  let dashCooldown = 0;        // segundos até poder dar outro dash
+  let dashVisual = 0;          // 0..1: intensidade visual da pose de cabeçada
+  let lastDashDeniedAt = -10;  // pra tocar o som de "ainda não tem esse poder"
+  // Janela pós-dash: permite PULAR mesmo no ar por um breve instante
+  // depois que o dash termina (tempo pra apertar o botão de pulo em
+  // sequência, antes de começar a cair de verdade).
+  let dashJumpGrace = 0;
+  const DASH_DURATION = 0.26;     // duração base do trajeto (tap) — ≈ distância de um pulo
+  const DASH_SPEED = 18;          // velocidade do trajeto (bem mais rápido que andar)
+  const DASH_MAX_DURATION = 0.45; // duração máxima segurando o botão (~8.1 unidades)
+  const DASH_COOLDOWN = 0.15;     // pausa curta entre dashes (permite encadear)
+  const DASH_LEAN = 1.0;          // inclinação do tronco pra frente durante o dash (rad)
+  const DASH_JUMP_GRACE = 0.25;   // janela pra pular depois que o dash termina (seg)
+  // Pulo dado NO MEIO do dash (ou na janela logo depois, o "dash+pulo"):
+  // sai um pouco mais ALTO e mais RÁPIDO que o pulo normal — é o salto que
+  // cruza os vãos grandes, então merece um impulso extra pra cima.
+  const DASH_JUMP_SPEED = JUMP_SPEED * 1.12;
+  // ---- impulso do dash (dash-jump) ----
+  // Guarda a velocidade horizontal que sobrou do trajeto pra carregar no
+  // pulo feito DURANTE o dash: depois que o dash termina (ou é interrompido
+  // pelo pulo), esse impulso continua empurrando o personagem pra frente,
+  // decaindo aos poucos até parar — é o que faz o pulo do meio do dash ir
+  // muito mais longe.
+  let dashMomentumX = 0;
+  let dashMomentumZ = 0;
+  let dashMomentumActive = false;
+  const DASH_MOMENTUM_DECAY = 6;  // velocidade com que o impulso morre (por segundo)
+  // O dash só "flutua por cima dos buracos" (não cai) QUANDO ELE PARTE DE UM
+  // CHÃO/PLATAFORMA — e só uma vez: se o dash começar no ar, o personagem cai
+  // normalmente (a gravidade age durante o trajeto). É a regra do Crash.
+  let dashStartedOnGround = false;
+  // Detecção de "toque" da tecla de agachar/dash (só dispara o dash no
+  // instante em que o botão DESCE, não enquanto estiver segurado).
+  let prevCrouchPressed = false;
+  // Última direção de movimento (normalizada) usada pra apontar o dash.
+  let lastMoveDirX = 0;
+  let lastMoveDirZ = 0;
+  // Dispara a cabeçada pra frente: guarda a direção decidida e entra em
+  // "dashing" (o trajeto acontece no loop de animação).
+  function startDash() {
+    let dx = lastMoveDirX, dz = lastMoveDirZ;
+    const len = Math.hypot(dx, dz);
+    if (len < 0.001) {
+      // Sem direção de movimento salva: usa a direção pra onde o
+      // personagem está virado.
+      dx = -Math.sin(facingAngle);
+      dz = -Math.cos(facingAngle);
+    } else {
+      dx /= len;
+      dz /= len;
+    }
+    dashDirX = dx;
+    dashDirZ = dz;
+    dashTimer = 0;
+    dashDur = DASH_DURATION;
+    dashing = true;
+    dashCooldown = DASH_COOLDOWN;
+    crouching = false;
+    // Registra se o dash PARTIU DO CHÃO: só nesse caso ele "flutua" por
+    // cima dos buracos (uma vez). Se partir do ar, cai normalmente.
+    dashStartedOnGround = grounded;
+    playPoundSound();
+  }
+  // true enquanto a "pancada forte" (ground pound) está em andamento: do
+  // instante em que o jogador aperta a seta pra baixo no ar até o
+  // personagem tocar o chão de novo.
+  let groundPounding = false;
+  // Progresso do agachamento (0 = em pé, 1 = totalmente agachado).
+  // Interpolado suavemente a cada quadro em direção ao alvo (crouching ? 1
+  // : 0) pra dar uma transição macia às pernas dobrando e ao tronco
+  // descendo/inclinando.
+  let crouchVisual = 0;
   let charSpin = 0; // ângulo da cambalhota do personagem no ar (estilo Crash Bandicoot)
   let spinTimer = 0; // tempo decorrido da cambalhota atual (zera ao aterrissar)
   let airTimer = 0; // tempo decorrido desde que os pés saíram do chão (zera ao aterrissar)
+  // true assim que a cambalhota da subida atual já foi disparada (fica true
+  // até aterrissar ou até o quique seguinte resetar). Dispara no instante
+  // exato em que velocityY cruza de positivo pra zero/negativo — ou seja,
+  // no ÁPICE real da subida, não importa se é um pulo do chão ou um quique
+  // em cima de um inimigo, nem a altura alcançada.
+  let spinStarted = false;
   // A cambalhota, no Crash Bandicoot, é rápida e termina bem antes do
   // personagem voltar a tocar o chão — ela NÃO se estica pra durar o pulo
   // inteiro. Por isso a duração do giro é um valor fixo e curto, independente
@@ -1200,24 +1987,68 @@
   // Tempo até o ápice do pulo (metade do tempo total de ar). A cambalhota
   // deve acontecer centrada nesse instante — lá em cima — e não colada no
   // chão logo que o personagem decola.
-  const JUMP_APEX_TIME = JUMP_SPEED / GRAVITY;
-  const SPIN_START_TIME = Math.max(0, JUMP_APEX_TIME - SPIN_DURATION / 2);
+  // (a cambalhota agora dispara dinamicamente no ápice real de cada subida —
+  // veja "spinStarted" mais abaixo — em vez de usar um tempo fixo aqui.)
   let standingPlatform = null; // plataforma móvel em que o personagem está apoiado (ou null)
+  // Fica true assim que o personagem começa a cair de verdade porque uma
+  // pedra "que cai" afundou debaixo dele. Enquanto for true, a queda NÃO
+  // pode ser interrompida por achar chão embaixo por causa do controle no
+  // ar — senão, ao tentar se equilibrar em outra pedra durante a queda, o
+  // personagem "sobe" de volta pro chão instantaneamente no meio da queda,
+  // criando aquele efeito confuso de "caiu ou não caiu". Só termina quando
+  // bate o limite de segurança (y < -7) mais abaixo, que chama respawnFromPit().
+  let fallingIntoPit = false;
   // -------- rotação manual da câmera (saltos de 45°) --------
   let camYawTarget = 0;       // ângulo alvo do camPivot, sempre múltiplo de CAM_YAW_STEP
   let prevCamKeyLeft = false;  // estado anterior da tecla 4 (PC), pra detectar só o toque
   let prevCamKeyRight = false; // estado anterior da tecla 6 (PC)
   let prevCamStickDir = 0;     // -1/0/1: lado anterior do analógico direito (VR)
   // -------- altura/distância manual da câmera (níveis fixos) --------
-  let camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT;      // nível inicial/padrão da câmera; varia de CAM_HEIGHT_LEVEL_MIN a CAM_HEIGHT_LEVEL_MAX
+  let camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP; // nível inicial/padrão da câmera (desktop); varia de CAM_HEIGHT_LEVEL_MIN a CAM_HEIGHT_LEVEL_MAX
   let prevCamKeyUp = false;    // estado anterior da tecla 8 (PC)
   let prevCamKeyDown = false;  // estado anterior da tecla 2 (PC)
   let prevCamStickVert = 0;    // -1/0/1: lado anterior do analógico direito (cima/baixo, VR)
   let prevCamResetKey = false; // estado anterior da tecla 5 (PC)
   let prevCamResetStick = false; // estado anterior do clique do analógico direito (R3, VR)
   let gameWon = false;
-  let facingAngle = 0;
+  // Começa virado para a câmera (olhando pra quem está controlando), pois
+  // o personagem "fala" com o jogador antes de começar a andar. Math.PI =
+  // virado pra trás em relação ao padrão (que é de costas pra câmera,
+  // olhando pra frente do nível). Assim que o jogador começar a se mover,
+  // facingAngle gira suavemente (TURN_LERP) até a direção do movimento.
+  let facingAngle = Math.PI;
   let arenaActivated = false;
+  // -------- SISTEMA DE DIÁLOGO --------
+  // true enquanto uma caixa de diálogo estiver na tela: o jogo fica em
+  // pausa (personagem não anda, inimigos não se movem) até o jogador
+  // dispensar (se mover/pular/atirar/tocar na caixa) ou o tempo acabar.
+  let dialogueActive = false;
+  let dialogueTimer = 0;
+  let dialogueMinTime = 0; // tempo mínimo (s) antes de poder dispensar por input
+  // Relógio de jogo pausável (ver função animate) — substitui o uso direto
+  // de clock.elapsedTime para todas as animações de gameplay, pra elas
+  // pararem de verdade durante um diálogo e não "pularem" ao continuar.
+  let gameplayTime = 0;
+  // true depois que o personagem pega o item de pulo — sem isso, o botão
+  // de pular não funciona (ele "ainda não sabe pular").
+  let hasJumpAbility = false;
+  // true depois que o personagem pega o item de pancada forte (em T2) —
+  // sem isso, a seta ↓ no ar não faz nada (ele "ainda não sabe pisar
+  // forte"). Alguns inimigos (stompOnly) só morrem com essa pancada.
+  let hasStompAbility = false;
+  // true depois que o personagem pega o item de TRAVA DE MIRA (na T3) —
+  // sem isso, o botão de travar a mira (G/seta → /grip direito) não faz
+  // nada (ele "ainda não sabe travar a mira"). Depois de pegar, segurar o
+  // botão congela o ângulo de mira enquanto o personagem se move.
+  let hasAimLockAbility = false;
+  let lastAimLockDeniedAt = -99;
+  // true depois que o personagem pega o item de ANDAR ABAIXADO (atrás do
+  // portão da T3, no caminho para a T4) — sem isso, a seta ↓ no chão não
+  // agacha. Essencial para acertar os inimigos rápidos baixos de chifres:
+  // os tiros na altura normal passam por cima deles — só atirando agachado
+  // (o cano da arma desce junto com o corpo) que eles morrem.
+  let hasCrouchAbility = false;
+  let lastCrouchDeniedAt = -99;
   const SHOOT_INTERVAL = 0.22; // intervalo entre tiros automáticos ao segurar o botão
   let shootCooldown = 0;
   // Curta invulnerabilidade concedida sempre que o personagem quica em um
@@ -1230,7 +2061,15 @@
   // Última posição segura (no chão) do personagem. Atualizada toda vez que
   // ele está de pé numa plataforma. Usada para reposicioná-lo caso caia
   // num buraco entre as plataformas.
-  let lastGroundPos = new THREE.Vector3(START_POS.x, 0, START_POS.z);
+  let lastGroundPos = new THREE.Vector3(checkpointPos.x, 0, checkpointPos.z);
+
+  // -------- CHECKPOINT (só em memória, vale durante a partida) --------
+  // Ao tocar na placa (fim da T4), passa a ser aqui que o personagem
+  // reaparece quando morre. Nada é salvo no localStorage: recarregou a
+  // página, começa do início (T1).
+  function saveCheckpoint(x, z) {
+    checkpointPos.set(x, 0, z);
+  }
 
   // -------- VIDA (3 corações) --------
   const MAX_HEARTS = 3;
@@ -1240,6 +2079,138 @@
   // golpe/atropelamento.
   const HURT_BLINK_TIME = 1.0;
   let invulnTimer = 0;
+
+  // -------- VIDAS (99) --------
+  // Os 3 corações são os pontos de vida de UMA única vida. Ao zerar os
+  // corações, o personagem perde 1 das 99 vidas e REAPARECE NO CHECKPOINT
+  // com os corações cheios (o número de vidas fica em cima dos corações na
+  // HUD). Só quando as vidas acabam ele "morre de vez" — mas mesmo assim o
+  // "Tentar Novamente" continua do checkpoint, nunca do começo da fase.
+  const MAX_LIVES = 99;
+  let lives = MAX_LIVES;
+
+  // Esvaziou os corações: perde 1 vida. Com vidas sobrando, reaparece no
+  // checkpoint na hora. Sem vidas, entra na animação de morte (game over).
+  function onHeartsDepleted() {
+    playHurtSound();
+    lives = Math.max(0, lives - 1);
+    updateHeartsUI();
+    if (lives <= 0) {
+      deathAnim = true;
+      deathAnimTimer = 0;
+      return;
+    }
+    respawnAtCheckpoint();
+  }
+
+  // Reaparece no checkpoint com os corações cheios, invencível por um
+  // instante, e dá uma piscadinha rápida de fade pra mostrar o retorno.
+  function respawnAtCheckpoint() {
+    fallingIntoPit = false;
+    dashMomentumActive = false;
+    dashMomentumX = 0;
+    dashMomentumZ = 0;
+    velocityY = 0;
+    grounded = false;
+    standingPlatform = null;
+    hearts = MAX_HEARTS;
+    invulnTimer = HURT_BLINK_TIME;
+    // Se ainda não pegou a bandeira do checkpoint, o caminho inteiro volta
+    // a ficar cheio: todos os inimigos reaparecem vivos (e os portões que
+    // abriam conforme morriam voltam a fechar), pra o jogador ter uma nova
+    // chance de chegar até a bandeira.
+    if (checkpoint && !checkpoint.activated) respawnAllEnemies();
+    character.position.copy(checkpointPos);
+    camPivot.position.set(checkpointPos.x, 0, checkpointPos.z);
+    updateHeartsUI();
+    fadeEl.style.opacity = '1';
+    setTimeout(() => { fadeEl.style.opacity = '0'; }, 220);
+  }
+
+  // Reaparece TODOS os inimigos (normais, atiradores, rápidos e guardiões)
+  // vivos e nas posições de origem, limpa qualquer animação de esmagamento
+  // e fecha os portões que dependiam de inimigos mortos — pra o jogador
+  // poder refazer o caminho até a bandeira.
+  function respawnAllEnemies() {
+    const revive = (e) => {
+      e.mesh.visible = true;
+      if (e.mesh.userData._origScale) e.mesh.scale.copy(e.mesh.userData._origScale);
+      else e.mesh.scale.set(1, 1, 1);
+      for (let i = squashList.length - 1; i >= 0; i--) {
+        if (squashList[i].mesh === e.mesh) squashList.splice(i, 1);
+      }
+    };
+    for (const ne of normalEnemies) {
+      // Inimigos do treino da T3 (t3Phase definido) só voltam se o treino
+      // ainda não terminou — a máquina de fases continua contando eles pra
+      // liberar o portão. Se já terminou (t3Phase=2), ficam mortos.
+      if (ne.t3Phase !== undefined && t3Phase >= 2) continue;
+      ne.alive = true;
+      ne.hp = 1;
+      ne.mesh.position.set(ne.baseX, ne.flying ? ne.flyHeight : 0, ne.baseZ);
+      revive(ne);
+    }
+    for (const se of shooterEnemies) {
+      se.alive = true;
+      se.hp = 3;
+      se.fireTimer = 0;
+      se.mesh.position.set(se.baseX, 0, se.baseZ);
+      revive(se);
+    }
+    for (const fe of fastEnemies) {
+      fe.alive = true;
+      fe.hp = fe.needCrouch ? 1 : 2;
+      fe.changeTimer = 0;
+      fe.mesh.position.set(fe.baseX, 0, fe.baseZ);
+      revive(fe);
+    }
+    for (const gd of guardians) {
+      gd.alive = true;
+      gd.hp = GUARDIAN_HP;
+      gd.activated = false;
+      gd.jumping = false;
+      gd.jumpTimer = 0;
+      gd.jumpCooldown = 0.6 + Math.random() * 0.6;
+      gd.jumpStart = null;
+      gd.jumpTarget = null;
+      gd.mesh.position.set(gd.baseX, 0, gd.baseZ);
+      revive(gd);
+    }
+    // Guardião do quiz da matemática (P5) volta pra baixo do chão
+    mathGuardian.position.set(38, -5, 118);
+    mathGuardianRising = false;
+    mathGuardianTimer = 0;
+    // Treino da T3: os inimigos da fila já spawnados voltam (os com
+    // t3Phase < 2), mas a contagem da fila é zerada — se não, o stream
+    // continuaria a nascer inimigos em cima do personagem logo depois de
+    // reaparecer, lá no início do jogo. A máquina de fases (t3Phase) não
+    // é resetada: os inimigos restantes precisam ser derrotados de novo
+    // pra liberar o portão (o item que disparava o treino já foi consumido).
+    t3StreamLeft = 0;
+    // Portão da T2 fecha de novo (os 5 guardiões da T2 voltaram). O da T3
+    // só fecha se o treino ainda não terminou — se t3Phase já é 2 ele já
+    // abriu de vez e não pode voltar a fechar (o item que disparava o
+    // treino já foi consumido).
+    t2GateOpen = false;
+    t2Gate.position.y = 2;
+    if (t3Phase < 2) {
+      t3GateOpen = false;
+      t3Gate.position.y = 2;
+    }
+    // Portão da P1 só fecha se o dash ainda não foi pego — se já pegou, ele
+    // abriu de vez (o item foi consumido e o dash continua com o jogador).
+    if (!hasDashAbility) {
+      dashGateOpen = false;
+      dashGate.position.y = 2;
+    }
+    // Limpa projéteis soltos e armas dropadas que ficaram no chão
+    for (const p of playerProjectiles) scene.remove(p.mesh);
+    playerProjectiles.length = 0;
+    for (const p of enemyProjectiles) scene.remove(p.mesh);
+    enemyProjectiles.length = 0;
+    for (const gp of gunPickups) scene.remove(gp.mesh);
+    gunPickups.length = 0;
+  }
 
   // -------- ANIMAÇÃO DE MORTE / VITÓRIA --------
   let deathAnim = false;
@@ -1251,6 +2222,9 @@
   const retryBtnEl = document.getElementById('retry-button');
   const playagainBtnEl = document.getElementById('playagain-button');
   retryBtnEl.addEventListener('click', () => { window.location.reload(); });
+  // O checkpoint vale só durante a partida (nada é salvo no localStorage):
+  // qualquer recarga — "Tentar Novamente", "Jogar novamente" ou "Repetir
+  // fase" — sempre recomeça do início (T1).
   playagainBtnEl.addEventListener('click', () => { window.location.reload(); });
 
   // -------- MIRA TRAVADA (segurar G no PC / GRIP direito no VR) --------
@@ -1278,21 +2252,57 @@
     showHint._t = setTimeout(() => { hintEl.style.display = 'none'; }, ms);
   }
 
+  // -------- CAIXA DE DIÁLOGO --------
+  // Pausa o jogo (personagem e inimigos param) enquanto o personagem
+  // "fala" com quem está controlando. Dispensa ao mover/pular/atirar/tocar
+  // na caixa (depois de um tempo mínimo, pra não fechar sozinho na hora),
+  // ou automaticamente depois de dialogueAutoMs.
+  const dialogueBoxEl  = document.getElementById('dialogue-box');
+  const dialogueNameEl = document.getElementById('dialogue-name');
+  const dialogueTextEl = document.getElementById('dialogue-text');
+  function showDialogue(text, opts) {
+    opts = opts || {};
+    dialogueNameEl.textContent = opts.name || 'Herói';
+    dialogueTextEl.textContent = text;
+    dialogueBoxEl.style.display = 'block';
+    dialogueActive = true;
+    dialogueTimer = 0;
+    dialogueMinTime = opts.minTime !== undefined ? opts.minTime : 1.0;
+    dialogueBoxEl._autoMs = opts.autoMs !== undefined ? opts.autoMs : 7000;
+  }
+  function dismissDialogue() {
+    if (!dialogueActive) return;
+    dialogueActive = false;
+    dialogueBoxEl.style.display = 'none';
+  }
+  dialogueBoxEl.addEventListener('click', () => {
+    if (dialogueTimer >= dialogueMinTime) dismissDialogue();
+  });
+
   // -------- UI DOS CORAÇÕES --------
   // Canvas usado como textura de um pequeno painel preso ao controle
   // esquerdo em VR, mostrando os mesmos corações da HUD do PC.
   const heartsCanvas = document.createElement('canvas');
-  heartsCanvas.width = 256; heartsCanvas.height = 96;
+  // Altura maior pra caber o número de vidas em cima dos corações.
+  heartsCanvas.width = 256; heartsCanvas.height = 140;
   const heartsCtx = heartsCanvas.getContext('2d');
   const heartsTexture = new THREE.CanvasTexture(heartsCanvas);
 
   function drawHeartsCanvas() {
     heartsCtx.clearRect(0, 0, heartsCanvas.width, heartsCanvas.height);
+    // Número de vidas em cima dos corações (♥ 99)
+    heartsCtx.font = 'bold 52px sans-serif';
+    heartsCtx.textAlign = 'center';
+    heartsCtx.textBaseline = 'middle';
+    heartsCtx.fillStyle = '#ffd75e';
+    heartsCtx.fillText('\u2665 ' + lives, heartsCanvas.width / 2, 22);
+    heartsCtx.textAlign = 'left';
+    // corações (pontos de vida da vida atual)
     heartsCtx.font = '64px sans-serif';
     heartsCtx.textBaseline = 'middle';
     for (let i = 0; i < MAX_HEARTS; i++) {
       heartsCtx.fillStyle = i < hearts ? '#ff3b3b' : 'rgba(255,255,255,0.25)';
-      heartsCtx.fillText('\u2665', 10 + i * 82, 52);
+      heartsCtx.fillText('\u2665', 10 + i * 82, 108);
     }
     heartsTexture.needsUpdate = true;
   }
@@ -1310,14 +2320,40 @@
   const keysCtx = keysCanvas.getContext('2d');
   const keysTexture = new THREE.CanvasTexture(keysCanvas);
 
+  // Desenha o ícone de chave com uma COR (as portas que abrem): a chave
+  // vermelha abre a porta vermelha e a azul abre a azul. O emoji 🔑 antigo
+  // ignorava o fillStyle (vinha sempre dourado), então agora a chave é
+  // desenhada vetorialmente pra realmente ficar vermelha/azul.
+  function drawKeyIcon(cx, cy, color) {
+    keysCtx.strokeStyle = color;
+    keysCtx.lineWidth = 5;
+    keysCtx.lineCap = 'round';
+    keysCtx.lineJoin = 'round';
+    // argola (anel) da chave, no topo
+    keysCtx.beginPath();
+    keysCtx.arc(cx, cy - 10, 8, 0, Math.PI * 2);
+    keysCtx.stroke();
+    // haste da chave
+    keysCtx.beginPath();
+    keysCtx.moveTo(cx, cy - 2);
+    keysCtx.lineTo(cx, cy + 20);
+    keysCtx.stroke();
+    // dentes do lado direito
+    keysCtx.beginPath();
+    keysCtx.moveTo(cx, cy + 14);
+    keysCtx.lineTo(cx + 9, cy + 14);
+    keysCtx.lineTo(cx + 9, cy + 11);
+    keysCtx.moveTo(cx, cy + 19);
+    keysCtx.lineTo(cx + 6, cy + 19);
+    keysCtx.lineTo(cx + 6, cy + 16);
+    keysCtx.stroke();
+  }
+
   function drawKeysCanvas() {
     keysCtx.clearRect(0, 0, keysCanvas.width, keysCanvas.height);
-    keysCtx.font = '58px sans-serif';
-    keysCtx.textBaseline = 'middle';
-    keysCtx.fillStyle = hasRedKey ? '#ee2222' : 'rgba(255,255,255,0.28)';
-    keysCtx.fillText('\uD83D\uDD11', 12, 52);
-    keysCtx.fillStyle = hasBlueKey ? '#3388ff' : 'rgba(255,255,255,0.28)';
-    keysCtx.fillText('\uD83D\uDD11', 92, 52);
+    // chave vermelha (porta vermelha) e chave azul (porta azul)
+    drawKeyIcon(12, 52, hasRedKey ? '#ee2222' : 'rgba(255,255,255,0.28)');
+    drawKeyIcon(92, 52, hasBlueKey ? '#3388ff' : 'rgba(255,255,255,0.28)');
     keysTexture.needsUpdate = true;
   }
 
@@ -1337,7 +2373,7 @@
   const heartsPlaneMat = new THREE.MeshBasicMaterial({
     map: heartsTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
   });
-  const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.06), heartsPlaneMat);
+  const heartsPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.0875), heartsPlaneMat);
   heartsPlane.position.set(HUD_DESKTOP.x, HUD_DESKTOP.heartsY, HUD_DESKTOP.z);
   heartsPlane.renderOrder = 10;
   camera.add(heartsPlane);
@@ -1363,33 +2399,39 @@
   renderer.xr.addEventListener('sessionstart', updateHudAnchors);
   renderer.xr.addEventListener('sessionend', updateHudAnchors);
 
+  // Ao entrar em VR, a câmera volta a usar o nível padrão original de VR
+  // (sem nenhuma mudança). Ao sair da VR e voltar pro desktop, a câmera
+  // volta a usar o novo nível padrão mais alto/afastado do desktop.
+  renderer.xr.addEventListener('sessionstart', function () {
+    camYawTarget = 0;
+    camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT;
+  });
+  renderer.xr.addEventListener('sessionend', function () {
+    camYawTarget = 0;
+    camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP;
+  });
+
   function playerIsInvulnerable() {
-    return invulnTimer > 0 || stompInvulnTimer > 0;
+    // Durante a pancada forte (ground pound) o personagem está em pleno
+    // ataque, descendo com tudo: não deve tomar dano de nenhum inimigo
+    // encostado nesse instante.
+    return invulnTimer > 0 || stompInvulnTimer > 0 || groundPounding;
   }
 
   // Ponto único de entrada para qualquer dano sofrido pelo personagem.
   // Tira "amount" corações (1 por padrão), dá knockback e deixa o
   // personagem piscando e invencível por HURT_BLINK_TIME segundos. Se os
   // corações acabarem, ativa a animação de morte.
-  // Chamada quando o personagem cai num buraco entre plataformas: tira 1
-  // coração e o teleporta de volta para a última posição segura no chão,
-  // em vez de deixá-lo continuar caindo para sempre.
+  // Chamada quando o personagem cai num buraco entre plataformas: agora
+  // mata na hora, zerando todos os corações (antes tirava só 1 e
+  // reposicionava — não morria mais).
   function respawnFromPit() {
     if (deathAnim) return;
-    hearts = Math.max(0, hearts - 1);
-    updateHeartsUI();
-    playHurtSound();
-    if (hearts <= 0) {
-      deathAnim = true;
-      deathAnimTimer = 0;
-      return;
-    }
-    const spot = findNearestSafeSpot(character.position.x, character.position.z);
-    character.position.set(spot.x, 0, spot.z);
-    velocityY = 0;
-    grounded = true;
-    standingPlatform = null;
-    invulnTimer = HURT_BLINK_TIME;
+    fallingIntoPit = false;
+    dashMomentumActive = false;
+    dashMomentumX = 0;
+    dashMomentumZ = 0;
+    onHeartsDepleted();
   }
 
   function takeHit(amount) {
@@ -1399,9 +2441,7 @@
     hearts = Math.max(0, hearts - amount);
     updateHeartsUI();
     if (hearts <= 0) {
-      playHurtSound();
-      deathAnim = true;
-      deathAnimTimer = 0;
+      onHeartsDepleted();
       return;
     }
     playHurtSound();
@@ -1435,7 +2475,7 @@
   // ENTRADA: CONTROLE VR (Quest)
   // =========================================================================
   function getXRInput() {
-    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false,
+    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false, gripLeftBtn = false,
         rightStickX = 0, rightStickY = 0, rightStickClick = false;
     const session = renderer.xr.getSession && renderer.xr.getSession();
     if (session) {
@@ -1464,10 +2504,12 @@
         } else {
           if (Math.abs(sx) > 0.15) moveX += sx;
           if (Math.abs(sy) > 0.15) moveY += sy;
+          // GRIP esquerdo (botão 1 do controle esquerdo) = agachar no VR.
+          if (gp.buttons[1] && gp.buttons[1].pressed) gripLeftBtn = true;
         }
       }
     }
-    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn, rightStickX, rightStickY, rightStickClick };
+    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn, gripLeftBtn, rightStickX, rightStickY, rightStickClick };
   }
 
   // =========================================================================
@@ -1541,7 +2583,32 @@
 
   function animate() {
     const dt = Math.min(clock.getDelta(), 0.05);
-    const t = clock.elapsedTime;
+
+    // Lido sempre, mesmo com o jogo já ganho, para servir de fallback do
+    // botão "Repetir fase" dentro do VR (caso o dom-overlay não seja
+    // suportado pelo navegador do headset): qualquer botão reinicia.
+    const xr = getXRInput();
+    const pad = getDesktopGamepadInput();
+
+    // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
+    if (dialogueActive) {
+      dialogueTimer += dt;
+      const anyInput = keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD'] ||
+        keys['Space'] || keys['KeyB'] || keys['ArrowUp'] ||
+        Math.abs(xr.moveX) > 0.2 || Math.abs(xr.moveY) > 0.2 || xr.jumpBtn || xr.shootBtn ||
+        Math.abs(pad.moveX) > 0.2 || Math.abs(pad.moveY) > 0.2 || pad.jumpBtn;
+      if (dialogueTimer >= dialogueMinTime && (anyInput || dialogueTimer * 1000 >= dialogueBoxEl._autoMs)) {
+        dismissDialogue();
+      }
+    }
+
+    // 't' é um relógio de jogo que SÓ avança fora do diálogo — assim,
+    // enquanto a caixa de texto está na tela, tudo (patrulha dos
+    // inimigos, item de pulo flutuando, etc.) fica realmente parado, e
+    // ao fechar a caixa continua exatamente de onde tinha parado, sem
+    // "pular" pra uma posição diferente (o que parecia um reinício feio).
+    if (!dialogueActive) gameplayTime += dt;
+    const t = gameplayTime;
 
     updateBridgePlatforms(dt, t);
     if (standingPlatform && grounded) {
@@ -1549,29 +2616,23 @@
       character.position.z += standingPlatform.deltaZ;
     }
 
-    // Lido sempre, mesmo com o jogo já ganho, para servir de fallback do
-    // botão "Repetir fase" dentro do VR (caso o dom-overlay não seja
-    // suportado pelo navegador do headset): qualquer botão reinicia.
-    const xr = getXRInput();
-
     if (gameWon) {
       if (renderer.xr.isPresenting && (xr.jumpBtn || xr.shootBtn || xr.gripRightBtn)) {
         window.location.reload();
       }
     }
 
-    if (!gameWon && !deathAnim && !winAnim) {
+    if (!gameWon && !deathAnim && !winAnim && !dialogueActive) {
       // -------- entradas --------
       let moveX = 0, moveZ = 0;
-      if (keys['KeyW'] || keys['ArrowUp'])    moveZ -= 1;
-      if (keys['KeyS'] || keys['ArrowDown'])  moveZ += 1;
-      if (keys['KeyA'] || keys['ArrowLeft'])  moveX -= 1;
-      if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+      if (keys['KeyW'])                       moveZ -= 1;
+      if (keys['KeyS'])                       moveZ += 1;
+      if (keys['KeyA'])                       moveX -= 1;
+      if (keys['KeyD'])                       moveX += 1;
 
       moveX += xr.moveX;
       moveZ += xr.moveY;
 
-      const pad = getDesktopGamepadInput();
       moveX += pad.moveX;
       moveZ += pad.moveY;
 
@@ -1582,11 +2643,18 @@
       // Enquanto o botão estiver segurado, o ângulo de mira fica congelado
       // no valor que o personagem tinha no instante em que travou. Soltando
       // o botão, volta a virar normalmente na direção do movimento.
-      const aimLockPressed = keys['KeyG'] || xr.gripRightBtn;
+      // Só funciona depois de pegar o item de trava de mira (T3) — antes,
+      // o personagem ainda não sabe travar a mira.
+      const aimLockPressed = keys['KeyG'] || keys['ArrowRight'] || xr.gripRightBtn;
       if (aimLockPressed && !aimLocked) {
-        aimLocked = true;
-        lockedFacingAngle = facingAngle;
-        showHint('Mira travada!', 900);
+        if (hasAimLockAbility) {
+          aimLocked = true;
+          lockedFacingAngle = facingAngle;
+          showHint('Mira travada!', 900);
+        } else if (t - lastAimLockDeniedAt > 1.5) {
+          lastAimLockDeniedAt = t;
+          showHint('Ainda não sei travar a mira... Preciso achar o item na 3ª plataforma.', 2000);
+        }
       } else if (!aimLockPressed && aimLocked) {
         aimLocked = false;
       }
@@ -1602,29 +2670,67 @@
           0,
           -moveX * sinY + moveZ * cosY
         );
-
-        character.position.x += worldDir.x * MOVE_SPEED * dt;
-        character.position.z += worldDir.z * MOVE_SPEED * dt;
-        character.position.x = Math.max(-42, Math.min(42, character.position.x));
-        character.position.z = Math.max(-58, Math.min(12, character.position.z));
-        // Bloqueio porta vermelha (z=-48)
-        if (!redDoorOpen && character.position.z < -48) {
-          character.position.z = -48;
+        // Guarda a direção normalizada pro dash (cabeçada) usar quando a
+        // tecla de agachar/dash for apertada em movimento.
+        const wl = worldDir.length();
+        if (wl > 0.0001) {
+          lastMoveDirX = worldDir.x / wl;
+          lastMoveDirZ = worldDir.z / wl;
         }
-        // Bloqueio porta azul (z=-51)
-        if (redDoorOpen && !blueDoorOpen && character.position.z < -51) {
-          character.position.z = -51;
+
+        const currentMoveSpeed = crouching ? CROUCH_MOVE_SPEED : MOVE_SPEED;
+        // Durante o dash, o deslocamento normal fica SUPRIMIDO: quem move
+        // o personagem é só o trajeto da cabeçada (mais rápido e sem cair).
+        // A direção de movimento ainda é registrada abaixo, pra a mira e a
+        // câmera continuarem acompanhando mesmo no meio do trajeto.
+        if (!dashing) {
+          character.position.x += worldDir.x * currentMoveSpeed * dt;
+          character.position.z += worldDir.z * currentMoveSpeed * dt;
+        }
+        character.position.x = Math.max(-42, Math.min(42, character.position.x));
+        // Limite máximo de Z: precisa acompanhar a borda de trás real da
+        // T1. T1 foi empurrada para trás (cz 84→314) para abrir espaço
+        // para as novas plataformas T2-T4 do mesmo tamanho dela e para o
+        // vão maior entre T1 e T2, então sua borda de trás agora é z=332
+        // (era 102). O limite é sempre a própria borda da T1, então o
+        // nascimento em z≈331.7 fica de fato preservado.
+        // Limite mínimo de Z: o bloco P1-P7 foi deslocado +141, depois -13
+        // e por fim +15 (a estrela agora está em z=87 e a borda sul da P7
+        // em z=84), então o mínimo acompanha até 85 (antes era -58, no
+        // corredor da estrela).
+        character.position.z = Math.max(85, Math.min(332, character.position.z));
+        // Bloqueio porta vermelha (z=95)
+        if (!redDoorOpen && character.position.z < 95) {
+          character.position.z = 95;
+        }
+        // Bloqueio portão transparente T2→T3 (z=252)
+        if (!t2GateOpen && character.position.z < 252) {
+          character.position.z = 252;
+        }
+        // Bloqueio portão transparente T3→T4 (z=210): o treino da T3
+        // (fila da frente) precisa terminar pra liberar a passagem.
+        if (!t3GateOpen && character.position.z < 210) {
+          character.position.z = 210;
+        }
+        // Bloqueio portão transparente T4→P1 (z=155): só deixa cruzar o vão
+        // (que exige dash+pulo) depois de pegar o item do DASH no fim da T4.
+        if (!dashGateOpen && character.position.z < 155) {
+          character.position.z = 155;
+        }
+        // Bloqueio porta azul (z=92)
+        if (redDoorOpen && !blueDoorOpen && character.position.z < 92) {
+          character.position.z = 92;
         }
         // Funil: estreita conforme se aproxima do primeiro portão
-        if (!redDoorOpen && character.position.z >= -48 && character.position.z <= -44) {
-          const t = (character.position.z + 48) / 4;
+        if (!redDoorOpen && character.position.z >= 95 && character.position.z <= 99) {
+          const t = (character.position.z - 95) / 4;
           const maxX = 3.5 + 6.5 * t;
           if (Math.abs(character.position.x) > maxX) {
             character.position.x = Math.sign(character.position.x) * maxX;
           }
         }
-        if (redDoorOpen && !blueDoorOpen && character.position.z >= -51 && character.position.z <= -44) {
-          const t = (character.position.z + 51) / 7;
+        if (redDoorOpen && !blueDoorOpen && character.position.z >= 92 && character.position.z <= 99) {
+          const t = (character.position.z - 92) / 7;
           const maxX = 3.5 + 6.5 * t;
           if (Math.abs(character.position.x) > maxX) {
             character.position.x = Math.sign(character.position.x) * maxX;
@@ -1639,8 +2745,11 @@
           facingAngle += diff * TURN_LERP;
         }
 
-        legL.rotation.x = Math.sin(t * 10) * 0.5;
-        legR.rotation.x = -Math.sin(t * 10) * 0.5;
+        // Andar agachado (stealth) é mais lento e com passadas mais curtas.
+        const legSwingRate = crouching ? 5 : 10;
+        const legSwingAmp  = crouching ? 0.3 : 0.5;
+        legL.rotation.x = Math.sin(t * legSwingRate) * legSwingAmp;
+        legR.rotation.x = -Math.sin(t * legSwingRate) * legSwingAmp;
       } else {
         legL.rotation.x *= 0.8;
         legR.rotation.x *= 0.8;
@@ -1650,19 +2759,210 @@
       // lados ou para trás; do contrário segue a direção normal do andar.
       character.rotation.y = aimLocked ? lockedFacingAngle : facingAngle;
 
+      // -------- agachar (stealth) / dash (cabeçada) / pancada forte no ar --------
+      // A MESMA tecla (seta pra baixo / grip esquerdo) faz coisas diferentes
+      // dependendo da situação:
+      //  - PARADO no chão: agacha (segurar mantém abaixado) — a arma desce
+      //    quase até o chão, e é assim que se acerta os inimigos baixos.
+      //  - EM MOVIMENTO NO CHÃO (com o upgrade do dash): dispara o DASH —
+      //    atravessa buracos sem cair e permite pular logo depois (dash+pulo
+      //    encadeados cruzam plataformas distantes). Segurar o botão estende
+      //    o trajeto. SÓ pode ser dado do chão ou de uma plataforma: no ar,
+      //    o botão dispara a pancada forte (item da T2) em vez do dash.
+      //  - No ar, PARADO (pulando): dispara uma "pancada forte" (só com o
+      //    item da T2).
+      const crouchPressed = keys['ArrowDown'] || xr.gripLeftBtn;
+      const crouchJustPressed = crouchPressed && !prevCrouchPressed;
+      prevCrouchPressed = crouchPressed;
+      const moving = moveX !== 0 || moveZ !== 0;
+      if (crouchJustPressed && moving && grounded && hasDashAbility && !dashing && dashCooldown <= 0) {
+        // Em movimento e no chão com o upgrade: DASH (cabeçada). Só
+        // atravessa buraco sem cair se tiver PARTIDO DO CHÃO (uma vez).
+        startDash();
+        crouching = false;
+      } else if (crouchJustPressed && moving && grounded && hasDashAbility && !dashing && t - lastDashDeniedAt > 0.7) {
+        lastDashDeniedAt = t;
+        showHint('Respira... espera um instante pra cabeçar de novo.', 1000);
+      } else if (grounded) {
+        // Parado no chão (ou ainda sem o dash): agacha, como sempre.
+        crouching = crouchPressed && hasCrouchAbility && !dashing;
+        if (crouchPressed && !hasCrouchAbility && t - lastCrouchDeniedAt > 1.5) {
+          lastCrouchDeniedAt = t;
+          showHint('Ainda não sei andar abaixado... Preciso achar o item logo atrás do portão.', 2000);
+        }
+      } else if (crouchJustPressed && !groundPounding && hasStompAbility && !dashing) {
+        // No ar, no instante em que a tecla DESCE (pressão, não segurar):
+        // pancada forte. Durante o dash não dispara (guard !dashing).
+        groundPounding = true;
+        crouching = false;
+        velocityY = GROUND_POUND_SPEED;
+        jumping = false;
+        jumpFull = false;
+        spinStarted = false;
+        spinTimer = 0;
+        charSpin = 0;
+        playPoundSound();
+      }
+
+      // -------- dash: trajeto pra frente (cabeçada) --------
+      // O dash DESLIZA o personagem sem cair: atravessa buracos se
+      // iniciado do chão, mantendo a altura. Segurar o botão do dash
+      // estende o trajeto (até DASH_MAX_DURATION). No final, abre uma
+      // janela curta (dashJumpGrace) que permite pular no ar — mesmo
+      // estando sobre um vão — pra completar o "dash+pulo".
+      if (dashing) {
+        dashTimer += dt;
+        // Segurar o botão estende o trajeto (1:1), até o máximo.
+        if (crouchPressed && dashDur < DASH_MAX_DURATION) {
+          dashDur = Math.min(DASH_MAX_DURATION, dashDur + dt);
+        }
+        character.position.x += dashDirX * DASH_SPEED * dt;
+        character.position.z += dashDirZ * DASH_SPEED * dt;
+        // Guarda o impulso do trajeto: se o pulo interromper o dash, essa
+        // velocidade continua empurrando o personagem por um instante.
+        dashMomentumX = dashDirX * DASH_SPEED;
+        dashMomentumZ = dashDirZ * DASH_SPEED;
+        dashMomentumActive = true;
+        dashVisual += (1 - dashVisual) * 0.4;
+        // A cabeçada destrói qualquer inimigo que tocar durante o trajeto.
+        const hx = character.position.x + dashDirX * 0.55;
+        const hz = character.position.z + dashDirZ * 0.55;
+        for (const ne of normalEnemies) {
+          if (!ne.alive) continue;
+          const dx = hx - ne.mesh.position.x;
+          const dz = hz - ne.mesh.position.z;
+          if (Math.abs(ne.mesh.position.y - character.position.y) > 1.0) continue;
+          if (Math.sqrt(dx * dx + dz * dz) < 0.8) {
+            ne.alive = false;
+            spawnImpactEffect(ne.mesh.position);
+            squashMesh(ne.mesh, true);
+            playDefeatSound();
+          }
+        }
+        for (const fe of fastEnemies) {
+          if (!fe.alive) continue;
+          const dx = hx - fe.mesh.position.x;
+          const dz = hz - fe.mesh.position.z;
+          if (Math.abs(fe.mesh.position.y - character.position.y) > 1.0) continue;
+          if (Math.sqrt(dx * dx + dz * dz) < 0.8) {
+            fe.alive = false;
+            spawnImpactEffect(fe.mesh.position);
+            squashMesh(fe.mesh, true);
+            playDefeatSound();
+          }
+        }
+        for (const se of shooterEnemies) {
+          if (!se.alive) continue;
+          const dx = hx - se.mesh.position.x;
+          const dz = hz - se.mesh.position.z;
+          if (Math.abs(se.mesh.position.y - character.position.y) > 1.0) continue;
+          if (Math.sqrt(dx * dx + dz * dz) < 0.8) {
+            se.hp -= 1;
+            if (se.hp <= 0) {
+              se.alive = false;
+              spawnImpactEffect(se.mesh.position);
+              squashMesh(se.mesh, true);
+              playDefeatSound();
+            } else {
+              squashMesh(se.mesh, false);
+              playHitSound();
+            }
+          }
+        }
+        for (const gd of guardians) {
+          if (!gd.alive) continue;
+          const dx = hx - gd.mesh.position.x;
+          const dz = hz - gd.mesh.position.z;
+          if (Math.abs(gd.mesh.position.y - character.position.y) > 1.4) continue;
+          if (Math.sqrt(dx * dx + dz * dz) < 0.8) {
+            gd.hp -= 1;
+            if (gd.hp <= 0) {
+              gd.alive = false;
+              spawnImpactEffect(gd.mesh.position);
+              squashMesh(gd.mesh, true);
+              playDefeatSound();
+            } else {
+              squashMesh(gd.mesh, false);
+              playHitSound();
+            }
+          }
+        }
+        if (dashTimer >= dashDur) {
+          dashing = false;
+          dashVisual = 0;
+          dashTimer = 0;
+          // Abre a janela pra PULAR mesmo no ar — mesmo que o dash tenha
+          // terminado por cima de um vão, dá pra completar o "dash+pulo".
+          dashJumpGrace = DASH_JUMP_GRACE;
+        }
+        if (dashCooldown > 0) dashCooldown -= dt;
+      } else {
+        dashVisual += (0 - dashVisual) * 0.4;
+        if (dashCooldown > 0) dashCooldown -= dt;
+      }
+
       // -------- pular --------
-      const jumpPressed = keys['Space'] || xr.jumpBtn || pad.jumpBtn;
-      if (jumpPressed && grounded) {
-        velocityY = JUMP_SPEED;
+      // O pulo é SEMPRE o botão de pulo (Espaço/B/seta ↑) — o botão do dash
+      // NÃO pula. Mas o pulo funciona DURANTE o trajeto do dash e na janela
+      // logo depois (dashJumpGrace): é assim que se completa o "dash+pulo"
+      // por cima do buraco — o dash atravessa reto, e aí aperta o pulo.
+      const jumpBtnBase = keys['Space'] || keys['KeyB'] || keys['ArrowUp'] || xr.jumpBtn || pad.jumpBtn;
+      const jumpPressed = jumpBtnBase && !crouching && hasJumpAbility;
+      if (jumpPressed && (grounded || dashing || dashJumpGrace > 0)) {
+        // Pulo no meio do dash / na janela logo depois: mais alto e mais
+        // rápido (DASH_JUMP_SPEED). O pulo normal continua com JUMP_SPEED.
+        velocityY = (dashing || dashJumpGrace > 0) ? DASH_JUMP_SPEED : JUMP_SPEED;
         grounded = false;
+        jumping = true;
+        jumpFull = true;
+        spinStarted = false;
+        crouching = false;
+        // O pulo INTERROMPE o dash no instante em que ele é apertado — mas
+        // o impulso do trajeto continua (dashMomentum), então o salto vai
+        // longe pra frente, como o pulo do Crash depois do deslize.
+        if (dashing) {
+          dashing = false;
+          dashTimer = 0;
+          dashVisual = 0;
+        }
+        dashJumpGrace = 0;
         playJumpSound();
+      }
+      // -------- corte do pulo (altura variável) --------
+      // Enquanto a subida (pulo OU quique) ainda está em andamento e o
+      // botão de pulo NÃO está mais pressionado, corta a velocidade pra
+      // cima para o valor mínimo — isso faz o personagem parar de subir
+      // antes e cair mais cedo, dando um pulo/quique menor. Se o botão
+      // continuar segurado até o ápice natural, a força máxima se mantém
+      // do jeito que já estava (nada muda nesse caso).
+      if (jumping && !grounded && !jumpPressed && velocityY > JUMP_MIN_SPEED) {
+        velocityY = JUMP_MIN_SPEED;
+        jumpFull = false;
+      }
+
+      // -------- impulso do dash (dash-jump) --------
+      // O que sobrou da velocidade do trajeto continua empurrando o
+      // personagem pra frente por um instante, decaindo até parar — assim
+      // o pulo feito DURANTE o dash carrega o impulso e vai muito mais
+      // longe. (Durante o dash em si quem move é o próprio trajeto; o
+      // impulso só age depois que o dash acaba ou é interrompido.)
+      if (dashMomentumActive && !dashing) {
+        character.position.x += dashMomentumX * dt;
+        character.position.z += dashMomentumZ * dt;
+        dashMomentumX *= Math.max(0, 1 - DASH_MOMENTUM_DECAY * dt);
+        dashMomentumZ *= Math.max(0, 1 - DASH_MOMENTUM_DECAY * dt);
+        if (Math.abs(dashMomentumX) < 0.05 && Math.abs(dashMomentumZ) < 0.05) {
+          dashMomentumActive = false;
+          dashMomentumX = 0;
+          dashMomentumZ = 0;
+        }
       }
 
       // -------- atirar (com arma) --------
       // Segurando o botão, atira sozinho continuamente (respeitando um
       // intervalo mínimo entre tiros), sem precisar apertar várias vezes.
       if (shootCooldown > 0) shootCooldown -= dt;
-      const shootPressed = keys['KeyF'] || xr.shootBtn || pad.shootBtn;
+      const shootPressed = keys['KeyF'] || keys['KeyV'] || keys['ArrowLeft'] || xr.shootBtn || pad.shootBtn;
       if (hasGun && shootPressed && shootCooldown <= 0) {
         const fwd = forwardVectorFromAngle(aimLocked ? lockedFacingAngle : facingAngle);
         // origem real: a ponta do cano da arma no mundo, não o centro do personagem
@@ -1709,36 +3009,89 @@
       // instante exato em que ele "caiu num buraco" por andar direto pra
       // fora da borda de uma plataforma.
       const wasGrounded = grounded;
-      velocityY -= GRAVITY * dt;
-      character.position.y += velocityY * dt;
+      if (dashing && dashStartedOnGround) {
+        // Dash PARTINDO DO CHÃO: o personagem NÃO cai — desliza em y=0 por
+        // cima dos vãos, reto, sem punição de borda (uma vez, como no
+        // Crash). O trajeto termina quando acaba o dash; aí a gravidade
+        // volta e a janela dashJumpGrace permite completar o salto.
+        velocityY = 0;
+        grounded = false;
+        standingPlatform = null;
+        fallingIntoPit = false;
+      } else {
+        // Sem dash (ou dash PARTIDO DO AR): gravidade normal — o dash no
+        // ar NÃO flutua, o personagem cai enquanto desliza, como deve ser.
+        velocityY -= GRAVITY * dt;
+        character.position.y += velocityY * dt;
+      }
+      if (dashJumpGrace > 0) dashJumpGrace -= dt;
 
-      if (character.position.y <= 0) {
-        if (hasGroundAt(character.position.x, character.position.z)) {
+      // IMPORTANTE: durante o dash PARTIDO DO CHÃO, NADA de checagem de
+      // chão nem punição de borda — ele atravessa os buracos RETO (uma vez,
+      // como no Crash). Dash no ar (ou sem dash) cai e a checagem normal
+      // vale, incluindo cair no vão e sofrer a punição de borda.
+      if (!dashing || !dashStartedOnGround) {
+        if (fallingIntoPit) {
+        // Já está caindo de vez pela pedra que afundou: NÃO reavalia se há
+        // chão embaixo (mesmo que o jogador consiga, com o controle no ar,
+        // desviar de volta para cima de outra pedra sólida). Sem isso, o
+        // personagem "subia" de volta pro chão no meio da queda assim que
+        // passasse por cima de qualquer pedra próxima, o que parecia com um
+        // bug de "caiu ou não caiu". A queda só termina no limite de
+        // segurança (y < -7), mais abaixo, que chama respawnFromPit().
+        grounded = false;
+        standingPlatform = null;
+      } else if (character.position.y <= 0) {
+        if (character.position.y >= GROUND_SNAP_MIN_Y && hasGroundAt(character.position.x, character.position.z)) {
           character.position.y = 0;
           velocityY = 0;
           grounded = true;
+          jumping = false;
+          jumpFull = false;
+          dashMomentumActive = false;
+          dashMomentumX = 0;
+          dashMomentumZ = 0;
+          if (groundPounding) {
+            // Pousou depois da pancada forte: efeito de impacto no chão.
+            groundPounding = false;
+            spawnImpactEffect(character.position);
+            squashMesh(character, false);
+            playPoundLandSound();
+          }
           lastGroundPos.set(character.position.x, 0, character.position.z);
           triggerBridgeFall(character.position.x, character.position.z);
           standingPlatform = findMovingPlatformAt(character.position.x, character.position.z);
-        } else if (wasGrounded) {
+        } else if (wasGrounded && !fallingPlatformBeneath(character.position.x, character.position.z)) {
           // Estava andando no chão e, neste quadro, não há mais chão sob os
           // pés (não pulou — se tivesse pulado, a velocidade pra cima teria
           // deixado position.y > 0 e caído no ramo de baixo). Isto é cair
-          // num buraco: pune IMEDIATAMENTE (tira coração e reposiciona),
-          // em vez de deixar o personagem continuar caindo — do contrário,
-          // segurar o controle pra um lado durante a queda podia levá-lo de
-          // volta a um pedaço de chão sólido antes do limite de queda
-          // (y < -7) e ele escapava sem perder coração.
+          // num buraco por ter andado pra fora da borda: pune IMEDIATAMENTE
+          // (tira coração e reposiciona), em vez de deixar o personagem
+          // continuar caindo — do contrário, segurar o controle pra um lado
+          // durante a queda podia levá-lo de volta a um pedaço de chão
+          // sólido antes do limite de queda (y < -7) e ele escapava sem
+          // perder coração.
           grounded = false;
           standingPlatform = null;
           respawnFromPit();
+        } else if (wasGrounded) {
+          // Exceção ao caso acima: o chão sumiu porque uma pedra "que cai"
+          // afundou embaixo dos pés do personagem (não porque ele andou
+          // pra fora da borda). Aqui deixamos o personagem cair de verdade
+          // — como esperado nesse tipo de plataforma — em vez de teleportar
+          // na hora. A partir daqui, fallingIntoPit=true assume o controle
+          // (ver ramo acima) até bater o limite de segurança (y < -7).
+          grounded = false;
+          standingPlatform = null;
+          fallingIntoPit = true;
+          } else {
+            grounded = false;
+            standingPlatform = null;
+          }
         } else {
           grounded = false;
           standingPlatform = null;
         }
-      } else {
-        grounded = false;
-        standingPlatform = null;
       }
 
       // -------- cambalhota no pulo (estilo Crash Bandicoot) --------
@@ -1747,9 +3100,20 @@
       // Fora dessa janela ele fica parado (em pé) — a cambalhota não se
       // estica pra acompanhar a altura/duração do pulo, ela acontece rápido
       // e some, exatamente como no Crash.
-      if (!grounded) {
+      // Durante o DASH partido do chão o personagem não está girando: o dash
+      // força grounded=false (pra flutuar sobre o vão), e sem esse guarda o
+      // giro de pulo (jumpFull ainda ligado de um pulo anterior) disparava e
+      // o dash ficava parecendo um pulo/cambalhota.
+      if (!grounded && !(dashing && dashStartedOnGround)) {
         airTimer += dt;
-        if (airTimer >= SPIN_START_TIME && spinTimer < SPIN_DURATION) {
+        // Dispara a cambalhota no instante exato em que a subida atual
+        // passa do ápice (velocityY deixa de ser positivo) — funciona pro
+        // pulo normal e pro quique em cima de um inimigo, com qualquer
+        // altura, sem depender de um tempo fixo pré-calculado.
+        if (jumpFull && !spinStarted && velocityY <= 0) {
+          spinStarted = true;
+        }
+        if (spinStarted && spinTimer < SPIN_DURATION) {
           spinTimer += dt;
           if (spinTimer > SPIN_DURATION) spinTimer = SPIN_DURATION;
           charSpin = -JUMP_SPIN_SPEED * spinTimer;
@@ -1758,9 +3122,47 @@
         charSpin = 0;
         spinTimer = 0;
         airTimer = 0;
+        spinStarted = false;
       }
       character.rotation.x = 0; // garante que o grupo externo nunca acumula essa rotação
       characterModel.rotation.x = charSpin;
+
+      // -------- visual de agachado (estilo soldado) --------
+      // Em vez de esmagar o personagem inteiro (o que ficava feio e
+      // distorcia a cabeça), só as PERNAS encolhem verticalmente — como se
+      // estivessem dobrando o joelho — mantendo os pés grudados no chão.
+      // O tronco/cabeça (grupo "upperBody") mantêm o tamanho normal, só
+      // descem junto com as pernas encurtadas e inclinam um pouco pra
+      // frente, como um soldado agachado e alerta.
+      // Ponto de equilíbrio entre o agachar leve de antes (pernas a 50%) e
+      // o agachar muito profundo (15%): agora as pernas ficam em ~32%, bem
+      // baixo o suficiente pra arma descer perto dos inimigos baixos (e os
+      // tiros agachados ainda nascem presos a ≤0.22 de altura no chão),
+      // sem o personagem ficar esmagado demais no chão.
+      const CROUCH_LEG_SCALE = 0.32;  // pernas dobradas até ~1/3 da altura
+      const CROUCH_LEAN = 0.4;        // inclinação do tronco pra frente (rad)
+      const CROUCH_STANCE_WIDEN = 0.075; // pernas afastam um pouco (postura firme)
+
+      const crouchTarget = crouching ? 1 : 0;
+      crouchVisual += (crouchTarget - crouchVisual) * Math.min(1, dt * 12);
+
+      const legScale = 1 - crouchVisual * (1 - CROUCH_LEG_SCALE);
+      legL.scale.y = legScale;
+      legR.scale.y = legScale;
+      // Mantém a base da perna (pé) grudada em y=0: reposiciona o centro
+      // da caixa da perna proporcionalmente à nova altura.
+      legL.position.y = (LEG_HEIGHT / 2) * legScale;
+      legR.position.y = (LEG_HEIGHT / 2) * legScale;
+      legL.position.x = -0.16 - crouchVisual * CROUCH_STANCE_WIDEN;
+      legR.position.x = 0.16 + crouchVisual * CROUCH_STANCE_WIDEN;
+
+      // Tronco/cabeça descem exatamente a altura que as pernas perderam,
+      // continuando apoiados em cima delas sem esticar nem afundar.
+      const legHeightLost = LEG_HEIGHT * (1 - legScale);
+      upperBody.position.y = -legHeightLost;
+      // Inclina pra frente somando o agachado (tronco baixo) com a pose de
+      // CABEÇADA do dash (tronco mergulhando pra frente, estilo Crash).
+      upperBody.rotation.x = -crouchVisual * CROUCH_LEAN - dashVisual * DASH_LEAN;
 
       if (character.position.y < -7) {
         respawnFromPit();
@@ -1809,8 +3211,66 @@
       // -------- inimigos normais (bounce patrol) --------
       for (const ne of normalEnemies) {
         if (!ne.alive) continue;
-        ne.mesh.position.x = ne.baseX + Math.sin(t * 1.3) * ne.range;
-        ne.mesh.position.z = ne.baseZ + Math.cos(t * 1.1) * ne.range * 0.5;
+        if (ne.flying) {
+          // Inimigo VOADOR da T3: nasce lá em cima (flyHeight) e voa em
+          // linha reta na direção do personagem nessa altura, batendo as
+          // asas. Não tem colisão de pisão — só dá pra derrubar ATIRANDO,
+          // e como ele fica alto, o tiro só acerta se o personagem PULAR
+          // (o projétil usa a altura real do inimigo).
+          const tdx = character.position.x - ne.mesh.position.x;
+          const tdz = character.position.z - ne.mesh.position.z;
+          const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
+          if (tdist > 0.4) {
+            ne.mesh.position.x += (tdx / tdist) * ne.speed * dt;
+            ne.mesh.position.z += (tdz / tdist) * ne.speed * dt;
+          }
+          // Fica na altura de voo, com um leve balanço pra cima e pra baixo.
+          ne.mesh.position.y = ne.flyHeight + Math.sin(t * 2.5 + ne.flyPhase) * 0.15;
+          // Mantém o voador dentro da plataforma.
+          if (ne.platformIdx !== undefined) {
+            const plat = PLATFORMS[ne.platformIdx];
+            ne.mesh.position.x = Math.max(plat.cx - plat.hw + 0.6, Math.min(plat.cx + plat.hw - 0.6, ne.mesh.position.x));
+            ne.mesh.position.z = Math.max(plat.cz - plat.hd + 0.6, Math.min(plat.cz + plat.hd - 0.6, ne.mesh.position.z));
+          }
+          // Batida de asas (sobe e desce em torno da inclinação inicial).
+          if (ne.wingL && ne.wingR) {
+            const flap = Math.sin(t * 12 + ne.flyPhase) * 0.5;
+            ne.wingL.rotation.z = -0.3 + flap;
+            ne.wingR.rotation.z = 0.3 - flap;
+          }
+          ne.mesh.lookAt(character.position.x, ne.mesh.position.y, character.position.z);
+          ne.mesh.rotation.y += Math.PI; // o rosto fica no lado -Z; sem isso, o lookAt virava o rosto pro lado contrário
+          continue;
+        }
+        if (ne.approach) {
+          // Modo "approach": vem em linha reta na direção do personagem,
+          // travado dentro da própria plataforma (usado na T3 para a fila
+          // de inimigos rápidos vindo da FRENTE, sem parar).
+          const tdx = character.position.x - ne.mesh.position.x;
+          const tdz = character.position.z - ne.mesh.position.z;
+          const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
+          if (tdist > 0.5) {
+            ne.mesh.position.x += (tdx / tdist) * ne.speed * dt;
+            ne.mesh.position.z += (tdz / tdist) * ne.speed * dt;
+          }
+          if (ne.clampBox) {
+            // Limite customizado: permite o inimigo vir de FORA da
+            // plataforma (pela direita ou esquerda) e andar para dentro.
+            ne.mesh.position.x = Math.max(ne.clampBox.minX, Math.min(ne.clampBox.maxX, ne.mesh.position.x));
+            ne.mesh.position.z = Math.max(ne.clampBox.minZ, Math.min(ne.clampBox.maxZ, ne.mesh.position.z));
+          } else if (ne.platformIdx !== undefined) {
+            const plat = PLATFORMS[ne.platformIdx];
+            ne.mesh.position.x = Math.max(plat.cx - plat.hw + 0.6, Math.min(plat.cx + plat.hw - 0.6, ne.mesh.position.x));
+            ne.mesh.position.z = Math.max(plat.cz - plat.hd + 0.6, Math.min(plat.cz + plat.hd - 0.6, ne.mesh.position.z));
+          } else {
+            const halfRange = ne.range;
+            ne.mesh.position.x = Math.max(ne.baseX - halfRange, Math.min(ne.baseX + halfRange, ne.mesh.position.x));
+            ne.mesh.position.z = Math.max(ne.baseZ - halfRange, Math.min(ne.baseZ + halfRange, ne.mesh.position.z));
+          }
+        } else {
+          ne.mesh.position.x = ne.baseX + Math.sin(t * 1.3 * ne.patrolSpeed) * ne.range;
+          ne.mesh.position.z = ne.baseZ + Math.cos(t * 1.1 * ne.patrolSpeed) * ne.range * 0.5;
+        }
         ne.mesh.lookAt(character.position.x, ne.mesh.position.y, character.position.z);
         ne.mesh.rotation.y += Math.PI; // o rosto fica no lado -Z; sem isso, o lookAt virava o rosto pro lado contrário
         const dx = character.position.x - ne.mesh.position.x;
@@ -1818,14 +3278,54 @@
         const distXZ = Math.sqrt(dx * dx + dz * dz);
         if (distXZ < 0.75) {
           const contact = meleeContact(0.9);
-          if (contact === 'stomp') {
-            ne.alive = false;
-            spawnImpactEffect(ne.mesh.position);
-            squashMesh(ne.mesh, true);
-            squashMesh(character, false);
-            velocityY = KILL_BOUNCE_SPEED;
-            stompInvulnTimer = STOMP_SAFE_TIME;
-            playDefeatSound();
+          if (ne.horned) {
+            // Chifrado (treino da trava de mira da T3): qualquer contato,
+            // inclusive pisar em cima, machuca — não dá pra pular neles.
+            // O único jeito é derrubar ATIRANDO.
+            if (contact !== 'none') takeHit();
+          } else if (contact === 'stomp') {
+            if (ne.stompOnly && !groundPounding) {
+              // Inimigo "resistente": um pisão normal não mata — o
+              // personagem só quica em cima dele (fica "quicando
+              // infinitamente" até o jogador pegar e usar a pancada
+              // forte, que é o único jeito de destruí-lo).
+              squashMesh(character, false);
+              velocityY = jumpPressed ? KILL_BOUNCE_SPEED : JUMP_MIN_SPEED;
+              jumping = true;
+              jumpFull = jumpPressed;
+              airTimer = 0;
+              spinTimer = 0;
+              charSpin = 0;
+              spinStarted = false;
+              stompInvulnTimer = STOMP_SAFE_TIME;
+              playHitSound();
+            } else {
+              ne.alive = false;
+              spawnImpactEffect(ne.mesh.position);
+              squashMesh(ne.mesh, true);
+              if (groundPounding) {
+                // Não quica pra cima: a pancada forte continua descendo até
+                // tocar o chão, atravessando o inimigo destruído.
+                stompInvulnTimer = STOMP_SAFE_TIME;
+              } else {
+                squashMesh(character, false);
+                // Quique de tamanho variável: se o botão de pulo estiver
+                // segurado no instante do quique, sobe com força máxima (e pode
+                // dar cambalhota); senão, sobe menos.
+                velocityY = jumpPressed ? KILL_BOUNCE_SPEED : JUMP_MIN_SPEED;
+                jumping = true;
+                jumpFull = jumpPressed;
+                // Reinicia os cronômetros da cambalhota: sem isso, se o pulo
+                // original já tivesse girado (ou zerado o tempo), o quique não
+                // conseguiria disparar uma NOVA cambalhota lá em cima.
+                airTimer = 0;
+                spinTimer = 0;
+                charSpin = 0;
+                spinStarted = false;
+                stompInvulnTimer = STOMP_SAFE_TIME;
+              }
+              playDefeatSound();
+            }
           } else if (contact === 'hit') {
             takeHit();
           }
@@ -1864,19 +3364,38 @@
         if (distXZ < 0.75) {
           const contact = meleeContact(0.9);
           if (contact === 'stomp') {
-            se.hp -= 1;
+            // A pancada forte (ground pound) derruba de uma vez só, não
+            // importa quantas pancadas normais o inimigo ainda aguentaria.
+            se.hp -= groundPounding ? se.hp : 1;
             spawnImpactEffect(se.mesh.position);
             if (se.hp <= 0) {
               se.alive = false;
               squashMesh(se.mesh, true);
-              velocityY = KILL_BOUNCE_SPEED;
-              stompInvulnTimer = STOMP_SAFE_TIME;
-              spawnGunPickup(se.mesh.position);
+              if (groundPounding) {
+                // Não quica pra cima: a pancada forte continua descendo
+                // até tocar o chão, atravessando o inimigo destruído.
+                stompInvulnTimer = STOMP_SAFE_TIME;
+              } else {
+                velocityY = jumpPressed ? KILL_BOUNCE_SPEED : JUMP_MIN_SPEED;
+                jumping = true;
+                jumpFull = jumpPressed;
+                airTimer = 0;
+                spinTimer = 0;
+                charSpin = 0;
+                spinStarted = false;
+                stompInvulnTimer = STOMP_SAFE_TIME;
+              }
               playDefeatSound();
-              showHint('Atirador derrotado! Pegue a arma!', 2000);
+              showHint('Atirador derrotado!', 2000);
             } else {
               squashMesh(se.mesh, false);
-              velocityY = KILL_BOUNCE_SPEED;
+              velocityY = jumpPressed ? KILL_BOUNCE_SPEED : JUMP_MIN_SPEED;
+              jumping = true;
+              jumpFull = jumpPressed;
+              airTimer = 0;
+              spinTimer = 0;
+              charSpin = 0;
+              spinStarted = false;
               stompInvulnTimer = STOMP_SAFE_TIME;
               playHitSound();
             }
@@ -1886,9 +3405,12 @@
         }
       }
 
-      // -------- inimigos rápidos (P3) --------
+      // -------- inimigos rápidos (P3 e T4) --------
+      // Os da T4 já nascem SE MOVENDO (frozen=false) e ficam presos na
+      // própria plataforma pelo clamp em PLATFORMS[platformIdx].
       for (const fe of fastEnemies) {
         if (!fe.alive) continue;
+        if (fe.frozen) continue;
         fe.changeTimer += dt;
         if (fe.changeTimer > 0.8 + Math.random() * 1.2) {
           fe.changeTimer = 0;
@@ -1898,7 +3420,7 @@
         }
         fe.mesh.position.x += fe.dirX * fe.speed * dt;
         fe.mesh.position.z += fe.dirZ * fe.speed * dt;
-        const p = PLATFORMS[2];
+        const p = PLATFORMS[fe.platformIdx];
         fe.mesh.position.x = Math.max(p.cx - p.hw + 0.5, Math.min(p.cx + p.hw - 0.5, fe.mesh.position.x));
         fe.mesh.position.z = Math.max(p.cz - p.hd + 0.5, Math.min(p.cz + p.hd - 0.5, fe.mesh.position.z));
         fe.mesh.rotation.y = Math.atan2(-fe.dirX, -fe.dirZ);
@@ -1916,7 +3438,7 @@
       }
 
       // -------- ativar arena (P6) --------
-      if (!arenaActivated && character.position.z < -29) {
+      if (!arenaActivated && character.position.z < 114) {
         arenaActivated = true;
         showHint('Cuidado! Guardiões à frente!', 2000);
       }
@@ -1999,7 +3521,7 @@
       if (!hasRedKey && puzzleSolved) {
         const dx = character.position.x - key1Mesh.position.x;
         const dz = character.position.z - key1Mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 1.0) {
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
           hasRedKey = true;
           updateKeysUI();
           key1Mesh.visible = false;
@@ -2039,12 +3561,43 @@
         mathGuardianTimer += dt;
         mathGuardian.position.y = THREE.MathUtils.lerp(-5, 1.0, Math.min(mathGuardianTimer / 0.3, 1));
         if (mathGuardianTimer > 0.25) {
-          hearts = 0;
-          updateHeartsUI();
-          deathAnim = true;
-          deathAnimTimer = 0;
+          onHeartsDepleted();
           mathGuardianRising = false;
         }
+      }
+
+      // -------- portão transparente (T2→T3): abre quando os 5 inimigos
+      // resistentes (gateGuard) de T2 forem derrotados --------
+      if (!t2GateOpen) {
+        const aliveGuards = normalEnemies.filter(e => e.gateGuard && e.alive).length;
+        if (aliveGuards === 0) {
+          t2GateOpen = true;
+          t2Gate.position.y = 2;
+          playPickupSound();
+          showHint('Portão aberto! Siga para a 3ª plataforma!', 2500);
+        } else {
+          const remaining = aliveGuards;
+          if (t2Gate.userData.lastRemaining !== remaining) {
+            t2Gate.userData.lastRemaining = remaining;
+            showHint('Faltam ' + remaining + ' inimigo(s) resistente(s)!', 1500);
+          }
+        }
+      }
+      if (t2GateOpen && t2Gate.position.y > -3) {
+        t2Gate.position.y -= 2.0 * dt;
+      }
+
+      // -------- portão transparente (T3→T4): abre quando o treino da T3
+      // termina (t3Phase=2), que acontece depois que TODOS os inimigos da
+      // fila da frente forem derrotados. Enquanto abre, afunda até sumir. --------
+      if (t3GateOpen && t3Gate.position.y > -3) {
+        t3Gate.position.y -= 2.0 * dt;
+      }
+
+      // -------- portão transparente (T4→P1): abre ao pegar o DASH no fim
+      // da T4. Enquanto fechado, segura o personagem e bloqueia os tiros. --------
+      if (dashGateOpen && dashGate.position.y > -3) {
+        dashGate.position.y -= 2.0 * dt;
       }
 
       // -------- portões: vermelho abre com chave vermelha, azul com chave azul --------
@@ -2099,7 +3652,7 @@
         gp.mesh.rotation.y += dt * 1.5;
         const dx = character.position.x - gp.mesh.position.x;
         const dz = character.position.z - gp.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 1.0) {
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
           hasGun = true;
           gunOnPlayer.visible = true;
           crosshairEl.style.display = 'block';
@@ -2110,27 +3663,191 @@
         }
       }
 
+      // -------- item de pulo (tutorial, T1): flutua/gira e, ao encostar,
+      // libera a habilidade de pular pela primeira vez --------
+      for (let i = jumpPickups.length - 1; i >= 0; i--) {
+        const jp = jumpPickups[i];
+        jp.mesh.position.y = jp.baseY + Math.sin(t * 3) * 0.12;
+        jp.mesh.rotation.y += dt * 2.2;
+        const dx = character.position.x - jp.mesh.position.x;
+        const dz = character.position.z - jp.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
+          hasJumpAbility = true;
+          scene.remove(jp.mesh);
+          jumpPickups.splice(i, 1);
+          playPickupSound();
+          showDialogue('Agora eu já sei pular. Será que consigo chegar na segunda plataforma?', { name: 'Fracote' });
+        }
+      }
+
+      // -------- item de pancada forte (tutorial, T2): flutua/gira e, ao
+      // encostar, libera a habilidade de pisar forte no ar pela primeira
+      // vez --------
+      for (let i = stompPickups.length - 1; i >= 0; i--) {
+        const sp = stompPickups[i];
+        sp.mesh.position.y = sp.baseY + Math.sin(t * 3) * 0.12;
+        sp.mesh.rotation.y += dt * 2.2;
+        const dx = character.position.x - sp.mesh.position.x;
+        const dz = character.position.z - sp.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
+          hasStompAbility = true;
+          scene.remove(sp.mesh);
+          stompPickups.splice(i, 1);
+          playPickupSound();
+          showDialogue('Agora eu sei pisar forte! Alguns inimigos só caem assim.', { name: 'Fracote' });
+        }
+      }
+
+      // -------- item da ARMA (tutorial, T2): flutua/gira atrás do portão e,
+      // ao encostar, equipa a arma no personagem (os atiradores não dropam
+      // mais arma — agora é um item fixo da fase) --------
+      for (let i = gunItems.length - 1; i >= 0; i--) {
+        const gi = gunItems[i];
+        gi.mesh.position.y = gi.baseY + Math.sin(t * 3) * 0.12;
+        gi.mesh.rotation.y += dt * 2.2;
+        const dx = character.position.x - gi.mesh.position.x;
+        const dz = character.position.z - gi.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
+          hasGun = true;
+          gunOnPlayer.visible = true;
+          crosshairEl.style.display = 'block';
+          scene.remove(gi.mesh);
+          gunItems.splice(i, 1);
+          playPickupSound();
+          showDialogue('Achei uma arma! Agora posso atirar com F.', { name: 'Fracote' });
+        }
+      }
+
+      // -------- item da TRAVA DE MIRA (tutorial, T3): fica na borda de
+      // trás da 3ª plataforma e, ao encostar, libera a habilidade de travar
+      // a mira — segurar G/seta →/grip direito congela o ângulo dos tiros
+      // enquanto o personagem se move (essencial p/ atirar na frente e
+      // derrubar a fila de inimigos rápidos que vêm sem parar) --------
+      for (let i = aimLockItems.length - 1; i >= 0; i--) {
+        const ai = aimLockItems[i];
+        ai.mesh.position.y = ai.baseY + Math.sin(t * 3) * 0.12;
+        ai.mesh.rotation.y += dt * 2.2;
+        const dx = character.position.x - ai.mesh.position.x;
+        const dz = character.position.z - ai.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
+          hasAimLockAbility = true;
+          scene.remove(ai.mesh);
+          aimLockItems.splice(i, 1);
+          playPickupSound();
+          if (!t3WaveSpawned) {
+            t3WaveSpawned = true;
+            spawnT3Wave();
+          }
+          showDialogue('Peguei a trava de mira! Segurando G, atiro para frente mesmo andando de lado. Vem MUITA gente vindo da frente sem parar — vou derrubar todos!', { name: 'Fracote' });
+        }
+      }
+
+      // -------- item de ANDAR ABAIXADO (portão T3→T4): fica em cima da 1ª
+      // pedra conectora atrás do portão da T3 e, ao encostar, libera o
+      // agachar — sem ele, a seta ↓ no chão não faz nada (os inimigos
+      // rápidos baixos de chifres da T4 só morrem atirando ABAIXADO) --------
+      for (let i = crouchItems.length - 1; i >= 0; i--) {
+        const ci = crouchItems[i];
+        ci.mesh.position.y = ci.baseY + Math.sin(t * 3) * 0.12;
+        ci.mesh.rotation.y += dt * 2.2;
+        const dx = character.position.x - ci.mesh.position.x;
+        const dz = character.position.z - ci.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
+          hasCrouchAbility = true;
+          scene.remove(ci.mesh);
+          crouchItems.splice(i, 1);
+          playPickupSound();
+          showDialogue('Agora sei andar ABAIXADO! A seta ↓ no chão agacha o corpo e a arma desce junto — é assim que acerto aqueles bichos baixos de chifres lá na plataforma menor. Tiro em pé passa por cima deles.', { name: 'Fracote' });
+        }
+      }
+
+      // -------- item do DASH (fim da T4): libera a cabeçada pra frente.
+      // Daqui em diante, a seta ↓ no chão ganha um segundo uso: se estou
+      // PARADO, agacho; se estou EM MOVIMENTO, disparo uma cabeçada na
+      // direção do movimento — mata inimigos no caminho e pega velocidade
+      // (estilo Crash Bandicoot) --------
+      for (let i = dashItems.length - 1; i >= 0; i--) {
+        const di = dashItems[i];
+        di.mesh.position.y = di.baseY + Math.sin(t * 3) * 0.12;
+        di.mesh.rotation.y += dt * 2.2;
+        const dx = character.position.x - di.mesh.position.x;
+        const dz = character.position.z - di.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
+          hasDashAbility = true;
+          if (!dashGateOpen) {
+            dashGateOpen = true;
+            dashGate.position.y = 2;
+            showHint('Portão aberto! Agora posso cruzar o vão com o dash e atacar os inimigos da P1!', 2500);
+          }
+          scene.remove(di.mesh);
+          dashItems.splice(i, 1);
+          playPickupSound();
+          showDialogue('Agora tenho o DASH! Mesma tecla do agachar (seta ↓): PARADO agacha, e ANDANDO dispara a cabeçada pra frente — quebra qualquer inimigo no caminho e pega velocidade. Dá pra escapar e atacar ao mesmo tempo!', { name: 'Fracote' });
+        }
+      }
+
+      // -------- CHECKPOINT (fim da T4, ao lado do item do dash) --------
+      // Ao encostar na PLACA, ela vira a BANDEIRA de checkpoint: o jogo
+      // passa a reaparecer nesse ponto quando o personagem morre — só
+      // dentro da mesma partida. A bandeira fica balançando no vento depois.
+      if (checkpoint && !checkpoint.activated) {
+        const dx = character.position.x - checkpoint.mesh.position.x;
+        const dz = character.position.z - checkpoint.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.6) {
+          checkpoint.activated = true;
+          // Some com a placa (posta + tábua + ✓) e mostra a bandeira
+          checkpoint.board.visible = false;
+          checkpoint.mesh.children.forEach((c) => {
+            if (c !== checkpoint.flagGroup) c.visible = false;
+          });
+          checkpoint.flagGroup.visible = true;
+          saveCheckpoint(checkpoint.mesh.position.x, checkpoint.mesh.position.z);
+          playPickupSound();
+          showDialogue('Checkpoint! Se eu cair agora, reapareço aqui mesmo — logo ao lado do item do dash, já na beirinha da primeira plataforma com inimigos.', { name: 'Fracote' });
+        }
+      }
+      if (checkpoint && checkpoint.activated && checkpoint.flag) {
+        checkpoint.flag.rotation.y = Math.sin(t * 5) * 0.3;
+      }
+
+      // -------- treino da T3: máquina de fases (só avança quando todos
+      // os inimigos da fase atual morreram) --------
+      updateT3Training(dt);
+
       // -------- projéteis do jogador --------
       for (let i = playerProjectiles.length - 1; i >= 0; i--) {
         const p = playerProjectiles[i];
+        const prevZ = p.mesh.position.z;
         p.mesh.position.addScaledVector(p.dir, PLAYER_PROJ_SPEED * dt);
         p.life += dt;
+        // Portão da P1 (z=155): enquanto estiver FECHADO, nenhum tiro passa
+        // pelo plano — o jogador não pode acertar os inimigos da P1 (nem os
+        // de trás dela) antes de pegar o dash. O tiro "bate" no portão.
+        if (!dashGateOpen && prevZ >= 155 && p.mesh.position.z < 155) {
+          spawnImpactEffect(new THREE.Vector3(p.mesh.position.x, p.mesh.position.y, 155));
+          scene.remove(p.mesh);
+          playerProjectiles.splice(i, 1);
+          continue;
+        }
         let hit = false;
         // atiradores
         for (const se of shooterEnemies) {
           if (!se.alive) continue;
           if (p.mesh.position.distanceTo(se.mesh.position.clone().setY(0.6)) < 0.6) {
             se.hp -= 1; hit = true;
-            if (se.hp <= 0) { se.alive = false; spawnImpactEffect(se.mesh.position); squashMesh(se.mesh, true); playDefeatSound(); spawnGunPickup(se.mesh.position); }
+            if (se.hp <= 0) { se.alive = false; spawnImpactEffect(se.mesh.position); squashMesh(se.mesh, true); playDefeatSound(); }
             else { squashMesh(se.mesh, false); playHitSound(); }
             break;
           }
         }
         // rápidos — baixos demais: só acerta se o projétil estiver bem
-        // perto do chão (tiros na altura normal de mira passam por cima)
+        // perto do chão (tiros na altura normal de mira passam por cima).
+        // Os da T4 têm needCrouch=true: só um tiro disparado ABAIXADO
+        // (fromCrouch) pode acertá-los — em pé o cano fica alto demais.
         if (!hit) for (const fe of fastEnemies) {
           if (!fe.alive) continue;
-          if (p.mesh.position.distanceTo(fe.mesh.position.clone().setY(0.2)) < 0.32) {
+          if (fe.needCrouch && !p.fromCrouch) continue;
+          if (p.mesh.position.distanceTo(fe.mesh.position.clone().setY(fe.hitY)) < fe.hitR) {
             fe.hp -= 1; hit = true;
             if (fe.hp <= 0) { fe.alive = false; spawnImpactEffect(fe.mesh.position); squashMesh(fe.mesh, true); playDefeatSound(); }
             else { squashMesh(fe.mesh, false); playHitSound(); }
@@ -2151,7 +3868,10 @@
         // normais
         if (!hit) for (const ne of normalEnemies) {
           if (!ne.alive) continue;
-          if (p.mesh.position.distanceTo(ne.mesh.position.clone().setY(0.5)) < 0.5) {
+          // A altura alvo usa a posição REAL do inimigo (para os que voam
+          // na T3): o tiro só acerta um voador se for disparado PULANDO.
+          const hitY = ne.mesh.position.y + 0.45;
+          if (p.mesh.position.distanceTo(ne.mesh.position.clone().setY(hitY)) < 0.5) {
             ne.alive = false; hit = true;
             spawnImpactEffect(ne.mesh.position); squashMesh(ne.mesh, true); playDefeatSound();
             break;
@@ -2166,8 +3886,18 @@
       // -------- projéteis dos inimigos --------
       for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
         const p = enemyProjectiles[i];
+        const prevZ = p.mesh.position.z;
         p.mesh.position.addScaledVector(p.dir, ENEMY_PROJ_SPEED * dt);
         p.life += dt;
+        // Portão da P1 (z=155): enquanto FECHADO, o portão também segura os
+        // tiros dos inimigos de trás dele — é um muro de verdade, não só um
+        // bloqueio de tiro do jogador.
+        if (!dashGateOpen && prevZ <= 155 && p.mesh.position.z > 155) {
+          spawnImpactEffect(new THREE.Vector3(p.mesh.position.x, p.mesh.position.y, 155));
+          scene.remove(p.mesh);
+          enemyProjectiles.splice(i, 1);
+          continue;
+        }
         const dx = character.position.x - p.mesh.position.x;
         const dz = character.position.z - p.mesh.position.z;
         const distXZ = Math.sqrt(dx * dx + dz * dz);
@@ -2195,7 +3925,7 @@
         Math.pow(character.position.x - STAR_POS.x, 2) +
         Math.pow(character.position.z - STAR_POS.z, 2)
       );
-      if (dToStar < 1.1) {
+      if (dToStar < 0.8) {
         winGame();
       }
     }
@@ -2241,9 +3971,37 @@
     star.rotation.z += dt * 1.6;
     star.position.y = STAR_POS.y + Math.sin(t * 2) * 0.12;
 
-    characterShadow.position.x = character.position.x;
-    characterShadow.position.z = character.position.z;
     shadowMat.opacity = THREE.MathUtils.clamp(0.42 - character.position.y * 0.13, 0.08, 0.42);
+    // A sombra normalmente fica rente ao chão (y=0.02), acompanhando X/Z do
+    // personagem. Mas se ele estiver em cima de um inimigo vivo, isso
+    // deixaria a sombra escondida atrás/dentro do corpo do inimigo (que
+    // ocupa esse mesmo espaço, só que mais alto) — por isso, nesse caso,
+    // ela sobe e desenha em cima das costas do inimigo (topo do seu
+    // bounding box + uma margem pequena), bem visível, como sinal de que é
+    // o momento certo pra pisar nele. Só então ela volta a seguir o chão
+    // normal (plataforma, conector ou pedra de ponte sólida).
+    const enemyMeshUnder = findEnemyMeshAt(character.position.x, character.position.z);
+    if (enemyMeshUnder) {
+      enemyShadowBox.setFromObject(enemyMeshUnder);
+      characterShadow.position.set(enemyMeshUnder.position.x, enemyShadowBox.max.y + 0.03, enemyMeshUnder.position.z);
+    } else {
+      characterShadow.position.set(character.position.x, 0.02, character.position.z);
+    }
+    // A sombra só deve aparecer onde há chão de verdade embaixo do
+    // personagem (plataforma, conector ou pedra de ponte sólida) OU onde há
+    // um inimigo vivo embaixo dele (dá pra pousar/pisar em cima, então a
+    // sombra também serve de prévia ali — ver findEnemyMeshAt()). Sobre um
+    // buraco (ou uma pedra "que cai" já afundando/escondida) ela some, para
+    // não sugerir visualmente que há piso ali quando não há. Além disso,
+    // enquanto ele estiver realmente CAINDO num buraco — já tendo passado
+    // do limite de "pouso" (GROUND_SNAP_MIN_Y) ou já preso em fallingIntoPit
+    // — a sombra fica escondida mesmo que o X/Z dele cruze por cima de
+    // outra plataforma/pedra ao lado, já que ele não vai mesmo pousar ali
+    // (só um pulo normal, ainda dentro da margem de pouso, mostra a sombra
+    // como prévia de onde vai cair).
+    characterShadow.visible = !fallingIntoPit
+      && character.position.y >= GROUND_SNAP_MIN_Y
+      && (!!enemyMeshUnder || hasGroundAt(character.position.x, character.position.z));
 
     // -------- câmera: camPivot acompanha o personagem em Z (atrás) e em X
     // (lateralmente), como um jogo de scroll lateral quando o personagem vai
@@ -2303,7 +4061,7 @@
     const stickClick = !!xr.rightStickClick;
     if ((d5 && !prevCamResetKey) || (stickClick && !prevCamResetStick)) {
       camYawTarget = 0;
-      camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT;
+      camHeightLevel = renderer.xr.isPresenting ? CAM_HEIGHT_LEVEL_DEFAULT : CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP;
     }
     prevCamResetKey = d5;
     prevCamResetStick = stickClick;
@@ -2315,6 +4073,12 @@
 
     renderer.render(scene, camera);
   }
+
+  // -------- diálogo inicial (tutorial) --------
+  // O personagem começa virado pra câmera (facingAngle = Math.PI, definido
+  // lá em cima) e fala com quem está controlando antes do jogo liberar o
+  // movimento.
+  showDialogue('Eu sou muito fraco, não sei nem pular, será que consigo chegar no final dessa plataforma?', { name: 'Fracote' });
 
   renderer.setAnimationLoop(animate);
 })();
