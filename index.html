@@ -747,19 +747,8 @@
     }
   }
 
-  // buracos sob as plataformas
-  for (let i = 0; i < PLATFORMS.length - 1; i++) {
-    const a = PLATFORMS[i], b = PLATFORMS[i + 1];
-    const cx2 = (a.cx + b.cx) / 2, cz2 = (a.cz + b.cz) / 2;
-    const w = Math.abs(b.cx - a.cx) + a.hw + b.hw + 2;
-    const d = Math.abs(b.cz - a.cz) + a.hd + b.hd + 2;
-    const pit = new THREE.Mesh(
-      new THREE.BoxGeometry(w, 0.5, d),
-      new THREE.MeshStandardMaterial({ color: 0x1a0d05 })
-    );
-    pit.position.set(cx2, -9, cz2);
-    scene.add(pit);
-  }
+  // (As caixas escuras "buraco sob as plataformas" foram removidas: eram as
+  // sombras pretas que apareciam embaixo do mapa.)
 
   // =========================================================================
   // PERSONAGEM
@@ -2313,8 +2302,71 @@
   const dialogueBoxEl  = document.getElementById('dialogue-box');
   const dialogueNameEl = document.getElementById('dialogue-name');
   const dialogueTextEl = document.getElementById('dialogue-text');
+  // -------- DIÁLOGO EM VR --------
+  // O navegador do Quest não mostra o HTML (caixa de diálogo) dentro do
+  // headset, então desenhamos a mesma caixa num canvas e a prendemos à
+  // câmera, à frente do olhar. Só aparece durante a sessão VR.
+  const vrDlgCanvas = document.createElement('canvas');
+  vrDlgCanvas.width = 1024; vrDlgCanvas.height = 560;
+  const vrDlgCtx = vrDlgCanvas.getContext('2d');
+  const vrDlgTex = crispTex(new THREE.CanvasTexture(vrDlgCanvas));
+  const vrDlgPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.9, 0.9 * 560 / 1024),
+    new THREE.MeshBasicMaterial({ map: vrDlgTex, transparent: true, side: THREE.DoubleSide, depthTest: false })
+  );
+  vrDlgPlane.position.set(0, -0.2, -1.0);
+  vrDlgPlane.renderOrder = 20;
+  vrDlgPlane.visible = false;
+  camera.add(vrDlgPlane);
+
+  function vrWrapLines(ctx, text, maxW) {
+    const words = String(text).split(' ');
+    const lines = [];
+    let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  function drawVrDialogue(name, text) {
+    const c = vrDlgCtx, W = vrDlgCanvas.width, H = vrDlgCanvas.height;
+    c.clearRect(0, 0, W, H);
+    // fundo arredondado com borda laranja
+    const r = 36;
+    c.beginPath();
+    c.moveTo(r, 4); c.lineTo(W - r, 4); c.quadraticCurveTo(W - 4, 4, W - 4, r);
+    c.lineTo(W - 4, H - r); c.quadraticCurveTo(W - 4, H - 4, W - r, H - 4);
+    c.lineTo(r, H - 4); c.quadraticCurveTo(4, H - 4, 4, H - r);
+    c.lineTo(4, r); c.quadraticCurveTo(4, 4, r, 4); c.closePath();
+    c.fillStyle = 'rgba(15,15,25,0.92)'; c.fill();
+    c.lineWidth = 8; c.strokeStyle = '#ff7a1a'; c.stroke();
+    // nome
+    c.textAlign = 'left'; c.textBaseline = 'top';
+    c.fillStyle = '#ff9a3a'; c.font = 'bold 40px sans-serif';
+    c.fillText(String(name).toUpperCase(), 48, 36);
+    // texto: reduz a fonte até caber
+    const maxW = W - 96, top = 100, bottom = H - 80;
+    let size = 46, lines = [];
+    for (; size >= 26; size -= 2) {
+      c.font = size + 'px sans-serif';
+      lines = vrWrapLines(c, text, maxW);
+      if (lines.length * size * 1.3 <= bottom - top) break;
+    }
+    c.fillStyle = '#ffffff';
+    lines.forEach((ln, i) => c.fillText(ln, 48, top + i * size * 1.3));
+    // dica
+    c.textAlign = 'right'; c.textBaseline = 'alphabetic';
+    c.fillStyle = '#ffcc99'; c.font = '30px sans-serif';
+    c.fillText('\u25BC aperte A, gatilho ou mova o analógico para continuar', W - 48, H - 26);
+    vrDlgTex.needsUpdate = true;
+  }
+
   function showDialogue(text, opts) {
     opts = opts || {};
+    drawVrDialogue(opts.name || 'Herói', text);
     dialogueNameEl.textContent = opts.name || 'Herói';
     dialogueTextEl.textContent = text;
     dialogueBoxEl.style.display = 'block';
@@ -2645,6 +2697,9 @@
     // suportado pelo navegador do headset): qualquer botão reinicia.
     const xr = getXRInput();
     const pad = getDesktopGamepadInput();
+
+    // O painel de diálogo do VR só aparece dentro do headset
+    vrDlgPlane.visible = dialogueActive && renderer.xr.isPresenting;
 
     // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
     if (dialogueActive) {
@@ -2992,7 +3047,11 @@
         doubleJumpUsed = true;
         jumping = true;
         jumpFull = true;
+        // Zera a cambalhota do 1º pulo (ângulo e tempo) — sem isso ela ficava
+        // congelada na posição em que estava quando o 2º pulo foi apertado.
         spinStarted = false;
+        spinTimer = 0;
+        charSpin = 0;
         spawnImpactEffect(character.position);
         playJumpSound();
       }
