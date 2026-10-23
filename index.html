@@ -102,7 +102,7 @@
     <b>Fase VR - Aventura do Herói</b><br/>
     <u>Desktop:</u> WASD anda, Espaço/B/seta ↑ pula, seta ↓ agacha (parado) / cabeçada-dash (andando; partindo do chão atravessa buraco sem cair — pulo logo depois completa o salto) / no ar pancada forte, F/V/seta ← atira (com arma), G/seta → trava a mira, 4/6 gira câmera 45°, 8 aproxima/2 afasta a câmera, 5 reseta a câmera<br/>
     <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, GRIP esquerdo agacha/dash (partindo do chão atravessa buraco sem cair; pulo logo depois completa o salto), analógico direito gira/aproxima-afasta a câmera, clique do analógico direito (R3) reseta a câmera<br/>
-    Tutorial (7 plataformas): comece sem saber pular, evolua suas habilidades no caminho. Na 2ª plataforma (T2, metade do tamanho), 5 inimigos resistentes (só morrem com a pancada forte) — derrote os 5 para abrir o portão transparente; atrás dele, a ARMA (item da fase, atiradores não dropam mais) e 5 pedras redondas até a 3ª plataforma (que também é METADE do tamanho de T1). Lá, pegue o upgrade da TRAVA DE MIRA (G/seta →/GRIP direito) — a partir daí é um TREINO: uma fila GIGANTE de inimigos RÁPIDOS COM CHIFRES (velocidade em DOBRO e 30 deles, metade do que era antes) vindo da FRENTE, de longe, sem parar — mal dá tempo de atirar em pé; os chifres impedem pular em cima deles, então segure G para travar a mira e atire pra frente para derrubá-los! O portão transparente da T3 só abre quando TODOS forem derrotados. Logo atrás desse portão, na 1ª pedra, está o upgrade de ANDAR ABAIXADO (seta ↓ / GRIP esquerdo no chão, PARADO, agacha — a arma desce quase até o chão) — em seguida vem a T4, uma plataforma MENOR cheia de inimigos rápidos BAIXOS com chifres (40 deles, o dobro de antes, e em velocidade dobrada): de pé os tiros passam por cima, só ABAIXADO (arma perto do chão) acerta. No FINAL da T4, o upgrade do DASH: mesma tecla do agachar, mas com o personagem EM MOVIMENTO dispara uma CABEÇADA pra frente na direção em que anda — mata qualquer inimigo no caminho e pega velocidade (estilo Crash Bandicoot). Depois dele, as plataformas vazias e as pedras foram removidas e o resto do jogo foi trazido pra cá, mas a P1 ficou a 13 unidades de distância da T4 — um vão GRANDE que exige o DASH SEGURADO + pulo na janela pra cruzar (dash sozinho ou pulo sozinho NÃO chegam). 6 plataformas + corredor final: inimigos normais, atiradores, rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar chave 1. Plataforma direita (P5): quiz matemático 3-5=? — acerte -2 para ganhar chave 2, errou morre. Com as 2 chaves, o portão da arena abre. Guardiões perseguem, espinhos. Ache a estrela no corredor!
+    Tutorial (7 plataformas): comece sem saber pular, evolua suas habilidades no caminho. Na 2ª plataforma (T2, metade do tamanho), 5 inimigos resistentes (só morrem com a pancada forte) — derrote os 5 para abrir o portão transparente; atrás dele, a ARMA (item da fase, atiradores não dropam mais) e 5 pedras redondas até a 3ª plataforma (que também é METADE do tamanho de T1). Lá, pegue o upgrade da TRAVA DE MIRA (G/seta →/GRIP direito) — a partir daí é um TREINO: uma fila GIGANTE de inimigos RÁPIDOS COM CHIFRES (velocidade em DOBRO e 30 deles, metade do que era antes) vindo da FRENTE, de longe, sem parar — mal dá tempo de atirar em pé; os chifres impedem pular em cima deles, então segure G para travar a mira e atire pra frente para derrubá-los! O portão transparente da T3 só abre quando TODOS forem derrotados. Logo atrás desse portão, na 1ª pedra, está o upgrade de ANDAR ABAIXADO (seta ↓ / GRIP esquerdo no chão, PARADO, agacha — a arma desce quase até o chão) — em seguida vem a T4, uma plataforma MENOR cheia de inimigos rápidos BAIXOS com chifres (40 deles, o dobro de antes, e em velocidade dobrada): de pé os tiros passam por cima, só ABAIXADO (arma perto do chão) acerta. Antes da T4 há uma plataforma com o upgrade do PULO DUPLO (aperte pulo de novo no ar) e, depois dela, um buraco de 6 unidades que só o pulo duplo atravessa. No FINAL da T4, o upgrade do DASH: mesma tecla do agachar, mas com o personagem EM MOVIMENTO dispara uma CABEÇADA pra frente na direção em que anda — mata qualquer inimigo no caminho e pega velocidade (estilo Crash Bandicoot). Depois dele, as plataformas vazias e as pedras foram removidas e o resto do jogo foi trazido pra cá, mas a P1 ficou a 13 unidades de distância da T4 — um vão GRANDE que exige o DASH SEGURADO + pulo na janela pra cruzar (dash sozinho ou pulo sozinho NÃO chegam). 6 plataformas + corredor final: inimigos normais, atiradores, rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar chave 1. Plataforma direita (P5): quiz matemático 3-5=? — acerte -2 para ganhar chave 2, errou morre. Com as 2 chaves, o portão da arena abre. Guardiões perseguem, espinhos. Ache a estrela no corredor!
   </div>
   <button id="vr-button">Entrar em VR</button>
   <div id="message"></div>
@@ -289,6 +289,11 @@
     { cx:0, cz:261, hw:3, hd:9, color:0x74cd44 }, // T2: METADE do tamanho de T1 (18→9) — item de pisão forte + inimigos resistentes (para não ficar enjoativo)
     { cx:0, cz:219, hw:3, hd:9, color:0x7dcf4d }, // T3: METADE do tamanho de T1 (18→9) — treino da trava de mira (fila da frente, rápida, sem parar)
     { cx:0, cz:177, hw:3, hd:9, color:0x86d156 }, // T4: MENOR (18→9, metade) — cheia de inimigos rápidos baixos com chifres (matar atirando abaixado) + item do DASH no fim
+    // TJ (última do array, pra NÃO mudar os índices das outras, ex.: PLATFORMS[10] = T4):
+    // plataforma do PULO DUPLO, entre a T3 e a T4, em z 192..200. Depois dela há um
+    // buraco de 6 unidades (z 186..192) até a T4: o pulo normal alcança ~4,8, então
+    // SÓ o pulo duplo (~8) atravessa.
+    { cx:0, cz:196, hw:3, hd:4, color:0x66ccee }, // TJ: item do PULO DUPLO + buraco de 6 unidades
   ];
   const CONNECTORS = [
     // P1→P2
@@ -314,7 +319,7 @@
     // virou mais longa — 5 pedras de apoio em saltos de 4 unidades. A 1ª
     // pedra (z=206) fica logo atrás do portão transparente da T3 — é nela
     // que o personagem pega o item de andar abaixado antes de saltar.
-    { x:0, z:206, r:1.0 }, { x:0, z:202, r:1.0 }, { x:0, z:198, r:1.0 }, { x:0, z:194, r:1.0 }, { x:0, z:190, r:1.0 },
+    { x:0, z:206, r:1.0 }, { x:0, z:203, r:1.0 }, // (as pedras 198/194/190 deram lugar à plataforma do PULO DUPLO, TJ)
     // T2→T3 (vão de 228 a 252): T3 ficou MENOR, então a travessia virou mais
     // longa — 5 pedras redondas de apoio, em saltos de 4 unidades cada até a
     // borda de trás da 3ª plataforma
@@ -1502,6 +1507,25 @@
   spawnCrouchItem(0, 206);
 
   // =========================================================================
+  // ITEM DO PULO DUPLO — na plataforma TJ (entre a T3 e a T4)
+  // Visual: duas setas ciano empilhadas apontando pra cima.
+  // =========================================================================
+  let doubleJumpItems = [];
+  function spawnDoubleJumpItem(x, z) {
+    const g = new THREE.Group();
+    const m = new THREE.MeshStandardMaterial({ color: 0x33ddff, emissive: 0x0099ff, emissiveIntensity: 0.9 });
+    const a1 = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.2, 8), m);
+    a1.position.y = 0.12;
+    const a2 = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.2, 8), m);
+    a2.position.y = -0.08;
+    g.add(a1, a2);
+    g.position.set(x, 0.9, z);
+    scene.add(g);
+    doubleJumpItems.push({ mesh: g, baseY: 0.9 });
+  }
+  spawnDoubleJumpItem(0, 195);
+
+  // =========================================================================
   // ITEM DO DASH (cabeçada pra frente) — fim da T4
   // =========================================================================
   // Visual: dois chevrons (setas de "avançar rápido") vermelhos apontando
@@ -2073,6 +2097,10 @@
   // os tiros na altura normal passam por cima deles — só atirando agachado
   // (o cano da arma desce junto com o corpo) que eles morrem.
   let hasCrouchAbility = false;
+  // PULO DUPLO: ganho no item da plataforma TJ. Aperte o pulo de novo no ar.
+  let hasDoubleJumpAbility = false;
+  let doubleJumpUsed = false;   // já gastou o 2º pulo deste salto
+  let jumpPrevHeld = false;     // pra detectar o APERTO (não o segurar) do botão de pulo
   let lastCrouchDeniedAt = -99;
   const SHOOT_INTERVAL = 0.22; // intervalo entre tiros automáticos ao segurar o botão
   let shootCooldown = 0;
@@ -2954,8 +2982,21 @@
           dashVisual = 0;
         }
         dashJumpGrace = 0;
+        doubleJumpUsed = false;
+        playJumpSound();
+      } else if (jumpPressed && !jumpPrevHeld && hasDoubleJumpAbility && !doubleJumpUsed
+                 && !grounded && !dashing && !groundPounding && !fallingIntoPit
+                 && character.position.y > -0.3) {
+        // -------- PULO DUPLO: novo aperto do botão com o personagem no ar --------
+        velocityY = JUMP_SPEED;
+        doubleJumpUsed = true;
+        jumping = true;
+        jumpFull = true;
+        spinStarted = false;
+        spawnImpactEffect(character.position);
         playJumpSound();
       }
+      jumpPrevHeld = !!jumpPressed;
       // -------- corte do pulo (altura variável) --------
       // Enquanto a subida (pulo OU quique) ainda está em andamento e o
       // botão de pulo NÃO está mais pressionado, corta a velocidade pra
@@ -3076,6 +3117,7 @@
           grounded = true;
           jumping = false;
           jumpFull = false;
+          doubleJumpUsed = false;
           dashMomentumActive = false;
           dashMomentumX = 0;
           dashMomentumZ = 0;
@@ -3786,6 +3828,24 @@
           crouchItems.splice(i, 1);
           playPickupSound();
           showDialogue('Agora sei andar ABAIXADO! A seta ↓ no chão agacha o corpo e a arma desce junto — é assim que acerto aqueles bichos baixos de chifres lá na plataforma menor. Tiro em pé passa por cima deles.', { name: 'Fracote' });
+        }
+      }
+
+      // -------- item do PULO DUPLO (plataforma TJ): libera o 2º pulo no ar.
+      // Também vira o ponto de reaparecimento, pra não voltar à T1 se cair no buraco. --------
+      for (let i = doubleJumpItems.length - 1; i >= 0; i--) {
+        const dj = doubleJumpItems[i];
+        dj.mesh.position.y = dj.baseY + Math.sin(t * 3) * 0.12;
+        dj.mesh.rotation.y += dt * 2.2;
+        const dx = character.position.x - dj.mesh.position.x;
+        const dz = character.position.z - dj.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
+          hasDoubleJumpAbility = true;
+          saveCheckpoint(0, 197);
+          scene.remove(dj.mesh);
+          doubleJumpItems.splice(i, 1);
+          playPickupSound();
+          showDialogue('PULO DUPLO! Pulo no chão e, ainda no ar, aperto o pulo de novo para dar mais um impulso. Segure o botão nos dois pulos pra ir mais longe — com ele eu atravesso aquele buraco enorme.', { name: 'Fracote' });
         }
       }
 
