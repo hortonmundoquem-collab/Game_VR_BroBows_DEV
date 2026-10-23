@@ -398,14 +398,37 @@
   // =========================================================================
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0e8);
-  scene.fog = new THREE.Fog(0x8fd0e8, 22, 65);
+  // Névoa removida: o fundo agora fica nítido até o horizonte.
 
-  const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 120);
+  const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 200);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(window.devicePixelRatio);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.xr.enabled = true;
+
+  // ---- NITIDEZ NO QUEST 3 ----------------------------------------------------
+  // Escala de resolução do VR (1.0 = padrão do headset, que é borrado).
+  // Se travar, abra a página com ?q=1.25 (mais leve); para ainda mais nitidez, ?q=1.7
+  const XR_SCALE = parseFloat(new URLSearchParams(location.search).get('q')) || 1.5;
+  renderer.xr.setFramebufferScaleFactor(XR_SCALE);
+  // (setFoveation não existe no three r128; desligamos direto na camada da sessão)
+  function noFoveation() {
+    try {
+      const sess = renderer.xr.getSession && renderer.xr.getSession();
+      const layer = sess && sess.renderState && sess.renderState.baseLayer;
+      if (layer && 'fixedFoveation' in layer) layer.fixedFoveation = 0;
+    } catch (e) {}
+  }
+  renderer.xr.addEventListener('sessionstart', noFoveation);
+  const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
+  function crispTex(t) {
+    t.anisotropy = MAX_ANISO;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    return t;
+  }
   document.body.appendChild(renderer.domElement);
 
   window.addEventListener('resize', () => {
@@ -1605,8 +1628,9 @@
   for (const opt of mathOptions) {
     const pos = mathBtnPositions.find(p => p.val === opt);
     const btnCanvas = document.createElement('canvas');
-    btnCanvas.width = 128; btnCanvas.height = 128;
+    btnCanvas.width = 256; btnCanvas.height = 256;
     const btnCtx = btnCanvas.getContext('2d');
+    btnCtx.scale(2, 2);
     btnCtx.fillStyle = '#4477aa';
     btnCtx.fillRect(0, 0, 128, 128);
     btnCtx.fillStyle = '#fff';
@@ -1614,7 +1638,7 @@
     btnCtx.textAlign = 'center';
     btnCtx.textBaseline = 'middle';
     btnCtx.fillText(String(opt), 64, 64);
-    const btnTex = new THREE.CanvasTexture(btnCanvas);
+    const btnTex = crispTex(new THREE.CanvasTexture(btnCanvas));
     const btn = new THREE.Mesh(
       new THREE.CylinderGeometry(0.55, 0.55, 0.12, 14),
       new THREE.MeshStandardMaterial({ map: btnTex, emissive: 0x223355, emissiveIntensity: 0.3 })
@@ -1626,8 +1650,9 @@
 
   // Placa com a questão
   const mathCanvas = document.createElement('canvas');
-  mathCanvas.width = 512; mathCanvas.height = 256;
+  mathCanvas.width = 1024; mathCanvas.height = 512;
   const mathCtx = mathCanvas.getContext('2d');
+  mathCtx.scale(2, 2);
   mathCtx.fillStyle = '#222';
   mathCtx.fillRect(0, 0, 512, 256);
   mathCtx.fillStyle = '#fff';
@@ -1635,7 +1660,7 @@
   mathCtx.textAlign = 'center';
   mathCtx.textBaseline = 'middle';
   mathCtx.fillText('3 - 5 = ?', 256, 128);
-  const mathTex = new THREE.CanvasTexture(mathCanvas);
+  const mathTex = crispTex(new THREE.CanvasTexture(mathCanvas));
   const mathSign = new THREE.Mesh(
     new THREE.PlaneGeometry(3, 1.5),
     new THREE.MeshBasicMaterial({ map: mathTex, side: THREE.DoubleSide })
@@ -2284,18 +2309,19 @@
   // esquerdo em VR, mostrando os mesmos corações da HUD do PC.
   const heartsCanvas = document.createElement('canvas');
   // Altura maior pra caber o número de vidas em cima dos corações.
-  heartsCanvas.width = 256; heartsCanvas.height = 140;
+  heartsCanvas.width = 512; heartsCanvas.height = 280;
   const heartsCtx = heartsCanvas.getContext('2d');
-  const heartsTexture = new THREE.CanvasTexture(heartsCanvas);
+  heartsCtx.scale(2, 2);
+  const heartsTexture = crispTex(new THREE.CanvasTexture(heartsCanvas));
 
   function drawHeartsCanvas() {
-    heartsCtx.clearRect(0, 0, heartsCanvas.width, heartsCanvas.height);
+    heartsCtx.clearRect(0, 0, 256, 140);
     // Número de vidas em cima dos corações (♥ 99)
     heartsCtx.font = 'bold 52px sans-serif';
     heartsCtx.textAlign = 'center';
     heartsCtx.textBaseline = 'middle';
     heartsCtx.fillStyle = '#ffd75e';
-    heartsCtx.fillText('\u2665 ' + lives, heartsCanvas.width / 2, 22);
+    heartsCtx.fillText('\u2665 ' + lives, 128, 22);
     heartsCtx.textAlign = 'left';
     // corações (pontos de vida da vida atual)
     heartsCtx.font = '64px sans-serif';
@@ -2316,9 +2342,10 @@
   // pra caber os dois ícones de chave inteiros — antes a segunda chave
   // ficava cortada na borda direita do canvas.
   const keysCanvas = document.createElement('canvas');
-  keysCanvas.width = 180; keysCanvas.height = 96;
+  keysCanvas.width = 360; keysCanvas.height = 192;
   const keysCtx = keysCanvas.getContext('2d');
-  const keysTexture = new THREE.CanvasTexture(keysCanvas);
+  keysCtx.scale(2, 2);
+  const keysTexture = crispTex(new THREE.CanvasTexture(keysCanvas));
 
   // Desenha o ícone de chave com uma COR (as portas que abrem): a chave
   // vermelha abre a porta vermelha e a azul abre a azul. O emoji 🔑 antigo
@@ -2350,7 +2377,7 @@
   }
 
   function drawKeysCanvas() {
-    keysCtx.clearRect(0, 0, keysCanvas.width, keysCanvas.height);
+    keysCtx.clearRect(0, 0, 180, 96);
     // chave vermelha (porta vermelha) e chave azul (porta azul)
     drawKeyIcon(12, 52, hasRedKey ? '#ee2222' : 'rgba(255,255,255,0.28)');
     drawKeyIcon(92, 52, hasBlueKey ? '#3388ff' : 'rgba(255,255,255,0.28)');
@@ -2566,6 +2593,7 @@
       });
       session.addEventListener('end', () => { vrButton.textContent = 'Entrar em VR'; });
       await renderer.xr.setSession(session);
+      noFoveation();
       vrButton.textContent = 'Sair do VR';
     } catch (err) {
       alert('Não foi possível iniciar a sessão VR: ' + err.message);
