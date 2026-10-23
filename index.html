@@ -89,10 +89,12 @@
   #dialogue-text {
     color:#fff; font-size:18px; line-height:1.4; text-shadow:0 0 6px #000;
   }
-  #dialogue-hint {
-    color:#ffcc99; font-size:12px; text-align:right; margin-top:10px;
-    animation:dialogue-blink 1.1s infinite;
+  #dialogue-hint { text-align:right; margin-top:12px; }
+  #dialogue-ok {
+    background:#ff7a1a; color:#fff; border:none; border-radius:10px; cursor:pointer;
+    font-size:18px; font-weight:bold; padding:8px 34px;
   }
+  #dialogue-ok:hover { background:#ff9a3a; }
   @keyframes dialogue-blink { 0%,100%{opacity:0.35;} 50%{opacity:1;} }
 </style>
 </head>
@@ -119,7 +121,7 @@
   <div id="dialogue-box">
     <div id="dialogue-name">Herói</div>
     <div id="dialogue-text"></div>
-    <div id="dialogue-hint">▼ toque, mova-se ou aguarde para continuar</div>
+    <div id="dialogue-hint"><button id="dialogue-ok" type="button">OK</button></div>
   </div>
   <div id="crosshair"></div>
   <div id="fade" style="position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.12s ease;"></div>
@@ -342,6 +344,29 @@
     return false;
   }
 
+  // Queda baseada na SOMBRA: raio do disco de sombra do personagem e teste
+  // "há chão tocando a sombra?". Andando pra fora da borda, o personagem só
+  // cai quando a sombra sai 100% da plataforma (nenhuma parte dela sobre chão).
+  const SHADOW_R = 0.42;
+  function hasGroundNear(x, z, r) {
+    for (const p of PLATFORMS) {
+      const px = Math.max(p.cx - p.hw, Math.min(x, p.cx + p.hw));
+      const pz = Math.max(p.cz - p.hd, Math.min(z, p.cz + p.hd));
+      const dx = px - x, dz = pz - z;
+      if (dx * dx + dz * dz < r * r) return true;
+    }
+    for (const s of CONNECTORS) {
+      const dx = x - s.x, dz = z - s.z, rr = s.r + r;
+      if (dx * dx + dz * dz < rr * rr) return true;
+    }
+    for (const b of bridgePlatforms) {
+      if (!b.solid) continue;
+      const dx = x - b.mesh.position.x, dz = z - b.mesh.position.z, rr = b.r + r;
+      if (dx * dx + dz * dz < rr * rr) return true;
+    }
+    return false;
+  }
+
   // A sombra do personagem também deve aparecer em cima de um inimigo vivo
   // quando o personagem está sobre ele — e, pra ficar realmente visível (e
   // não escondida atrás/dentro do corpo do próprio inimigo, já que a sombra
@@ -415,7 +440,7 @@
   // ---- NITIDEZ NO QUEST 3 ----------------------------------------------------
   // Escala de resolução do VR (1.0 = padrão do headset, que é borrado).
   // Se travar, abra a página com ?q=1.25 (mais leve); para ainda mais nitidez, ?q=1.7
-  const XR_SCALE = parseFloat(new URLSearchParams(location.search).get('q')) || 1.5;
+  const XR_SCALE = parseFloat(new URLSearchParams(location.search).get('q')) || 1.3;
   renderer.xr.setFramebufferScaleFactor(XR_SCALE);
   // (setFoveation não existe no three r128; desligamos direto na camada da sessão)
   function noFoveation() {
@@ -426,6 +451,18 @@
     } catch (e) {}
   }
   renderer.xr.addEventListener('sessionstart', noFoveation);
+  // Pede a MAIOR taxa de quadros do headset (120 Hz no Quest 3). ?fps=90 força 90.
+  function maxFrameRate() {
+    try {
+      const sess = renderer.xr.getSession && renderer.xr.getSession();
+      if (!sess || !sess.updateTargetFrameRate || !sess.supportedFrameRates) return;
+      const rates = Array.from(sess.supportedFrameRates);
+      const want = parseFloat(new URLSearchParams(location.search).get('fps')) || Math.max.apply(null, rates);
+      const pick = rates.includes(want) ? want : Math.max.apply(null, rates);
+      sess.updateTargetFrameRate(pick).catch(() => {});
+    } catch (e) {}
+  }
+  renderer.xr.addEventListener('sessionstart', maxFrameRate);
   const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
   function crispTex(t) {
     t.anisotropy = MAX_ANISO;
@@ -1603,7 +1640,7 @@
     new THREE.BoxGeometry(0.8, 0.8, 0.8),
     new THREE.MeshStandardMaterial({ color: 0x888877 })
   );
-  puzzleStone.position.set(-38, 0.4, 120.5);
+  puzzleStone.position.set(-36.4, 0.4, 120.2); // mais longe da placa (antes -38, 120.5): precisa arrastar em X e em Z
   scene.add(puzzleStone);
   let puzzleSolved = false;
 
@@ -2348,7 +2385,7 @@
     c.fillStyle = '#ff9a3a'; c.font = 'bold 40px sans-serif';
     c.fillText(String(name).toUpperCase(), 48, 36);
     // texto: reduz a fonte até caber
-    const maxW = W - 96, top = 100, bottom = H - 80;
+    const maxW = W - 96, top = 100, bottom = H - 150;
     let size = 46, lines = [];
     for (; size >= 26; size -= 2) {
       c.font = size + 'px sans-serif';
@@ -2358,9 +2395,20 @@
     c.fillStyle = '#ffffff';
     lines.forEach((ln, i) => c.fillText(ln, 48, top + i * size * 1.3));
     // dica
-    c.textAlign = 'right'; c.textBaseline = 'alphabetic';
+    // botão OK (aperte A/X ou o gatilho para confirmar)
+    const bw = 220, bh = 84, bx = W - 48 - bw, by = H - 36 - bh;
+    c.fillStyle = '#ff7a1a';
+    c.beginPath();
+    c.moveTo(bx + 18, by); c.lineTo(bx + bw - 18, by); c.quadraticCurveTo(bx + bw, by, bx + bw, by + 18);
+    c.lineTo(bx + bw, by + bh - 18); c.quadraticCurveTo(bx + bw, by + bh, bx + bw - 18, by + bh);
+    c.lineTo(bx + 18, by + bh); c.quadraticCurveTo(bx, by + bh, bx, by + bh - 18);
+    c.lineTo(bx, by + 18); c.quadraticCurveTo(bx, by, bx + 18, by); c.closePath(); c.fill();
+    c.fillStyle = '#ffffff'; c.font = 'bold 48px sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('OK', bx + bw / 2, by + bh / 2 + 2);
+    c.textAlign = 'left'; c.textBaseline = 'middle';
     c.fillStyle = '#ffcc99'; c.font = '30px sans-serif';
-    c.fillText('\u25BC aperte A, gatilho ou mova o analógico para continuar', W - 48, H - 26);
+    c.fillText('aperte A/X ou o gatilho para dar OK', 48, by + bh / 2);
     vrDlgTex.needsUpdate = true;
   }
 
@@ -2373,16 +2421,17 @@
     dialogueActive = true;
     dialogueTimer = 0;
     dialogueMinTime = opts.minTime !== undefined ? opts.minTime : 1.0;
-    dialogueBoxEl._autoMs = opts.autoMs !== undefined ? opts.autoMs : 7000;
   }
   function dismissDialogue() {
     if (!dialogueActive) return;
     dialogueActive = false;
     dialogueBoxEl.style.display = 'none';
   }
-  dialogueBoxEl.addEventListener('click', () => {
+  // O diálogo SÓ fecha no botão OK (clique no PC; A/X ou gatilho no VR/controle).
+  document.getElementById('dialogue-ok').addEventListener('click', () => {
     if (dialogueTimer >= dialogueMinTime) dismissDialogue();
   });
+  let dlgOkPrev = false; // pra só aceitar um APERTO novo do botão de OK no VR/controle
 
   // -------- UI DOS CORAÇÕES --------
   // Canvas usado como textura de um pequeno painel preso ao controle
@@ -2689,8 +2738,15 @@
     return new THREE.Vector3(-Math.sin(theta), 0, -Math.cos(theta));
   }
 
+  // dt suavizado (média dos últimos quadros): quadros com tempo irregular
+  // faziam o boneco andar em "soquinhos" e parecer tremer.
+  const dtHist = [];
   function animate() {
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const rawDt = Math.min(clock.getDelta(), 0.05);
+    dtHist.push(rawDt);
+    if (dtHist.length > 4) dtHist.shift();
+    let dtSum = 0; for (const d of dtHist) dtSum += d;
+    const dt = dtSum / dtHist.length;
 
     // Lido sempre, mesmo com o jogo já ganho, para servir de fallback do
     // botão "Repetir fase" dentro do VR (caso o dom-overlay não seja
@@ -2704,13 +2760,14 @@
     // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
     if (dialogueActive) {
       dialogueTimer += dt;
-      const anyInput = keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD'] ||
-        keys['Space'] || keys['KeyB'] || keys['ArrowUp'] ||
-        Math.abs(xr.moveX) > 0.2 || Math.abs(xr.moveY) > 0.2 || xr.jumpBtn || xr.shootBtn ||
-        Math.abs(pad.moveX) > 0.2 || Math.abs(pad.moveY) > 0.2 || pad.jumpBtn;
-      if (dialogueTimer >= dialogueMinTime && (anyInput || dialogueTimer * 1000 >= dialogueBoxEl._autoMs)) {
+      // Só o botão de OK fecha: A/X ou gatilho no VR, A no controle (aperto novo).
+      const okNow = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn);
+      if (dialogueTimer >= dialogueMinTime && okNow && !dlgOkPrev) {
         dismissDialogue();
       }
+      dlgOkPrev = okNow;
+    } else {
+      dlgOkPrev = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn);
     }
 
     // 't' é um relógio de jogo que SÓ avança fora do diálogo — assim,
@@ -3170,7 +3227,13 @@
         grounded = false;
         standingPlatform = null;
       } else if (character.position.y <= 0) {
-        if (character.position.y >= GROUND_SNAP_MIN_Y && hasGroundAt(character.position.x, character.position.z)) {
+        // ANDANDO (estava no chão, sem dash): ainda conta como apoiado enquanto
+        // QUALQUER parte da sombra tocar o chão. Pulo/dash por cima de buracos
+        // continuam usando só o centro do personagem, como antes.
+        const supportedByShadow = wasGrounded && !dashing &&
+          hasGroundNear(character.position.x, character.position.z, SHADOW_R);
+        if (character.position.y >= GROUND_SNAP_MIN_Y &&
+            (hasGroundAt(character.position.x, character.position.z) || supportedByShadow)) {
           character.position.y = 0;
           velocityY = 0;
           grounded = true;
@@ -3187,7 +3250,7 @@
             squashMesh(character, false);
             playPoundLandSound();
           }
-          lastGroundPos.set(character.position.x, 0, character.position.z);
+          if (hasGroundAt(character.position.x, character.position.z)) lastGroundPos.set(character.position.x, 0, character.position.z);
           triggerBridgeFall(character.position.x, character.position.z);
           standingPlatform = findMovingPlatformAt(character.position.x, character.position.z);
         } else if (wasGrounded && !fallingPlatformBeneath(character.position.x, character.position.z)) {
@@ -3200,9 +3263,11 @@
           // durante a queda podia levá-lo de volta a um pedaço de chão
           // sólido antes do limite de queda (y < -7) e ele escapava sem
           // perder coração.
+          // A sombra saiu 100% da plataforma: o personagem CAI de verdade
+          // (desce até o fundo, como nas outras quedas) e só então perde a vida.
           grounded = false;
           standingPlatform = null;
-          respawnFromPit();
+          fallingIntoPit = true;
         } else if (wasGrounded) {
           // Exceção ao caso acima: o chão sumiu porque uma pedra "que cai"
           // afundou embaixo dos pés do personagem (não porque ele andou
@@ -4148,7 +4213,8 @@
     // como prévia de onde vai cair).
     characterShadow.visible = !fallingIntoPit
       && character.position.y >= GROUND_SNAP_MIN_Y
-      && (!!enemyMeshUnder || hasGroundAt(character.position.x, character.position.z));
+      && (!!enemyMeshUnder || hasGroundAt(character.position.x, character.position.z)
+          || (grounded && hasGroundNear(character.position.x, character.position.z, SHADOW_R)));
 
     // -------- câmera: camPivot acompanha o personagem em Z (atrás) e em X
     // (lateralmente), como um jogo de scroll lateral quando o personagem vai
