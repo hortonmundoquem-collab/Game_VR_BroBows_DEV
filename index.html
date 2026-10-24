@@ -239,7 +239,9 @@
   // do que ele (CAM_HEIGHT_LEVEL_MIN).
   const CAM_HEIGHT_LEVEL_MIN = -3;
   const CAM_HEIGHT_LEVEL_MAX = 5;
-  const CAM_HEIGHT_LEVEL_DEFAULT = -2;
+  const CAM_HEIGHT_LEVEL_DEFAULT = -1; // 1 nível mais alta que antes (-2)
+  // Nível extra de PRIMEIRA PESSOA (só no VR): 1 abaixo do mais próximo.
+  const CAM_LEVEL_FP = CAM_HEIGHT_LEVEL_MIN - 1;
   // O jogo em modo DESKTOP agora começa (e volta, ao resetar com a tecla 5)
   // 2 níveis de zoom mais alto/afastado que o padrão de VR — câmera mais
   // alta, vendo mais o cenário de cima, como pedido. O VR continua usando
@@ -910,6 +912,44 @@
   armR.add(gunOnPlayer);
   let hasGun = false;
 
+  // ---- MÃOS E ARMA EM PRIMEIRA PESSOA (VR) ----
+  // Cada controle do Quest ganha uma "mão" (punho + controle). A arma aparece
+  // na mão DIREITA quando o jogador tem a arma. Só ficam visíveis na câmera de
+  // primeira pessoa. Os controles ficam dentro do dolly pra acompanhar o rig.
+  const _fpDir = new THREE.Vector3();
+  const _fpQuat = new THREE.Quaternion();
+  const fpHands = [];
+  for (let ci = 0; ci < 2; ci++) {
+    const ctrl = renderer.xr.getController(ci);
+    dolly.add(ctrl);
+    const group = new THREE.Group();
+    group.visible = false;
+    const skin = new THREE.MeshStandardMaterial({ color: 0xffd9b0 });
+    const fist = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), skin);
+    fist.position.set(0, -0.02, 0.06);
+    const wrist = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.16), skin);
+    wrist.position.set(0, -0.02, 0.15);
+    group.add(fist, wrist);
+    // arma (mesmo desenho da arma do personagem; cano aponta pra -Z = direção do tiro)
+    const gun = new THREE.Group();
+    const gg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.08), gunGripMat);
+    gg.position.set(0, -0.08, 0.04);
+    const gs = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.32), gunBodyMat);
+    gs.position.set(0, 0, -0.08);
+    const gb = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 8), gunBodyMat);
+    gb.rotation.x = Math.PI / 2;
+    gb.position.set(0, 0, -0.3);
+    const muzzle = new THREE.Object3D();
+    muzzle.position.set(0, 0, -0.38);
+    gun.add(gg, gs, gb, muzzle);
+    gun.visible = false;
+    group.add(gun);
+    ctrl.add(group);
+    ctrl.addEventListener('connected', (e) => { ctrl.userData.hand = e.data && e.data.handedness; });
+    ctrl.addEventListener('disconnected', () => { ctrl.userData.hand = null; });
+    fpHands.push({ ctrl, group, gun, muzzle });
+  }
+
   // =========================================================================
   // INIMIGOS NORMAIS (P1:2, P6:misturados)
   // =========================================================================
@@ -1419,6 +1459,28 @@
   // O prêmio por atravessar só andando.
   spawnJumpPickup(0, 296.5);
 
+  // ITEM DA CÂMERA (1º item do jogo, no meio da T1): libera girar/dar zoom na
+  // câmera (analógico direito no VR; teclas 4/6/8/2/5 no PC). Sem ele, a
+  // câmera fica travada.
+  let hasCameraAbility = false;
+  let cameraPickups = [];
+  function spawnCameraPickup(x, z) {
+    const g = new THREE.Group();
+    const bodyM = new THREE.MeshStandardMaterial({ color: 0xffaa33, emissive: 0xcc7711, emissiveIntensity: 0.8 });
+    const lensM = new THREE.MeshStandardMaterial({ color: 0x223344, emissive: 0x3366aa, emissiveIntensity: 0.6 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.3, 0.22), bodyM);
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.12, 14), lensM);
+    lens.rotation.x = Math.PI / 2;
+    lens.position.z = 0.15;
+    const bump = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.07, 0.1), bodyM);
+    bump.position.set(-0.1, 0.18, 0);
+    g.add(body, lens, bump);
+    g.position.set(x, 0.9, z);
+    scene.add(g);
+    cameraPickups.push({ mesh: g, baseY: 0.9 });
+  }
+  spawnCameraPickup(0, 313);
+
   // =========================================================================
   // ITEM DE PANCADA FORTE (tutorial, T2) — o personagem começa sem poder
   // pisar forte (seta ↓ no ar não faz nada); ao encostar neste item, ganha
@@ -1610,6 +1672,16 @@
     signCtx.fillText('CHECKPOINT', 512, 185);
     const signTex = crispTex(new THREE.CanvasTexture(signCanvas));
     const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+    // Versão "VIVA" da mesma placa (verde brilhante, borda dourada) — usada depois de ativar
+    const liveCanvas = document.createElement('canvas');
+    liveCanvas.width = 1024; liveCanvas.height = 358;
+    const liveCtx = liveCanvas.getContext('2d');
+    liveCtx.fillStyle = '#1fae4b'; liveCtx.fillRect(0, 0, 1024, 358);
+    liveCtx.strokeStyle = '#ffe066'; liveCtx.lineWidth = 18; liveCtx.strokeRect(14, 14, 996, 330);
+    liveCtx.fillStyle = '#ffffff'; liveCtx.font = 'bold 150px sans-serif';
+    liveCtx.textAlign = 'center'; liveCtx.textBaseline = 'middle';
+    liveCtx.fillText('CHECKPOINT', 512, 185);
+    const liveTex = crispTex(new THREE.CanvasTexture(liveCanvas));
     const chk1 = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 0.686), signMat);
     chk1.position.set(0, 1.55, -0.12 + 0.045);
     const chk2 = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 0.686), signMat);
@@ -1627,7 +1699,8 @@
     group.add(post, board, chk1, chk2, flagGroup);
     group.position.set(x, 0, z);
     scene.add(group);
-    return { mesh: group, flagGroup, flag, board, activated: false };
+    flagGroup.visible = false; // a placa é a mesma antes e depois; sem bandeira separada
+    return { mesh: group, flagGroup, flag, board, signMat, liveTex, activated: false };
   }
   checkpoint = spawnCheckpoint(1.9, 170);
 
@@ -1660,7 +1733,7 @@
     new THREE.BoxGeometry(0.8, PUZZLE_H, 0.8),
     new THREE.MeshStandardMaterial({ color: 0x888877 })
   );
-  puzzleStone.position.set(-36.4, PUZZLE_H / 2, 120.2); // longe da placa: precisa arrastar em X e em Z
+  puzzleStone.position.set(-35.8, PUZZLE_H / 2, 120.4); // longe da placa: precisa arrastar em X e em Z
   scene.add(puzzleStone);
   let puzzleSolved = false;
   let puzzleHits = 0;          // quantos tiros o cubo já levou
@@ -2096,6 +2169,8 @@
   // bate o limite de segurança (y < -7) mais abaixo, que chama respawnFromPit().
   let fallingIntoPit = false;
   // -------- rotação manual da câmera (saltos de 45°) --------
+  let fpActive = false;       // câmera em PRIMEIRA PESSOA (VR)
+  let fpBody = false;         // já está dentro da cabeça (corpo escondido, mãos visíveis)
   let camYawTarget = 0;       // ângulo alvo do camPivot, sempre múltiplo de CAM_YAW_STEP
   let prevCamKeyLeft = false;  // estado anterior da tecla 4 (PC), pra detectar só o toque
   let prevCamKeyRight = false; // estado anterior da tecla 6 (PC)
@@ -2379,10 +2454,12 @@
   // qualquer micro-oscilação do headset. Ele é posicionado à frente do olhar
   // uma vez, quando o diálogo abre, e fica parado ali.
   scene.add(vrDlgPlane);
-  let vrDlgPlaced = false;
+  let vrDlgFrames = 0;
   const _vcp = new THREE.Vector3(), _vcd = new THREE.Vector3();
   function placeVrDialogue() {
-    camera.updateMatrixWorld(true);
+    // Antes do render, a câmera ainda tem a posição do modo desktop (atrás do
+    // personagem). getCamera() aplica a pose REAL do headset primeiro.
+    renderer.xr.getCamera(camera);
     camera.getWorldPosition(_vcp);
     camera.getWorldDirection(_vcd);
     _vcd.y = 0;
@@ -2793,8 +2870,10 @@
 
     // O painel de diálogo do VR só aparece dentro do headset
     const vrDlgShow = dialogueActive && renderer.xr.isPresenting;
-    if (vrDlgShow && !vrDlgPlaced) { placeVrDialogue(); vrDlgPlaced = true; }
-    if (!vrDlgShow) vrDlgPlaced = false;
+    // reposiciona nos primeiros ~12 quadros (a pose do headset demora a ficar
+    // válida logo ao entrar no VR) e depois deixa o painel parado no mundo
+    if (vrDlgShow && vrDlgFrames < 12) { placeVrDialogue(); }
+    if (vrDlgShow) vrDlgFrames++; else vrDlgFrames = 0;
     vrDlgPlane.visible = vrDlgShow;
 
     // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
@@ -2871,7 +2950,13 @@
       // pra onde a câmera está olhando agora, então o controle continua
       // fazendo sentido depois de girar a câmera em saltos de 45°) --------
       if (moveX !== 0 || moveZ !== 0) {
-        const camYaw = camPivot.rotation.y;
+        let camYaw = camPivot.rotation.y;
+        if (fpBody) {
+          // na primeira pessoa "frente" é pra onde o jogador está OLHANDO
+          renderer.xr.getCamera(camera);
+          camera.getWorldDirection(_fpDir);
+          if (_fpDir.x * _fpDir.x + _fpDir.z * _fpDir.z > 0.0001) camYaw = Math.atan2(-_fpDir.x, -_fpDir.z);
+        }
         const cosY = Math.cos(camYaw), sinY = Math.sin(camYaw);
         const worldDir = new THREE.Vector3(
           moveX * cosY + moveZ * sinY,
@@ -3189,11 +3274,21 @@
       if (shootCooldown > 0) shootCooldown -= dt;
       const shootPressed = keys['KeyF'] || keys['KeyV'] || keys['ArrowLeft'] || xr.shootBtn || pad.shootBtn;
       if (hasGun && shootPressed && shootCooldown <= 0) {
-        const fwd = forwardVectorFromAngle(aimLocked ? lockedFacingAngle : facingAngle);
+        let fwd = forwardVectorFromAngle(aimLocked ? lockedFacingAngle : facingAngle);
         // origem real: a ponta do cano da arma no mundo, não o centro do personagem
         const origin = new THREE.Vector3();
-        gunMuzzle.getWorldPosition(origin);
-        origin.addScaledVector(fwd, 0.1);
+        const rightHand = fpHands.find((h) => h.ctrl.userData.hand === 'right');
+        if (fpBody && rightHand) {
+          // PRIMEIRA PESSOA: o tiro sai da ponta da arma na sua mão e vai pra
+          // ONDE VOCÊ APONTA (inclusive pra cima/baixo)
+          rightHand.ctrl.updateWorldMatrix(true, false);
+          rightHand.ctrl.getWorldQuaternion(_fpQuat);
+          fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(_fpQuat).normalize();
+          rightHand.muzzle.getWorldPosition(origin);
+        } else {
+          gunMuzzle.getWorldPosition(origin);
+          origin.addScaledVector(fwd, 0.1);
+        }
         spawnPlayerProjectile(origin, fwd);
         playShootSound();
         shootCooldown = SHOOT_INTERVAL;
@@ -3907,6 +4002,22 @@
         }
       }
 
+      // -------- item da CÂMERA (meio da T1) --------
+      for (let i = cameraPickups.length - 1; i >= 0; i--) {
+        const cp = cameraPickups[i];
+        cp.mesh.position.y = cp.baseY + Math.sin(t * 3) * 0.12;
+        cp.mesh.rotation.y += dt * 2.2;
+        const dx = character.position.x - cp.mesh.position.x;
+        const dz = character.position.z - cp.mesh.position.z;
+        if (Math.sqrt(dx * dx + dz * dz) < 0.6) {
+          hasCameraAbility = true;
+          scene.remove(cp.mesh);
+          cameraPickups.splice(i, 1);
+          playPickupSound();
+          showDialogue('Peguei a CÂMERA! Agora posso mexer na visão com o analógico DIREITO: para os lados gira a câmera, para cima aproxima (zoom) e para baixo afasta. Aproximando bastante chega à primeira pessoa. Apertando o analógico direito, a câmera volta ao normal. (No PC: teclas 4 e 6 giram, 8 e 2 dão zoom, 5 reseta.)', { name: 'Fracote' });
+        }
+      }
+
       // -------- item de pulo (tutorial, T1): flutua/gira e, ao encostar,
       // libera a habilidade de pular pela primeira vez --------
       for (let i = jumpPickups.length - 1; i >= 0; i--) {
@@ -4057,19 +4168,23 @@
         const dz = character.position.z - checkpoint.mesh.position.z;
         if (Math.sqrt(dx * dx + dz * dz) < 3.5) { // basta chegar perto (sem encostar)
           checkpoint.activated = true;
-          // Some com a placa (posta + tábua + ✓) e mostra a bandeira
-          checkpoint.board.visible = false;
-          checkpoint.mesh.children.forEach((c) => {
-            if (c !== checkpoint.flagGroup) c.visible = false;
-          });
-          checkpoint.flagGroup.visible = true;
+          // A MESMA placa continua (com o nome CHECKPOINT); só fica mais
+          // viva (verde brilhante) e cresce (animado no loop abaixo).
+          checkpoint.signMat.map = checkpoint.liveTex;
+          checkpoint.signMat.needsUpdate = true;
           saveCheckpoint(checkpoint.mesh.position.x, checkpoint.mesh.position.z);
           playPickupSound();
           showDialogue('Checkpoint! Se eu cair agora, reapareço aqui mesmo — logo ao lado do item do dash, já na beirinha da primeira plataforma com inimigos.', { name: 'Fracote' });
         }
       }
-      if (checkpoint && checkpoint.activated && checkpoint.flag) {
-        checkpoint.flag.rotation.y = Math.sin(t * 5) * 0.3;
+      if (checkpoint && checkpoint.activated) {
+        // cresce até 1,5x e fica "viva": balança de leve e pulsa o brilho
+        const cs = checkpoint.mesh.scale.x + (1.5 - checkpoint.mesh.scale.x) * Math.min(1, 4 * dt);
+        checkpoint.mesh.scale.set(cs, cs, cs);
+        checkpoint.mesh.rotation.y = Math.sin(t * 2.2) * 0.08;
+        checkpoint.mesh.position.y = Math.sin(t * 3) * 0.03;
+        const glow = 1.1 + Math.sin(t * 4) * 0.12;
+        checkpoint.signMat.color.setRGB(glow, glow, glow);
       }
 
       // -------- treino da T3: máquina de fases (só avança quando todos
@@ -4293,8 +4408,8 @@
     // teclas 4 e 6 no PC) --------
     const d4 = !!keys['Digit4'];
     const d6 = !!keys['Digit6'];
-    if (d4 && !prevCamKeyLeft)  camYawTarget += CAM_YAW_STEP;
-    if (d6 && !prevCamKeyRight) camYawTarget -= CAM_YAW_STEP;
+    if (hasCameraAbility && d4 && !prevCamKeyLeft)  camYawTarget += CAM_YAW_STEP;
+    if (hasCameraAbility && d6 && !prevCamKeyRight) camYawTarget -= CAM_YAW_STEP;
     prevCamKeyLeft = d4;
     prevCamKeyRight = d6;
     // precisa o analógico voltar pro centro antes de contar outro "toque",
@@ -4302,7 +4417,7 @@
     let stickDir = 0;
     if (xr.rightStickX > 0.6) stickDir = 1;
     else if (xr.rightStickX < -0.6) stickDir = -1;
-    if (stickDir !== 0 && prevCamStickDir === 0) {
+    if (hasCameraAbility && stickDir !== 0 && prevCamStickDir === 0) {
       camYawTarget += stickDir > 0 ? -CAM_YAW_STEP : CAM_YAW_STEP;
     }
     prevCamStickDir = stickDir;
@@ -4317,8 +4432,8 @@
     // aproxima a câmera (zoom in), 2/baixo agora afasta (zoom out) --------
     const d8 = !!keys['Digit8'];
     const d2 = !!keys['Digit2'];
-    if (d8 && !prevCamKeyUp)   camHeightLevel = Math.max(CAM_HEIGHT_LEVEL_MIN, camHeightLevel - 1);
-    if (d2 && !prevCamKeyDown) camHeightLevel = Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + 1);
+    if (hasCameraAbility && d8 && !prevCamKeyUp)   camHeightLevel = Math.max(CAM_HEIGHT_LEVEL_MIN, camHeightLevel - 1);
+    if (hasCameraAbility && d2 && !prevCamKeyDown) camHeightLevel = Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + 1);
     prevCamKeyUp = d8;
     prevCamKeyDown = d2;
     // analógico pra cima manda o eixo Y negativo (mesma convenção já usada
@@ -4328,8 +4443,10 @@
     let stickVert = 0;
     if (xr.rightStickY < -0.6) stickVert = 1;
     else if (xr.rightStickY > 0.6) stickVert = -1;
-    if (stickVert !== 0 && prevCamStickVert === 0) {
-      camHeightLevel = Math.max(CAM_HEIGHT_LEVEL_MIN, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel - stickVert));
+    if (hasCameraAbility && stickVert !== 0 && prevCamStickVert === 0) {
+      // no VR existe 1 nível a mais de zoom: a PRIMEIRA PESSOA
+      const camMin = renderer.xr.isPresenting ? CAM_LEVEL_FP : CAM_HEIGHT_LEVEL_MIN;
+      camHeightLevel = Math.max(camMin, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel - stickVert));
     }
     prevCamStickVert = stickVert;
 
@@ -4337,17 +4454,34 @@
     // do analógico direito, R3, no VR) --------
     const d5 = !!keys['Digit5'];
     const stickClick = !!xr.rightStickClick;
-    if ((d5 && !prevCamResetKey) || (stickClick && !prevCamResetStick)) {
+    if (hasCameraAbility && ((d5 && !prevCamResetKey) || (stickClick && !prevCamResetStick))) {
       camYawTarget = 0;
       camHeightLevel = renderer.xr.isPresenting ? CAM_HEIGHT_LEVEL_DEFAULT : CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP;
     }
     prevCamResetKey = d5;
     prevCamResetStick = stickClick;
 
-    const camHeightTarget = CAM_HEIGHT + camHeightLevel * CAM_HEIGHT_STEP;
-    const camBackTarget = CAM_BACK_OFFSET + camHeightLevel * CAM_BACK_STEP;
-    dolly.position.y += (camHeightTarget - dolly.position.y) * Math.min(1, CAM_ZOOM_LERP * dt);
-    dolly.position.z += (camBackTarget - dolly.position.z) * Math.min(1, CAM_ZOOM_LERP * dt);
+    let camHeightTarget = CAM_HEIGHT + camHeightLevel * CAM_HEIGHT_STEP;
+    let camBackTarget = CAM_BACK_OFFSET + camHeightLevel * CAM_BACK_STEP;
+    // -------- PRIMEIRA PESSOA (VR): a "cabeça" do jogador fica na cabeça do herói --------
+    fpActive = renderer.xr.isPresenting && hasCameraAbility && camHeightLevel <= CAM_LEVEL_FP;
+    if (fpActive) {
+      // o piso do headset (local-floor) fica ~1,6 abaixo dos olhos reais; o herói é
+      // menor, então desce o rig pra os olhos ficarem na altura da cabeça dele
+      camHeightTarget = character.position.y - 0.55;
+      camBackTarget = 0;
+      camPivot.position.x = character.position.x; // sem atraso lateral
+    }
+    const zoomK = fpActive ? 20 : CAM_ZOOM_LERP;
+    dolly.position.y += (camHeightTarget - dolly.position.y) * Math.min(1, zoomK * dt);
+    dolly.position.z += (camBackTarget - dolly.position.z) * Math.min(1, zoomK * dt);
+    // chegou na cabeça: esconde o corpo (senão ele tapa a visão) e mostra as MÃOS
+    fpBody = fpActive && dolly.position.z < 1.5;
+    character.visible = !fpBody;
+    for (const h of fpHands) {
+      h.group.visible = fpBody;
+      h.gun.visible = fpBody && hasGun && h.ctrl.userData.hand === 'right';
+    }
 
     renderer.render(scene, camera);
   }
