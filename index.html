@@ -2205,6 +2205,10 @@
   // -------- rotação manual da câmera (saltos de 45°) --------
   const FP_EYE_HEIGHT = 1.25; // altura dos olhos do herói (pés = 0)
   let fpRefHeadY = 1.6;       // altura da cabeça do jogador medida no headset
+  const CAM_HOLD_DELAY = 0.45;   // segurando o analógico: espera antes de repetir
+  const CAM_HOLD_REPEAT = 0.3;   // e repete a cada 0,3 s
+  const CAM_SMOOTH_YAW_SPEED = 1.75; // giro suave: ~100°/s
+  let camYawDirPrev = 0, camYawHold = 0, camHeightDirPrev = 0, camHeightHold = 0;
   let fpActive = false;       // câmera em PRIMEIRA PESSOA (VR)
   let fpBody = false;         // já está dentro da cabeça (corpo escondido, mãos visíveis)
   let camYawTarget = 0;       // ângulo alvo do camPivot, sempre múltiplo de CAM_YAW_STEP
@@ -2281,6 +2285,7 @@
   // página, começa do início (T1).
   function saveCheckpoint(x, z) {
     checkpointPos.set(x, 0, z);
+    saveGame(); // grava no navegador (usado por "Carregar Jogo")
   }
 
   // -------- VIDA (3 corações) --------
@@ -2472,6 +2477,262 @@
   const dialogueBoxEl  = document.getElementById('dialogue-box');
   const dialogueNameEl = document.getElementById('dialogue-name');
   const dialogueTextEl = document.getElementById('dialogue-text');
+  // =========================================================================
+  // MENU PRINCIPAL (Jogo BRobows — Wobercron Doido) + OPÇÕES + SALVAR/CARREGAR
+  // O mesmo desenho (canvas) serve pro PC (clique do mouse) e pro VR (painel 3D
+  // à frente do olhar, apontado com os controles e selecionado com o gatilho).
+  // =========================================================================
+  const SETTINGS_KEY = 'brobows_settings_v1';
+  const SAVE_KEY = 'brobows_save_v1';
+  const settings = { turn: 'fast', deg: 30 }; // padrão: RÁPIDO, 30°
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (o.turn === 'fast' || o.turn === 'mixed' || o.turn === 'smooth') settings.turn = o.turn;
+      if (o.deg === 20 || o.deg === 30 || o.deg === 45) settings.deg = o.deg;
+    }
+  } catch (e) {}
+  function persistSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
+
+  let menuActive = true;
+  let menuScreen = 'main';
+  let menuMsg = '';
+  let menuDomHover = null, menuVrHover = null;
+  const MW = 1024, MH = 768;
+
+  function menuButtons() {
+    if (menuScreen === 'options') {
+      const xs = [62, 372, 682];
+      const t = [['turn:fast', 'Rápido'], ['turn:mixed', 'Médio'], ['turn:smooth', 'Suave']];
+      const d = [['deg:20', '20°'], ['deg:30', '30°'], ['deg:45', '45°']];
+      const out = [];
+      t.forEach((b, i) => out.push({ id: b[0], label: b[1], x: xs[i], y: 290, w: 280, h: 80, selected: settings.turn === b[0].slice(5) }));
+      d.forEach((b, i) => out.push({ id: b[0], label: b[1], x: xs[i], y: 470, w: 280, h: 80, selected: settings.deg === parseInt(b[0].slice(4), 10) }));
+      out.push({ id: 'back', label: 'Voltar', x: 312, y: 620, w: 400, h: 90, selected: false });
+      return out;
+    }
+    return [
+      { id: 'start', label: 'Iniciar Jogo', x: 252, y: 300, w: 520, h: 100, selected: false },
+      { id: 'load', label: 'Carregar Jogo', x: 252, y: 430, w: 520, h: 100, selected: false },
+      { id: 'options', label: 'Opções', x: 252, y: 560, w: 520, h: 100, selected: false },
+    ];
+  }
+  function menuRR(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h); c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath();
+  }
+  function drawMenu(c, hoverId) {
+    c.clearRect(0, 0, MW, MH);
+    menuRR(c, 6, 6, MW - 12, MH - 12, 44);
+    c.fillStyle = 'rgba(10,12,28,0.95)'; c.fill();
+    c.lineWidth = 10; c.strokeStyle = '#ff7a1a'; c.stroke();
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    if (menuScreen === 'main') {
+      c.fillStyle = '#ff9a3a'; c.font = 'bold 96px sans-serif';
+      c.fillText('Jogo BRobows', MW / 2, 120);
+      c.fillStyle = '#ffffff'; c.font = 'bold 56px sans-serif';
+      c.fillText('Wobercron Doido', MW / 2, 205);
+    } else {
+      c.fillStyle = '#ff9a3a'; c.font = 'bold 72px sans-serif';
+      c.fillText('Opções', MW / 2, 90);
+      c.fillStyle = '#ffcc99'; c.font = 'bold 40px sans-serif';
+      c.fillText('Giro', MW / 2, 250);
+      c.fillText('Graus de giro', MW / 2, 430);
+    }
+    for (const b of menuButtons()) {
+      const hov = b.id === hoverId;
+      menuRR(c, b.x, b.y, b.w, b.h, 22);
+      c.fillStyle = b.selected ? (hov ? '#ffa24a' : '#ff7a1a') : (hov ? '#5a5a96' : '#2a2a44');
+      c.fill();
+      c.lineWidth = hov ? 6 : 3; c.strokeStyle = hov ? '#ffffff' : (b.selected ? '#ffe0b0' : '#555577'); c.stroke();
+      c.fillStyle = '#ffffff'; c.font = 'bold 46px sans-serif';
+      c.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 2);
+    }
+    if (menuMsg) {
+      c.fillStyle = '#ffcc99'; c.font = '34px sans-serif';
+      c.fillText(menuMsg, MW / 2, 725);
+    }
+  }
+  function menuHit(x, y) {
+    for (const b of menuButtons()) {
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b.id;
+    }
+    return null;
+  }
+
+  // --- versão PC: canvas HTML central ---
+  const menuDom = document.createElement('canvas');
+  menuDom.width = MW; menuDom.height = MH;
+  menuDom.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,122vh);height:auto;z-index:60;cursor:pointer;';
+  document.body.appendChild(menuDom);
+  const menuDomCtx = menuDom.getContext('2d');
+  function domMenuPos(e) {
+    const r = menuDom.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * MW / r.width, y: (e.clientY - r.top) * MH / r.height };
+  }
+  menuDom.addEventListener('mousemove', (e) => {
+    const q = domMenuPos(e); const id = menuHit(q.x, q.y);
+    if (id !== menuDomHover) { menuDomHover = id; refreshMenu(); }
+  });
+  menuDom.addEventListener('mouseleave', () => { if (menuDomHover) { menuDomHover = null; refreshMenu(); } });
+  menuDom.addEventListener('click', (e) => {
+    const q = domMenuPos(e); const id = menuHit(q.x, q.y);
+    if (id) menuAction(id);
+  });
+
+  // --- versão VR: painel 3D preso ao dolly + ray dos controles ---
+  const vrMenuCanvas = document.createElement('canvas');
+  vrMenuCanvas.width = MW; vrMenuCanvas.height = MH;
+  const vrMenuCtx = vrMenuCanvas.getContext('2d');
+  const vrMenuTex = crispTex(new THREE.CanvasTexture(vrMenuCanvas));
+  const vrMenuPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.6, 1.2),
+    new THREE.MeshBasicMaterial({ map: vrMenuTex, transparent: true, side: THREE.DoubleSide, depthTest: false })
+  );
+  vrMenuPlane.renderOrder = 30;
+  vrMenuPlane.visible = false;
+  dolly.add(vrMenuPlane);
+  let vrMenuFrames = 0;
+  const _mRay = new THREE.Raycaster();
+  const _mO = new THREE.Vector3(), _mD = new THREE.Vector3(), _mQ = new THREE.Quaternion();
+  const _mLineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -3)]);
+  for (const h of fpHands) {
+    const ray = new THREE.Line(_mLineGeo, new THREE.LineBasicMaterial({ color: 0xffffff }));
+    ray.visible = false;
+    h.ctrl.add(ray);
+    h.ray = ray;
+    h.menuPrev = false;
+  }
+  function refreshMenu() {
+    drawMenu(menuDomCtx, menuDomHover);
+    drawMenu(vrMenuCtx, menuVrHover);
+    vrMenuTex.needsUpdate = true;
+  }
+  function placeVrMenu() {
+    renderer.xr.getCamera(camera);
+    _vcp.copy(camera.position);
+    _vcd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    _vcd.y = 0;
+    if (_vcd.lengthSq() < 0.0001) _vcd.set(0, 0, -1);
+    _vcd.normalize();
+    vrMenuPlane.position.set(_vcp.x + _vcd.x * 1.6, _vcp.y - 0.05, _vcp.z + _vcd.z * 1.6);
+    vrMenuPlane.rotation.set(0, Math.atan2(-_vcd.x, -_vcd.z), 0);
+  }
+  // chamado a cada quadro: mostra/esconde o menu e trata o apontar + gatilho no VR
+  function updateMenu(xrIn) {
+    menuDom.style.display = (menuActive && !renderer.xr.isPresenting) ? 'block' : 'none';
+    const show = menuActive && renderer.xr.isPresenting;
+    vrMenuPlane.visible = show;
+    for (const h of fpHands) h.ray.visible = show && !!h.ctrl.userData.hand;
+    if (!show) { vrMenuFrames = 0; return; }
+    if (vrMenuFrames < 40) placeVrMenu();
+    vrMenuFrames++;
+    vrMenuPlane.updateWorldMatrix(true, false);
+    let hover = null, sel = null;
+    for (const h of fpHands) {
+      const hand = h.ctrl.userData.hand;
+      if (!hand) continue;
+      const pressed = hand === 'right' ? xrIn.shootBtn : (hand === 'left' ? xrIn.triggerLeftBtn : false);
+      h.ctrl.updateWorldMatrix(true, false);
+      h.ctrl.getWorldPosition(_mO);
+      h.ctrl.getWorldQuaternion(_mQ);
+      _mD.set(0, 0, -1).applyQuaternion(_mQ);
+      _mRay.set(_mO, _mD);
+      const hit = _mRay.intersectObject(vrMenuPlane, false)[0];
+      if (hit && hit.uv) {
+        const id = menuHit(hit.uv.x * MW, (1 - hit.uv.y) * MH);
+        if (id) { hover = id; if (pressed && !h.menuPrev) sel = id; }
+      }
+      h.menuPrev = pressed;
+    }
+    if (hover !== menuVrHover) { menuVrHover = hover; refreshMenu(); }
+    if (sel) menuAction(sel);
+  }
+
+  function menuAction(id) {
+    ensureAudio();
+    menuMsg = '';
+    if (id === 'start') {
+      menuActive = false;
+      refreshMenu();
+      showDialogue('Eu sou muito fraco, não sei nem pular, será que consigo chegar no final dessa plataforma?', { name: 'Fracote' });
+      return;
+    }
+    if (id === 'load') {
+      if (loadGame()) { menuActive = false; refreshMenu(); return; }
+      menuMsg = 'Nenhum jogo salvo ainda. O jogo salva nos checkpoints.';
+    } else if (id === 'options') {
+      menuScreen = 'options';
+    } else if (id === 'back') {
+      menuScreen = 'main';
+    } else if (id.indexOf('turn:') === 0) {
+      settings.turn = id.slice(5);
+      persistSettings();
+      camYawTarget = 0;
+    } else if (id.indexOf('deg:') === 0) {
+      settings.deg = parseInt(id.slice(4), 10);
+      persistSettings();
+      camYawTarget = 0;
+    }
+    refreshMenu();
+  }
+
+  // ---- SALVAR / CARREGAR (nos checkpoints) ----
+  function saveGame() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        x: checkpointPos.x, z: checkpointPos.z,
+        jump: hasJumpAbility, stomp: hasStompAbility, gun: hasGun, aim: hasAimLockAbility,
+        crouch: hasCrouchAbility, dbl: hasDoubleJumpAbility, dash: hasDashAbility, cam: hasCameraAbility,
+        t2: t2GateOpen, t3: t3GateOpen, t3p: t3Phase, dgate: dashGateOpen,
+        cp: !!(checkpoint && checkpoint.activated),
+      }));
+    } catch (e) {}
+  }
+  function loadGame() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { d = null; }
+    if (!d || typeof d.x !== 'number' || typeof d.z !== 'number') return false;
+    hasJumpAbility = !!d.jump; hasStompAbility = !!d.stomp; hasGun = !!d.gun;
+    hasAimLockAbility = !!d.aim; hasCrouchAbility = !!d.crouch; hasDoubleJumpAbility = !!d.dbl;
+    hasDashAbility = !!d.dash; hasCameraAbility = !!d.cam;
+    // itens já coletados somem do mapa
+    const clearArr = (arr) => { for (const it of arr) scene.remove(it.mesh); arr.length = 0; };
+    if (hasJumpAbility) clearArr(jumpPickups);
+    if (hasStompAbility) clearArr(stompPickups);
+    if (hasGun) { clearArr(gunItems); clearArr(gunPickups); gunOnPlayer.visible = true; crosshairEl.style.display = 'block'; }
+    if (hasAimLockAbility) clearArr(aimLockItems);
+    if (hasCrouchAbility) clearArr(crouchItems);
+    if (hasDoubleJumpAbility) clearArr(doubleJumpItems);
+    if (hasDashAbility) clearArr(dashItems);
+    if (hasCameraAbility) clearArr(cameraPickups);
+    // portões já abertos
+    t2GateOpen = !!d.t2; t3GateOpen = !!d.t3; t3Phase = d.t3p | 0; dashGateOpen = !!d.dgate;
+    if (t2GateOpen) t2Gate.position.y = -3;
+    if (t3GateOpen) t3Gate.position.y = -3;
+    if (dashGateOpen) dashGate.position.y = -3;
+    // checkpoint já ativado continua "vivo"
+    if (d.cp && checkpoint) {
+      checkpoint.activated = true;
+      checkpoint.signMat.map = checkpoint.liveTex;
+      checkpoint.signMat.needsUpdate = true;
+      checkpoint.mesh.scale.set(1.5, 1.5, 1.5);
+    }
+    checkpointPos.set(d.x, 0, d.z);
+    character.position.set(d.x, 0, d.z);
+    velocityY = 0; grounded = true;
+    facingAngle = 0;
+    camPivot.position.set(d.x, 0, d.z);
+    camYawTarget = 0;
+    updateHeartsUI();
+    return true;
+  }
+  refreshMenu();
+
   // -------- DIÁLOGO EM VR --------
   // O navegador do Quest não mostra o HTML (caixa de diálogo) dentro do
   // headset, então desenhamos a mesma caixa num canvas e a prendemos à
@@ -2788,7 +3049,7 @@
   // ENTRADA: CONTROLE VR (Quest)
   // =========================================================================
   function getXRInput() {
-    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false, gripLeftBtn = false,
+    let moveX = 0, moveY = 0, jumpBtn = false, shootBtn = false, gripRightBtn = false, gripLeftBtn = false, triggerLeftBtn = false,
         rightStickX = 0, rightStickY = 0, rightStickClick = false;
     const session = renderer.xr.getSession && renderer.xr.getSession();
     if (session) {
@@ -2819,10 +3080,12 @@
           if (Math.abs(sy) > 0.15) moveY += sy;
           // GRIP esquerdo (botão 1 do controle esquerdo) = agachar no VR.
           if (gp.buttons[1] && gp.buttons[1].pressed) gripLeftBtn = true;
+          // GATILHO esquerdo (botão 0) = agachar / DASH / descida forte (em TODAS as câmeras)
+          if (gp.buttons[0] && gp.buttons[0].pressed) triggerLeftBtn = true;
         }
       }
     }
-    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn, gripLeftBtn, rightStickX, rightStickY, rightStickClick };
+    return { moveX, moveY, jumpBtn, shootBtn, gripRightBtn, gripLeftBtn, triggerLeftBtn, rightStickX, rightStickY, rightStickClick };
   }
 
   // =========================================================================
@@ -2912,6 +3175,7 @@
     const pad = getDesktopGamepadInput();
 
     // O painel de diálogo do VR só aparece dentro do headset
+    updateMenu(xr);
     const vrDlgShow = dialogueActive && renderer.xr.isPresenting;
     // reposiciona nos primeiros ~12 quadros (a pose do headset demora a ficar
     // válida logo ao entrar no VR) e depois deixa o painel parado no mundo
@@ -2937,7 +3201,7 @@
     // inimigos, item de pulo flutuando, etc.) fica realmente parado, e
     // ao fechar a caixa continua exatamente de onde tinha parado, sem
     // "pular" pra uma posição diferente (o que parecia um reinício feio).
-    if (!dialogueActive) gameplayTime += dt;
+    if (!dialogueActive && !menuActive) gameplayTime += dt;
     const t = gameplayTime;
 
     updateBridgePlatforms(dt, t);
@@ -2952,7 +3216,7 @@
       }
     }
 
-    if (!gameWon && !deathAnim && !winAnim && !dialogueActive) {
+    if (!gameWon && !deathAnim && !winAnim && !dialogueActive && !menuActive) {
       // -------- entradas --------
       let moveX = 0, moveZ = 0;
       if (keys['KeyW'])                       moveZ -= 1;
@@ -3107,7 +3371,7 @@
       //    o botão dispara a pancada forte (item da T2) em vez do dash.
       //  - No ar, PARADO (pulando): dispara uma "pancada forte" (só com o
       //    item da T2).
-      const crouchPressed = keys['ArrowDown'] || (xr.gripLeftBtn && !fpBody);
+      const crouchPressed = keys['ArrowDown'] || xr.triggerLeftBtn;
       const crouchJustPressed = crouchPressed && !prevCrouchPressed;
       prevCrouchPressed = crouchPressed;
       const moving = moveX !== 0 || moveZ !== 0;
@@ -4498,49 +4762,70 @@
 
     // -------- girar a câmera em saltos de 45° (analógico direito do VR /
     // teclas 4 e 6 no PC) --------
+    // GIRO — segue o que foi escolhido no menu (Opções):
+    //  rápido = pulo instantâneo de N graus; médio = pulo de N graus com transição
+    //  suave; suave = giro contínuo enquanto segura. SEGURAR o analógico (ou a
+    //  tecla) repete o passo, sempre em múltiplos de N graus (menos no suave).
+    const camStep = settings.deg * Math.PI / 180;
     const d4 = !!keys['Digit4'];
     const d6 = !!keys['Digit6'];
-    if (hasCameraAbility && d4 && !prevCamKeyLeft)  camYawTarget += CAM_YAW_STEP;
-    if (hasCameraAbility && d6 && !prevCamKeyRight) camYawTarget -= CAM_YAW_STEP;
-    prevCamKeyLeft = d4;
-    prevCamKeyRight = d6;
-    // precisa o analógico voltar pro centro antes de contar outro "toque",
-    // senão giraria continuamente enquanto o jogador segurasse pro lado.
-    let stickDir = 0;
-    if (xr.rightStickX > 0.6) stickDir = 1;
-    else if (xr.rightStickX < -0.6) stickDir = -1;
-    if (hasCameraAbility && stickDir !== 0 && prevCamStickDir === 0) {
-      camYawTarget += stickDir > 0 ? -CAM_YAW_STEP : CAM_YAW_STEP;
+    let yawDir = 0; // +1 = gira pra esquerda, -1 = pra direita
+    if (d4) yawDir = 1;
+    else if (d6) yawDir = -1;
+    else if (xr.rightStickX < -0.6) yawDir = 1;
+    else if (xr.rightStickX > 0.6) yawDir = -1;
+    if (hasCameraAbility && !menuActive) {
+      if (settings.turn === 'smooth') {
+        let rate = 0;
+        if (d4) rate = 1; else if (d6) rate = -1;
+        else if (Math.abs(xr.rightStickX) > 0.2) rate = -xr.rightStickX;
+        camYawTarget += rate * CAM_SMOOTH_YAW_SPEED * dt;
+      } else if (yawDir !== 0) {
+        if (yawDir !== camYawDirPrev) { camYawTarget += yawDir * camStep; camYawHold = CAM_HOLD_DELAY; }
+        else {
+          camYawHold -= dt;
+          if (camYawHold <= 0) { camYawTarget += yawDir * camStep; camYawHold = CAM_HOLD_REPEAT; }
+        }
+      }
     }
-    prevCamStickDir = stickDir;
+    camYawDirPrev = yawDir;
 
-    let yawDiff = camYawTarget - camPivot.rotation.y;
-    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-    camPivot.rotation.y += yawDiff * Math.min(1, CAM_YAW_LERP * dt);
+    if (settings.turn === 'mixed') {
+      let yawDiff = camYawTarget - camPivot.rotation.y;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      camPivot.rotation.y += yawDiff * Math.min(1, CAM_YAW_LERP * dt);
+    } else {
+      camPivot.rotation.y = camYawTarget; // rápido (piscar de olhos) e suave (contínuo)
+    }
 
     // -------- altura/distância da câmera em níveis fixos (analógico direito
     // pra cima/baixo no VR / teclas 8 e 2 no PC) — INVERTIDO: 8/cima agora
     // aproxima a câmera (zoom in), 2/baixo agora afasta (zoom out) --------
+    // ALTURA/ZOOM por níveis fixos. Segurar o analógico (ou a tecla) vai
+    // trocando de nível, um por vez, da primeira pessoa (VR) até o mais alto.
+    // Pra cima/tecla 8 aproxima (nível -1); pra baixo/tecla 2 afasta (nível +1).
     const d8 = !!keys['Digit8'];
     const d2 = !!keys['Digit2'];
-    if (hasCameraAbility && d8 && !prevCamKeyUp)   camHeightLevel = Math.max(CAM_HEIGHT_LEVEL_MIN, camHeightLevel - 1);
-    if (hasCameraAbility && d2 && !prevCamKeyDown) camHeightLevel = Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + 1);
-    prevCamKeyUp = d8;
-    prevCamKeyDown = d2;
-    // analógico pra cima manda o eixo Y negativo (mesma convenção já usada
-    // pelo analógico esquerdo pra andar pra frente) — precisa voltar ao
-    // centro antes de contar outro "toque". Igual às teclas, invertido:
-    // empurrar pra cima aproxima, empurrar pra baixo afasta.
-    let stickVert = 0;
-    if (xr.rightStickY < -0.6) stickVert = 1;
-    else if (xr.rightStickY > 0.6) stickVert = -1;
-    if (hasCameraAbility && stickVert !== 0 && prevCamStickVert === 0) {
-      // no VR existe 1 nível a mais de zoom: a PRIMEIRA PESSOA
+    let hDir = 0;
+    if (d8) hDir = -1;
+    else if (d2) hDir = 1;
+    else if (xr.rightStickY < -0.6) hDir = -1;
+    else if (xr.rightStickY > 0.6) hDir = 1;
+    if (hasCameraAbility && !menuActive && hDir !== 0) {
       const camMin = renderer.xr.isPresenting ? CAM_LEVEL_FP : CAM_HEIGHT_LEVEL_MIN;
-      camHeightLevel = Math.max(camMin, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel - stickVert));
+      if (hDir !== camHeightDirPrev) {
+        camHeightLevel = Math.max(camMin, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + hDir));
+        camHeightHold = CAM_HOLD_DELAY;
+      } else {
+        camHeightHold -= dt;
+        if (camHeightHold <= 0) {
+          camHeightLevel = Math.max(camMin, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + hDir));
+          camHeightHold = CAM_HOLD_REPEAT;
+        }
+      }
     }
-    prevCamStickVert = stickVert;
+    camHeightDirPrev = hDir;
 
     // -------- resetar a câmera pro estado original (tecla 5 no PC / clique
     // do analógico direito, R3, no VR) --------
@@ -4582,6 +4867,7 @@
       h.gun.visible = fpBody && hasGun && isRight;
       const grip = isRight ? xr.gripRightBtn : xr.gripLeftBtn;
       let tCurl = grip ? 1 : 0.1, tIdx = grip ? 1 : 0.1, tThumb = grip ? 1 : 0.2;
+      if (!isRight && xr.triggerLeftBtn) tIdx = 1; // gatilho esquerdo dobra o indicador
       if (h.gun.visible) { tCurl = 0.9; tIdx = xr.shootBtn ? 1 : 0.25; tThumb = 0.7; } // segurando a arma
       else if (isRight && !grip) tIdx = xr.shootBtn ? 1 : 0.1; // gatilho dobra o indicador
       const k = Math.min(1, 18 * dt);
@@ -4603,7 +4889,7 @@
   // O personagem começa virado pra câmera (facingAngle = Math.PI, definido
   // lá em cima) e fala com quem está controlando antes do jogo liberar o
   // movimento.
-  showDialogue('Eu sou muito fraco, não sei nem pular, será que consigo chegar no final dessa plataforma?', { name: 'Fracote' });
+  // (o diálogo inicial agora abre quando o jogador escolhe "Iniciar Jogo" no menu)
 
   renderer.setAnimationLoop(animate);
 })();
