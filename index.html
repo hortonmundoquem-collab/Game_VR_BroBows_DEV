@@ -913,41 +913,71 @@
   let hasGun = false;
 
   // ---- MÃOS E ARMA EM PRIMEIRA PESSOA (VR) ----
-  // Cada controle do Quest ganha uma "mão" (punho + controle). A arma aparece
-  // na mão DIREITA quando o jogador tem a arma. Só ficam visíveis na câmera de
+  // Cada controle do Quest ganha uma MÃO com dedos (4 dedos + polegar) que
+  // fecham conforme o GRIP (e o gatilho, no indicador). A arma aparece na mão
+  // DIREITA quando o jogador tem a arma. Só ficam visíveis na câmera de
   // primeira pessoa. Os controles ficam dentro do dolly pra acompanhar o rig.
   const _fpDir = new THREE.Vector3();
   const _fpQuat = new THREE.Quaternion();
+  const _fpWp = new THREE.Vector3();
   const fpHands = [];
   for (let ci = 0; ci < 2; ci++) {
     const ctrl = renderer.xr.getController(ci);
     dolly.add(ctrl);
     const group = new THREE.Group();
     group.visible = false;
+    group.scale.setScalar(1.35);
     const skin = new THREE.MeshStandardMaterial({ color: 0xffd9b0 });
-    const fist = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), skin);
-    fist.position.set(0, -0.02, 0.06);
-    const wrist = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.16), skin);
-    wrist.position.set(0, -0.02, 0.15);
-    group.add(fist, wrist);
+    // mão modelada como mão DIREITA (polegar em -X); a esquerda é espelhada
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.035, 0.1), skin);
+    const wrist = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.04, 0.14), skin);
+    wrist.position.set(0, 0, 0.12);
+    group.add(palm, wrist);
+    const fingers = [];
+    const fingerX = [-0.03, -0.01, 0.01, 0.03]; // [0] = indicador (perto do polegar)
+    for (let fi = 0; fi < 4; fi++) {
+      const p1 = new THREE.Group();
+      p1.position.set(fingerX[fi], 0, -0.05);
+      const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.017, 0.017, 0.05), skin);
+      s1.position.z = -0.025;
+      p1.add(s1);
+      const p2 = new THREE.Group();
+      p2.position.z = -0.05;
+      const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.015, 0.04), skin);
+      s2.position.z = -0.02;
+      p2.add(s2);
+      p1.add(p2);
+      group.add(p1);
+      fingers.push({ p1, p2 });
+    }
+    const thumb = new THREE.Group();
+    thumb.position.set(-0.05, 0, -0.01);
+    thumb.rotation.y = 0.5;
+    const ts = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.05), skin);
+    ts.position.z = -0.025;
+    thumb.add(ts);
+    group.add(thumb);
     // arma (mesmo desenho da arma do personagem; cano aponta pra -Z = direção do tiro)
     const gun = new THREE.Group();
     const gg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.08), gunGripMat);
     gg.position.set(0, -0.08, 0.04);
     const gs = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.32), gunBodyMat);
-    gs.position.set(0, 0, -0.08);
+    gs.position.set(0, 0.045, -0.08);
     const gb = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 8), gunBodyMat);
     gb.rotation.x = Math.PI / 2;
-    gb.position.set(0, 0, -0.3);
+    gb.position.set(0, 0.045, -0.3);
     const muzzle = new THREE.Object3D();
-    muzzle.position.set(0, 0, -0.38);
+    muzzle.position.set(0, 0.045, -0.38);
     gun.add(gg, gs, gb, muzzle);
     gun.visible = false;
     group.add(gun);
     ctrl.add(group);
-    ctrl.addEventListener('connected', (e) => { ctrl.userData.hand = e.data && e.data.handedness; });
+    ctrl.addEventListener('connected', (e) => {
+      ctrl.userData.hand = e.data && e.data.handedness;
+      group.scale.x = (ctrl.userData.hand === 'left') ? -1.35 : 1.35; // espelha a mão esquerda
+    });
     ctrl.addEventListener('disconnected', () => { ctrl.userData.hand = null; });
-    fpHands.push({ ctrl, group, gun, muzzle });
+    fpHands.push({ ctrl, group, gun, muzzle, fingers, thumb, curl: 0.1, curlIdx: 0.1, curlThumb: 0.2 });
   }
 
   // =========================================================================
@@ -1736,6 +1766,9 @@
   puzzleStone.position.set(-35.8, PUZZLE_H / 2, 120.4); // longe da placa: precisa arrastar em X e em Z
   scene.add(puzzleStone);
   let puzzleSolved = false;
+  let puzzleGrab = null;       // mão (VR) que está segurando o bloco
+  const puzzleGrabOff = new THREE.Vector3();
+  let puzzleVY = 0;
   let puzzleHits = 0;          // quantos tiros o cubo já levou
   let puzzleRotTarget = 0;     // ângulo alvo (rotation.y; horário = negativo)
 
@@ -2009,12 +2042,12 @@
     return group;
   }
 
-  function spawnPlayerProjectile(origin, dir) {
+  function spawnPlayerProjectile(origin, dir, fromFP) {
     // Se o personagem está ABAIXADO, garante que o tiro sai bem perto do
     // chão (na altura dos inimigos baixos de chifres da T4): mesmo que o
     // cano visual fique um pouquinho mais alto, o projétil nasce baixo pra
     // não passar por cima deles.
-    if (crouching && origin.y > 0.22) {
+    if (!fromFP && crouching && origin.y > 0.22) {
       origin = origin.clone();
       origin.y = 0.22;
     }
@@ -2024,7 +2057,8 @@
     // fromCrouch: o tiro foi disparado com o corpo ABAIXADO. Os inimigos
     // rápidos da T4 (needCrouch) só podem ser acertados por tiros assim —
     // em pé, o cano da arma fica acima deles e o tiro passa por cima.
-    playerProjectiles.push({ mesh, dir: dir.clone(), life: 0, fromCrouch: crouching });
+    // Na PRIMEIRA PESSOA o que vale é ONDE o tiro bate: conta como "abaixado" sempre.
+    playerProjectiles.push({ mesh, dir: dir.clone(), life: 0, fromCrouch: crouching || !!fromFP });
   }
   function spawnEnemyProjectile(origin, dir) {
     const mesh = makeOutlinedProjectile(0.11, 0xff2222, 0x660000);
@@ -2169,6 +2203,8 @@
   // bate o limite de segurança (y < -7) mais abaixo, que chama respawnFromPit().
   let fallingIntoPit = false;
   // -------- rotação manual da câmera (saltos de 45°) --------
+  const FP_EYE_HEIGHT = 1.25; // altura dos olhos do herói (pés = 0)
+  let fpRefHeadY = 1.6;       // altura da cabeça do jogador medida no headset
   let fpActive = false;       // câmera em PRIMEIRA PESSOA (VR)
   let fpBody = false;         // já está dentro da cabeça (corpo escondido, mãos visíveis)
   let camYawTarget = 0;       // ângulo alvo do camPivot, sempre múltiplo de CAM_YAW_STEP
@@ -2450,25 +2486,32 @@
   );
   vrDlgPlane.renderOrder = 20;
   vrDlgPlane.visible = false;
-  // FIXO NO MUNDO (não preso à cabeça): painel preso à cabeça treme junto com
+  // PARADO (não preso à cabeça): painel preso à cabeça treme junto com
   // qualquer micro-oscilação do headset. Ele é posicionado à frente do olhar
-  // uma vez, quando o diálogo abre, e fica parado ali.
-  scene.add(vrDlgPlane);
+  // quando o diálogo abre e fica parado ali. É filho do DOLLY (o "assento" da
+  // câmera), então acompanha o dolly quando ele se move — foi isso que fazia o
+  // PRIMEIRO diálogo sumir: ao entrar no VR o dolly ainda viaja alguns metros
+  // até o nível de câmera do VR, e um painel solto no mundo ficava pra trás.
+  dolly.add(vrDlgPlane);
   let vrDlgFrames = 0;
   const _vcp = new THREE.Vector3(), _vcd = new THREE.Vector3();
   function placeVrDialogue() {
     // Antes do render, a câmera ainda tem a posição do modo desktop (atrás do
     // personagem). getCamera() aplica a pose REAL do headset primeiro.
     renderer.xr.getCamera(camera);
-    camera.getWorldPosition(_vcp);
-    camera.getWorldDirection(_vcd);
+    // camera.position/quaternion = pose do headset, em coordenadas do dolly
+    _vcp.copy(camera.position);
+    _vcd.set(0, 0, -1).applyQuaternion(camera.quaternion);
     _vcd.y = 0;
     if (_vcd.lengthSq() < 0.0001) _vcd.set(0, 0, -1);
     _vcd.normalize();
     const py = _vcp.y - 0.12;
     vrDlgPlane.position.set(_vcp.x + _vcd.x * 1.1, py, _vcp.z + _vcd.z * 1.1);
-    vrDlgPlane.lookAt(_vcp.x, py, _vcp.z);
+    vrDlgPlane.rotation.set(0, Math.atan2(-_vcd.x, -_vcd.z), 0);
   }
+  // Ao entrar no VR com um diálogo já aberto (o 1º, do início do jogo), reinicia
+  // o tempo mínimo: assim o clique que entrou no VR não fecha o diálogo sem querer.
+  renderer.xr.addEventListener('sessionstart', function () { if (dialogueActive) dialogueTimer = 0; });
 
   function vrWrapLines(ctx, text, maxW) {
     const words = String(text).split(' ');
@@ -2872,7 +2915,7 @@
     const vrDlgShow = dialogueActive && renderer.xr.isPresenting;
     // reposiciona nos primeiros ~12 quadros (a pose do headset demora a ficar
     // válida logo ao entrar no VR) e depois deixa o painel parado no mundo
-    if (vrDlgShow && vrDlgFrames < 12) { placeVrDialogue(); }
+    if (vrDlgShow && vrDlgFrames < 40) { placeVrDialogue(); }
     if (vrDlgShow) vrDlgFrames++; else vrDlgFrames = 0;
     vrDlgPlane.visible = vrDlgShow;
 
@@ -2932,7 +2975,7 @@
       // o botão, volta a virar normalmente na direção do movimento.
       // Só funciona depois de pegar o item de trava de mira (T3) — antes,
       // o personagem ainda não sabe travar a mira.
-      const aimLockPressed = keys['KeyG'] || keys['ArrowRight'] || xr.gripRightBtn;
+      const aimLockPressed = keys['KeyG'] || keys['ArrowRight'] || (xr.gripRightBtn && !fpBody);
       if (aimLockPressed && !aimLocked) {
         if (hasAimLockAbility) {
           aimLocked = true;
@@ -3064,7 +3107,7 @@
       //    o botão dispara a pancada forte (item da T2) em vez do dash.
       //  - No ar, PARADO (pulando): dispara uma "pancada forte" (só com o
       //    item da T2).
-      const crouchPressed = keys['ArrowDown'] || xr.gripLeftBtn;
+      const crouchPressed = keys['ArrowDown'] || (xr.gripLeftBtn && !fpBody);
       const crouchJustPressed = crouchPressed && !prevCrouchPressed;
       prevCrouchPressed = crouchPressed;
       const moving = moveX !== 0 || moveZ !== 0;
@@ -3289,7 +3332,7 @@
           gunMuzzle.getWorldPosition(origin);
           origin.addScaledVector(fwd, 0.1);
         }
-        spawnPlayerProjectile(origin, fwd);
+        spawnPlayerProjectile(origin, fwd, !!(fpBody && rightHand));
         playShootSound();
         shootCooldown = SHOOT_INTERVAL;
       }
@@ -3824,16 +3867,65 @@
 
       // -------- puzzle (P4): empurrar pedra na placa --------
       if (!puzzleSolved) {
-        const dx = character.position.x - puzzleStone.position.x;
-        const dz = character.position.z - puzzleStone.position.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        if (dist < 0.9) {
-          const pushX = dx / Math.max(dist, 0.01);
-          const pushZ = dz / Math.max(dist, 0.01);
-          puzzleStone.position.x += pushX * 1.2 * dt;
-          puzzleStone.position.z += pushZ * 1.2 * dt;
+        // ---- bloco SÓLIDO ----
+        const PUSH_R = 0.5, CHAR_R = 0.3, minD = PUSH_R + CHAR_R;
+        // (VR, 1ª pessoa) pegar com a mão: segura o GRIP perto do bloco e carrega
+        if (fpBody) {
+          for (const h of fpHands) {
+            const hand = h.ctrl.userData.hand;
+            if (!hand) continue;
+            const gripNow = hand === 'right' ? xr.gripRightBtn : xr.gripLeftBtn;
+            h.ctrl.updateWorldMatrix(true, false);
+            h.ctrl.getWorldPosition(_fpWp);
+            if (gripNow && !puzzleGrab) {
+              if (Math.abs(_fpWp.x - puzzleStone.position.x) < 0.75 &&
+                  Math.abs(_fpWp.z - puzzleStone.position.z) < 0.75 &&
+                  _fpWp.y > -0.2 && _fpWp.y < PUZZLE_H + 0.2) {
+                puzzleGrab = h;
+                puzzleGrabOff.copy(puzzleStone.position).sub(_fpWp);
+                puzzleVY = 0;
+                playPickupSound();
+              }
+            } else if (!gripNow && puzzleGrab === h) {
+              puzzleGrab = null; // soltou: o bloco cai no chão
+            }
+            if (puzzleGrab === h) {
+              puzzleStone.position.x = _fpWp.x + puzzleGrabOff.x;
+              puzzleStone.position.z = _fpWp.z + puzzleGrabOff.z;
+              puzzleStone.position.y = Math.max(PUZZLE_H / 2, _fpWp.y + puzzleGrabOff.y);
+            }
+          }
         }
-        puzzleStone.position.y = PUZZLE_H / 2;
+        if (!puzzleGrab) {
+          // empurrado pelo personagem, pra qualquer direção
+          if (character.position.y < PUZZLE_H) {
+            const dx = puzzleStone.position.x - character.position.x;
+            const dz = puzzleStone.position.z - character.position.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < minD) {
+              const nx = dist > 0.001 ? dx / dist : 0, nz = dist > 0.001 ? dz / dist : 1;
+              puzzleStone.position.x += nx * (minD - dist);
+              puzzleStone.position.z += nz * (minD - dist);
+            }
+          }
+          // cai até o chão (se foi solto no ar)
+          puzzleVY -= GRAVITY * dt;
+          puzzleStone.position.y += puzzleVY * dt;
+          if (puzzleStone.position.y <= PUZZLE_H / 2) { puzzleStone.position.y = PUZZLE_H / 2; puzzleVY = 0; }
+        }
+        // o bloco não sai da plataforma (P4: x -41..-35, z 115..121)
+        puzzleStone.position.x = Math.max(-41 + 0.4, Math.min(-35 - 0.4, puzzleStone.position.x));
+        puzzleStone.position.z = Math.max(115 + 0.4, Math.min(121 - 0.4, puzzleStone.position.z));
+        // se o bloco encostou na borda e ainda invade o personagem, ele é que é empurrado de volta
+        if (!puzzleGrab && character.position.y < PUZZLE_H) {
+          const ex = character.position.x - puzzleStone.position.x;
+          const ez = character.position.z - puzzleStone.position.z;
+          const ed = Math.sqrt(ex * ex + ez * ez);
+          if (ed < minD && ed > 0.001) {
+            character.position.x = puzzleStone.position.x + (ex / ed) * minD;
+            character.position.z = puzzleStone.position.z + (ez / ed) * minD;
+          }
+        }
         // giro suave até o ângulo alvo
         puzzleStone.rotation.y += (puzzleRotTarget - puzzleStone.rotation.y) * Math.min(1, 14 * dt);
         const pdx = puzzleStone.position.x - puzzlePlate.position.x;
@@ -4468,7 +4560,13 @@
     if (fpActive) {
       // o piso do headset (local-floor) fica ~1,6 abaixo dos olhos reais; o herói é
       // menor, então desce o rig pra os olhos ficarem na altura da cabeça dele
-      camHeightTarget = character.position.y - 0.55;
+      // altura dos olhos do herói (olhos dele ficam em y≈1,2). Mede a altura real
+      // da sua cabeça no headset enquanto a câmera se aproxima e fixa essa
+      // referência ao chegar — assim os olhos ficam na altura certa não importa
+      // se você está em pé ou sentado.
+      renderer.xr.getCamera(camera);
+      if (!fpBody) fpRefHeadY = camera.matrix.elements[13];
+      camHeightTarget = character.position.y + FP_EYE_HEIGHT - fpRefHeadY;
       camBackTarget = 0;
       camPivot.position.x = character.position.x; // sem atraso lateral
     }
@@ -4480,7 +4578,22 @@
     character.visible = !fpBody;
     for (const h of fpHands) {
       h.group.visible = fpBody;
-      h.gun.visible = fpBody && hasGun && h.ctrl.userData.hand === 'right';
+      const isRight = h.ctrl.userData.hand === 'right';
+      h.gun.visible = fpBody && hasGun && isRight;
+      const grip = isRight ? xr.gripRightBtn : xr.gripLeftBtn;
+      let tCurl = grip ? 1 : 0.1, tIdx = grip ? 1 : 0.1, tThumb = grip ? 1 : 0.2;
+      if (h.gun.visible) { tCurl = 0.9; tIdx = xr.shootBtn ? 1 : 0.25; tThumb = 0.7; } // segurando a arma
+      else if (isRight && !grip) tIdx = xr.shootBtn ? 1 : 0.1; // gatilho dobra o indicador
+      const k = Math.min(1, 18 * dt);
+      h.curl += (tCurl - h.curl) * k;
+      h.curlIdx += (tIdx - h.curlIdx) * k;
+      h.curlThumb += (tThumb - h.curlThumb) * k;
+      for (let fi = 0; fi < 4; fi++) {
+        const c = fi === 0 ? h.curlIdx : h.curl;
+        h.fingers[fi].p1.rotation.x = -c * 1.25;
+        h.fingers[fi].p2.rotation.x = -c * 1.35;
+      }
+      h.thumb.rotation.y = 0.5 + h.curlThumb * 0.9;
     }
 
     renderer.render(scene, camera);
