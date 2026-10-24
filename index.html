@@ -551,10 +551,31 @@
   function playShootSound()  { beep(950, 220, 0.09, 'sawtooth', 0.15); }
   // Som da metralhadora: "pew" suave e cristalino (dois tons rápidos), com
   // variação mínima de altura pra não cansar em rajada.
+  let _noiseBuf = null;
+  function noiseBurst(dur, vol, hpFreq) {
+    ensureAudio();
+    if (!_noiseBuf) {
+      _noiseBuf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.25), audioCtx.sampleRate);
+      const d = _noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t0 = audioCtx.currentTime;
+    const src = audioCtx.createBufferSource();
+    src.buffer = _noiseBuf;
+    const hp = audioCtx.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = hpFreq;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    src.connect(hp); hp.connect(g); g.connect(audioCtx.destination);
+    src.start(t0); src.stop(t0 + dur + 0.02);
+  }
+  // Som da metralhadora: estalo grave e seco + rajada de ruído (bem diferente do
+  // "pew" da pistola), com variação mínima de altura pra não cansar em rajada.
   function playMGShootSound() {
-    const k = 1 + (Math.random() - 0.5) * 0.08;
-    beep(1500 * k, 520 * k, 0.075, 'triangle', 0.10);
-    beep(2400 * k, 1100 * k, 0.04, 'sine', 0.05);
+    const k = 1 + (Math.random() - 0.5) * 0.12;
+    beep(220 * k, 60 * k, 0.09, 'square', 0.13);
+    noiseBurst(0.07, 0.11, 1500);
   }
   function playFireSound()   { beep(260, 90, 0.25, 'sawtooth', 0.10); }
   function playBossThud(v)   { beep(70, 35, 0.18, 'sine', v); }
@@ -596,7 +617,33 @@
   }
   function playBounceSound() { beep(500, 260, 0.10, 'square', 0.15); }
   function playHitSound()    { beep(180, 90,  0.15, 'square', 0.20); }
-  function playDefeatSound() { beep(400, 900, 0.25, 'triangle', 0.22); }
+  // Tiro que ACERTA um inimigo: estalo curto e seco (agudo-médio, descendo rápido).
+  let _lastShotHitSnd = 0;
+  function playShotHitSound() {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    if (now - _lastShotHitSnd < 0.045) return; // metralhadora: não empilha dezenas de sons
+    _lastShotHitSnd = now;
+    beep(900, 380, 0.07, 'square', 0.13);
+    beep(1800, 700, 0.04, 'triangle', 0.08);
+  }
+  // Inimigo MORRE: "pop" grave descendo + brilho subindo (bem diferente do estalo do acerto).
+  function playDefeatSound() {
+    beep(520, 70, 0.32, 'sawtooth', 0.20);
+    beep(260, 50, 0.38, 'triangle', 0.18);
+    setTimeout(() => beep(700, 1400, 0.14, 'sine', 0.10), 60);
+  }
+  // Tiro que RICOCHETEIA no chefão: "tiiing" metálico agudo.
+  let _lastRicochetSnd = 0;
+  function playRicochetSound() {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    if (now - _lastRicochetSnd < 0.05) return;
+    _lastRicochetSnd = now;
+    const k = 1 + (Math.random() - 0.5) * 0.25;
+    beep(3200 * k, 1500 * k, 0.12, 'sine', 0.10);
+    beep(2100 * k, 4200 * k, 0.07, 'triangle', 0.06);
+  }
   function playPickupSound() { beep(500, 1100,0.22, 'triangle', 0.20); }
   function playHurtSound()   { beep(300, 80,  0.25, 'sawtooth', 0.22); }
   function playWinFanfare()  { beep(523, 1046,0.4,  'triangle', 0.25); }
@@ -1002,6 +1049,24 @@
   const _fpQuat = new THREE.Quaternion();
   const _fpWp = new THREE.Vector3();
   const fpHands = [];
+  // -------- RECOIL DA METRALHADORA (só na câmera VR em 1ª pessoa) --------
+  // Cada tiro empurra o cano pra cima (e um pouco pros lados) e a arma pra trás.
+  // Segurando com as DUAS MÃOS (GRIP esquerdo apertado e a mão esquerda perto
+  // da arma), o recoil é zerado.
+  let fpRecoilPitch = 0, fpRecoilYaw = 0, fpRecoilBack = 0;
+  let _recoilHintShown = false;
+  const _recoilQ = new THREE.Quaternion();
+  const _recoilE = new THREE.Euler();
+  const _thA = new THREE.Vector3(), _thB = new THREE.Vector3();
+  function fpTwoHanded(xrState) {
+    if (!fpBody || !hasMG || !xrState.gripLeftBtn) return false;
+    const r = fpHands.find((h) => h.ctrl.userData.hand === 'right');
+    const l = fpHands.find((h) => h.ctrl.userData.hand === 'left');
+    if (!r || !l) return false;
+    r.ctrl.getWorldPosition(_thA);
+    l.ctrl.getWorldPosition(_thB);
+    return _thA.distanceTo(_thB) < 0.55; // mão esquerda perto da arma
+  }
   for (let ci = 0; ci < 2; ci++) {
     const ctrl = renderer.xr.getController(ci);
     dolly.add(ctrl);
@@ -1080,6 +1145,13 @@
   // enquanto o inimigo voa em linha reta na direção do personagem.
   const flyerWingMat = new THREE.MeshStandardMaterial({ color: 0x553322, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
   const normalEnemies = [];
+  // -------- INIMIGOS FLUTUANTES (depois da trava de mira) --------
+  // Os inimigos a partir da T3 não ficam mais presos à plataforma onde
+  // nasceram: eles FLUTUAM (ignoram buracos/queda) e vão atrás do
+  // personagem, esteja ele onde estiver. Os da fila da T3 caçam desde o
+  // nascimento; os demais "acordam" quando o personagem chega a
+  // HOVER_AGGRO unidades deles e, depois disso, perseguem pra sempre.
+  const HOVER_AGGRO = 24;
   function spawnNormalEnemy(x, z, opts) {
     opts = opts || {};
     const g = new THREE.Group();
@@ -1174,6 +1246,9 @@
       // horned: inimigo com chifres — pisar em cima machuca (qualquer
       // contato fere), só morre atirando.
       horned: !!opts.horned,
+      hover: !!opts.hover,
+      alwaysHunt: !!opts.hunting,
+      hunting: !!opts.hunting,
     });
   }
   // T1 (tutorial, início do jogo): só inimigos vermelhos redondos. O
@@ -1274,7 +1349,7 @@
     // machuca) — o único jeito é derrubar ATIRANDO com a mira travada.
     const x = -2 + Math.random() * 4;
     const z = Math.max(210, character.position.z - 16);
-    spawnNormalEnemy(x, z, { approach: true, speed: 8.8, range: 2.4, platformIdx: 9, t3Phase: t3Phase, horned: true });
+    spawnNormalEnemy(x, z, { approach: true, speed: 8.8, range: 2.4, hover: true, hunting: true, t3Phase: t3Phase, horned: true });
   }
   function startNextT3Phase() {
     t3Phase++;
@@ -1399,7 +1474,7 @@
     g.add(body, head, eL, eR, shooterBrowL, shooterBrowR, shooterMouth, armL, armR, gunBody, gunTip, legL, legR);
     g.position.set(x, 0, z);
     scene.add(g);
-    shooterEnemies.push({ mesh: g, alive: true, hp: 3, baseX: x, baseZ: z, fireTimer: 0, fireInterval: 2.0 + Math.random(), platformIdx: platformIdx, speed: 1.3 + Math.random() * 0.4 });
+    shooterEnemies.push({ mesh: g, alive: true, hp: 3, baseX: x, baseZ: z, fireTimer: 0, fireInterval: 2.0 + Math.random(), platformIdx: platformIdx, speed: 1.3 + Math.random() * 0.4, hover: true, hunting: false });
   }
   // P2: 1 único atirador — persegue o personagem, mas sem sair da própria plataforma
   spawnShooterEnemy(0, 137, 1);
@@ -1910,6 +1985,22 @@
   key1Handle.position.set(-38, 0.85, 116);
   key1Handle.visible = false;
   scene.add(key1Handle);
+  // Chave 2 azul (P5): também fica invisível até o quiz ser resolvido; aí aparece
+  // na plataforma e precisa ser pega, igual à chave vermelha do puzzle da esquerda.
+  const key2Mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.15, 0.4, 0.08),
+    new THREE.MeshStandardMaterial({ color: 0x3388ff, emissive: 0x1144aa, emissiveIntensity: 0.6 })
+  );
+  key2Mesh.position.set(38, 0.6, 116);
+  key2Mesh.visible = false;
+  scene.add(key2Mesh);
+  const key2Handle = new THREE.Mesh(
+    new THREE.TorusGeometry(0.12, 0.03, 8, 12),
+    new THREE.MeshStandardMaterial({ color: 0x3388ff, emissive: 0x1144aa, emissiveIntensity: 0.6 })
+  );
+  key2Handle.position.set(38, 0.85, 116);
+  key2Handle.visible = false;
+  scene.add(key2Handle);
   let hasRedKey = false;
   let hasBlueKey = false;
 
@@ -2090,7 +2181,7 @@
   const BOSS_HP = 500;
   const boss = { mesh: null, active: false, started: false, defeated: false, dying: false, hp: 0,
                  flash: 0, fireT: 1, fanT: 3, roarT: 0.5, stepT: 0, deadT: 0, hintT: 0,
-                 legL: null, legR: null, flame: null, mouth: null, skin: null };
+                 weak: null, legL: null, legR: null, flame: null, mouth: null, skin: null };
   const bossBar = new THREE.Group();
   const bossBarBg = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 0.55), new THREE.MeshBasicMaterial({ color: 0x000000 }));
   const bossBarFillGeo = new THREE.PlaneGeometry(6, 0.35);
@@ -2110,7 +2201,8 @@
     const body = new THREE.Mesh(new THREE.SphereGeometry(2.1, 20, 16), skin);
     body.scale.set(1.1, 1.2, 1);
     body.position.y = 3.4;
-    const lava = new THREE.Mesh(new THREE.SphereGeometry(1.1, 14, 12), glow);
+    const weakMat = new THREE.MeshStandardMaterial({ color: 0xffd800, emissive: 0xffc000, emissiveIntensity: 1.4 });
+    const lava = new THREE.Mesh(new THREE.SphereGeometry(1.1, 14, 12), weakMat);
     lava.scale.set(1, 1, 0.5);
     lava.position.set(0, 3.2, -1.7);
     const head = new THREE.Mesh(new THREE.SphereGeometry(1.3, 18, 14), skin);
@@ -2158,7 +2250,7 @@
     flame.rotation.x = -Math.PI / 2;
     flame.position.set(0, 5.15, -3.4);
     g.add(flame);
-    boss.legL = legL; boss.legR = legR; boss.flame = flame; boss.mouth = mouthPt; boss.skin = skin;
+    boss.weak = lava; boss.legL = legL; boss.legR = legR; boss.flame = flame; boss.mouth = mouthPt; boss.skin = skin;
     return g;
   }
 
@@ -2189,6 +2281,7 @@
       if (enemyProjectiles[i].fire) { scene.remove(enemyProjectiles[i].mesh); enemyProjectiles.splice(i, 1); }
     }
   }
+  const _bossWeakPos = new THREE.Vector3();
   function damageBoss(n) {
     if (!boss.active || boss.dying || !boss.mesh) return;
     boss.flash = 0.07;
@@ -2304,7 +2397,10 @@
       }
     }
     // encostar nele machuca
-    if (dist < 2.8 && character.position.y < 2.0) takeHit();
+    if (dist < 2.8 && character.position.y < 2.0) {
+      takeHit();
+      if (!boss.active || boss.mesh !== m) return; // o jogador morreu e o chefão foi resetado
+    }
 
     // sons: rugido (de trás, abafado, mais alto conforme se aproxima) e passos pesados
     boss.roarT -= dt;
@@ -2320,9 +2416,10 @@
   // EFEITO DE IMPACTO
   // =========================================================================
   const impactEffects = [];
+  const _impactRingGeo = new THREE.RingGeometry(0.05, 0.22, 20);
   function spawnImpactEffect(pos) {
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.05, 0.22, 20),
+      _impactRingGeo,
       new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false })
     );
     ring.rotation.x = -Math.PI / 2;
@@ -2340,6 +2437,7 @@
       fx.mesh.material.opacity = 0.95 * (1 - p);
       if (p >= 1) {
         scene.remove(fx.mesh);
+        fx.mesh.material.dispose();
         impactEffects.splice(i, 1);
       }
     }
@@ -2404,17 +2502,23 @@
   // maior, renderizada por dentro (BackSide) e totalmente preta. Do lado de
   // fora ela aparece só como uma fina borda preta ao redor da bolinha
   // colorida, de qualquer ângulo.
+  // Geometrias/materiais são COMPARTILHADOS (cache): antes cada tiro criava 2
+  // geometrias + 2 materiais novos e nunca liberava — com a metralhadora e o
+  // chefão isso estourava a memória da GPU e derrubava o jogo.
+  const _projCache = {};
   function makeOutlinedProjectile(radius, color, emissive) {
+    const key = radius + '_' + color + '_' + emissive;
+    let c = _projCache[key];
+    if (!c) {
+      c = _projCache[key] = {
+        og: new THREE.SphereGeometry(radius * 1.35, 10, 8),
+        om: new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide }),
+        ig: new THREE.SphereGeometry(radius, 10, 8),
+        im: new THREE.MeshStandardMaterial({ color, emissive })
+      };
+    }
     const group = new THREE.Group();
-    const outline = new THREE.Mesh(
-      new THREE.SphereGeometry(radius * 1.35, 10, 8),
-      new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide })
-    );
-    const inner = new THREE.Mesh(
-      new THREE.SphereGeometry(radius, 10, 8),
-      new THREE.MeshStandardMaterial({ color, emissive })
-    );
-    group.add(outline, inner);
+    group.add(new THREE.Mesh(c.og, c.om), new THREE.Mesh(c.ig, c.im));
     return group;
   }
 
@@ -2427,7 +2531,7 @@
       origin = origin.clone();
       origin.y = 0.22;
     }
-    const mesh = hasMG ? makeOutlinedProjectile(0.07, 0xffe066, 0xcc8800) : makeOutlinedProjectile(0.09, 0xffffaa, 0x666600);
+    const mesh = hasMG ? makeOutlinedProjectile(0.075, 0x33ddff, 0x0088cc) : makeOutlinedProjectile(0.09, 0xffffaa, 0x666600);
     mesh.position.copy(origin);
     scene.add(mesh);
     // fromCrouch: o tiro foi disparado com o corpo ABAIXADO. Os inimigos
@@ -2435,6 +2539,13 @@
     // em pé, o cano da arma fica acima deles e o tiro passa por cima.
     // Na PRIMEIRA PESSOA o que vale é ONDE o tiro bate: conta como "abaixado" sempre.
     playerProjectiles.push({ mesh, dir: dir.clone(), life: 0, fromCrouch: crouching || !!fromFP, speed: hasMG ? 26 : PLAYER_PROJ_SPEED });
+  }
+  // Remove com segurança: takeHit() -> respawn pode ter esvaziado/encurtado o
+  // array no meio do loop, então o índice i não é confiável (era a causa do crash).
+  function removeEnemyProjectile(p) {
+    const k = enemyProjectiles.indexOf(p);
+    if (k >= 0) enemyProjectiles.splice(k, 1);
+    scene.remove(p.mesh);
   }
   function spawnEnemyProjectile(origin, dir) {
     const mesh = makeOutlinedProjectile(0.11, 0xff2222, 0x660000);
@@ -2741,6 +2852,7 @@
       if (ne.t3Phase !== undefined && t3Phase >= 2) continue;
       ne.alive = true;
       ne.hp = 1;
+      ne.hunting = !!ne.alwaysHunt;
       ne.mesh.position.set(ne.baseX, ne.flying ? ne.flyHeight : 0, ne.baseZ);
       revive(ne);
     }
@@ -2748,6 +2860,7 @@
       se.alive = true;
       se.hp = 3;
       se.fireTimer = 0;
+      se.hunting = false;
       se.mesh.position.set(se.baseX, 0, se.baseZ);
       revive(se);
     }
@@ -2755,6 +2868,7 @@
       fe.alive = true;
       fe.hp = fe.needCrouch ? 1 : 2;
       fe.changeTimer = 0;
+      fe.hunting = false;
       fe.mesh.position.set(fe.baseX, 0, fe.baseZ);
       revive(fe);
     }
@@ -3884,11 +3998,12 @@
       // logo depois (dashJumpGrace): é assim que se completa o "dash+pulo"
       // por cima do buraco — o dash atravessa reto, e aí aperta o pulo.
       const jumpBtnBase = keys['Space'] || keys['KeyB'] || keys['ArrowUp'] || xr.jumpBtn || pad.jumpBtn;
-      const jumpPressed = jumpBtnBase && !crouching && hasJumpAbility;
+      const jumpPressed = jumpBtnBase && hasJumpAbility; // pode pular abaixado
       if (jumpPressed && (grounded || dashing || dashJumpGrace > 0)) {
         // Pulo no meio do dash / na janela logo depois: mais alto e mais
         // rápido (DASH_JUMP_SPEED). O pulo normal continua com JUMP_SPEED.
-        velocityY = (dashing || dashJumpGrace > 0) ? DASH_JUMP_SPEED : JUMP_SPEED;
+        // Abaixado, em dash ou logo depois do dash: pulo um pouco mais alto (mesma altura).
+        velocityY = (dashing || dashJumpGrace > 0 || crouching) ? DASH_JUMP_SPEED : JUMP_SPEED;
         grounded = false;
         jumping = true;
         jumpFull = true;
@@ -3906,9 +4021,13 @@
         doubleJumpUsed = false;
         playJumpSound();
       } else if (jumpPressed && !jumpPrevHeld && hasDoubleJumpAbility && !doubleJumpUsed
-                 && !grounded && !dashing && !groundPounding && !fallingIntoPit
-                 && character.position.y > -0.3) {
+                 && !grounded && !dashing && !groundPounding) {
         // -------- PULO DUPLO: novo aperto do botão com o personagem no ar --------
+        // Funciona em QUALQUER altura: em cima de uma plataforma, entre elas ou
+        // até caindo no buraco (abaixo do nível das plataformas). Se já estava
+        // caindo no vão, o 2º pulo cancela a queda e volta a checar o chão —
+        // se subir e pousar numa plataforma, está salvo; senão cai de novo.
+        fallingIntoPit = false;
         velocityY = JUMP_SPEED;
         doubleJumpUsed = true;
         jumping = true;
@@ -3967,6 +4086,11 @@
           // ONDE VOCÊ APONTA (inclusive pra cima/baixo)
           rightHand.ctrl.updateWorldMatrix(true, false);
           rightHand.ctrl.getWorldQuaternion(_fpQuat);
+          if (hasMG) {
+            // recoil acumulado dos tiros anteriores desvia a mira (cano sobe)
+            _recoilQ.setFromEuler(_recoilE.set(fpRecoilPitch, fpRecoilYaw, 0));
+            _fpQuat.multiply(_recoilQ);
+          }
           fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(_fpQuat).normalize();
           rightHand.muzzle.getWorldPosition(origin);
         } else {
@@ -3974,6 +4098,18 @@
           origin.addScaledVector(fwd, 0.1);
         }
         spawnPlayerProjectile(origin, fwd, !!(fpBody && rightHand));
+        if (hasMG && fpBody && rightHand) {
+          if (!fpTwoHanded(xr)) {
+            // uma mão só: cada tiro dá um coice (sobe o cano, desvia de lado, arma pra trás)
+            fpRecoilPitch = Math.min(0.45, fpRecoilPitch + 0.04 + Math.random() * 0.02);
+            fpRecoilYaw = Math.max(-0.2, Math.min(0.2, fpRecoilYaw + (Math.random() - 0.5) * 0.04));
+            fpRecoilBack = Math.min(0.12, fpRecoilBack + 0.03);
+            if (!_recoilHintShown) {
+              _recoilHintShown = true;
+              showHint('A metralhadora tem recoil! Segure com as DUAS mãos (GRIP esquerdo perto da arma) para zerar.', 3500);
+            }
+          }
+        }
         if (hasMG) playMGShootSound(); else playShootSound();
         shootCooldown = hasMG ? 0.07 : SHOOT_INTERVAL;
       }
@@ -4266,7 +4402,9 @@
             ne.mesh.position.x += (tdx / tdist) * ne.speed * dt;
             ne.mesh.position.z += (tdz / tdist) * ne.speed * dt;
           }
-          if (ne.clampBox) {
+          if (ne.hover) {
+            // Flutuante: sem limites de plataforma, vai atrás do personagem onde ele estiver.
+          } else if (ne.clampBox) {
             // Limite customizado: permite o inimigo vir de FORA da
             // plataforma (pela direita ou esquerda) e andar para dentro.
             ne.mesh.position.x = Math.max(ne.clampBox.minX, Math.min(ne.clampBox.maxX, ne.mesh.position.x));
@@ -4350,7 +4488,17 @@
         if (!se.alive) continue;
         // Se tiver plataforma associada, persegue o personagem em X/Z mas
         // fica travado dentro dos limites da própria plataforma.
-        if (se.platformIdx !== undefined) {
+        if (se.hover) {
+          // Flutuante: acorda perto do personagem e depois persegue sem limite de plataforma.
+          const hdx = character.position.x - se.mesh.position.x;
+          const hdz = character.position.z - se.mesh.position.z;
+          const hd = Math.sqrt(hdx * hdx + hdz * hdz);
+          if (!se.hunting && hd < HOVER_AGGRO) se.hunting = true;
+          if (se.hunting && hd > 0.15) {
+            se.mesh.position.x += (hdx / hd) * se.speed * dt;
+            se.mesh.position.z += (hdz / hd) * se.speed * dt;
+          }
+        } else if (se.platformIdx !== undefined) {
           const plat = PLATFORMS[se.platformIdx];
           const tdx = character.position.x - se.mesh.position.x;
           const tdz = character.position.z - se.mesh.position.z;
@@ -4424,18 +4572,34 @@
       for (const fe of fastEnemies) {
         if (!fe.alive) continue;
         if (fe.frozen) continue;
-        fe.changeTimer += dt;
-        if (fe.changeTimer > 0.8 + Math.random() * 1.2) {
-          fe.changeTimer = 0;
-          const ang = Math.random() * Math.PI * 2;
-          fe.dirX = Math.cos(ang);
-          fe.dirZ = Math.sin(ang);
+        {
+          const hdx = character.position.x - fe.mesh.position.x;
+          const hdz = character.position.z - fe.mesh.position.z;
+          const hd = Math.sqrt(hdx * hdx + hdz * hdz);
+          if (!fe.hunting && hd < HOVER_AGGRO) fe.hunting = true;
+          if (fe.hunting) {
+            // Flutuante: vai direto no personagem, sem limite de plataforma (ignora buracos).
+            if (hd > 0.05) {
+              fe.dirX = hdx / hd; fe.dirZ = hdz / hd;
+              const step = Math.min(fe.speed * dt, hd);
+              fe.mesh.position.x += fe.dirX * step;
+              fe.mesh.position.z += fe.dirZ * step;
+            }
+          } else {
+            fe.changeTimer += dt;
+            if (fe.changeTimer > 0.8 + Math.random() * 1.2) {
+              fe.changeTimer = 0;
+              const ang = Math.random() * Math.PI * 2;
+              fe.dirX = Math.cos(ang);
+              fe.dirZ = Math.sin(ang);
+            }
+            fe.mesh.position.x += fe.dirX * fe.speed * dt;
+            fe.mesh.position.z += fe.dirZ * fe.speed * dt;
+            const p = PLATFORMS[fe.platformIdx];
+            fe.mesh.position.x = Math.max(p.cx - p.hw + 0.5, Math.min(p.cx + p.hw - 0.5, fe.mesh.position.x));
+            fe.mesh.position.z = Math.max(p.cz - p.hd + 0.5, Math.min(p.cz + p.hd - 0.5, fe.mesh.position.z));
+          }
         }
-        fe.mesh.position.x += fe.dirX * fe.speed * dt;
-        fe.mesh.position.z += fe.dirZ * fe.speed * dt;
-        const p = PLATFORMS[fe.platformIdx];
-        fe.mesh.position.x = Math.max(p.cx - p.hw + 0.5, Math.min(p.cx + p.hw - 0.5, fe.mesh.position.x));
-        fe.mesh.position.z = Math.max(p.cz - p.hd + 0.5, Math.min(p.cz + p.hd - 0.5, fe.mesh.position.z));
         fe.mesh.rotation.y = Math.atan2(-fe.dirX, -fe.dirZ);
         const dx = character.position.x - fe.mesh.position.x;
         const dz = character.position.z - fe.mesh.position.z;
@@ -4604,6 +4768,23 @@
         }
       }
 
+      // -------- pegar chave azul (P5) --------
+      if (!hasBlueKey && mathSolved) {
+        const kdx = character.position.x - key2Mesh.position.x;
+        const kdz = character.position.z - key2Mesh.position.z;
+        if (Math.sqrt(kdx * kdx + kdz * kdz) < 0.5) {
+          hasBlueKey = true;
+          updateKeysUI();
+          key2Mesh.visible = false;
+          key2Handle.visible = false;
+          playPickupSound();
+          showHint('Chave azul obtida!', 2000);
+        } else {
+          key2Mesh.rotation.y += dt * 2;
+          key2Handle.rotation.y += dt * 2;
+        }
+      }
+
       // -------- puzzle matemático (P5) --------
       if (!mathSolved) {
         for (const mb of mathBtnMeshes) {
@@ -4615,9 +4796,9 @@
               mb.mesh.material.color.setHex(0x22cc44);
               mb.mesh.material.emissive.setHex(0x118822);
               playPickupSound();
-              hasBlueKey = true;
-              updateKeysUI();
-              showHint('Correto! Chave azul obtida!', 2000);
+              key2Mesh.visible = true;
+              key2Handle.visible = true;
+              showHint('Correto! A chave azul apareceu! Vá pegá-la!', 2000);
             } else {
               mathGuardianRising = true;
               mathGuardianTimer = 0;
@@ -4897,7 +5078,7 @@
       if (checkpoint && !checkpoint.activated) {
         const dx = character.position.x - checkpoint.mesh.position.x;
         const dz = character.position.z - checkpoint.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 3.5) { // basta chegar perto (sem encostar)
+        if (Math.sqrt(dx * dx + dz * dz) < 1.2) { // raio reduzido (antes 3.5): precisa chegar bem perto da placa
           checkpoint.activated = true;
           // A MESMA placa continua (com o nome CHECKPOINT); só fica mais
           // viva (verde brilhante) e cresce (animado no loop abaixo).
@@ -4981,8 +5162,9 @@
           if (!se.alive) continue;
           if (p.mesh.position.distanceTo(se.mesh.position.clone().setY(0.6)) < 0.6) {
             se.hp -= 1; hit = true;
+            playShotHitSound();
             if (se.hp <= 0) { se.alive = false; spawnImpactEffect(se.mesh.position); squashMesh(se.mesh, true); playDefeatSound(); }
-            else { squashMesh(se.mesh, false); playHitSound(); }
+            else { squashMesh(se.mesh, false); }
             break;
           }
         }
@@ -4995,8 +5177,9 @@
           if (fe.needCrouch && !p.fromCrouch) continue;
           if (p.mesh.position.distanceTo(fe.mesh.position.clone().setY(fe.hitY)) < fe.hitR) {
             fe.hp -= 1; hit = true;
+            playShotHitSound();
             if (fe.hp <= 0) { fe.alive = false; spawnImpactEffect(fe.mesh.position); squashMesh(fe.mesh, true); playDefeatSound(); }
-            else { squashMesh(fe.mesh, false); playHitSound(); }
+            else { squashMesh(fe.mesh, false); }
             break;
           }
         }
@@ -5006,18 +5189,48 @@
           if (p.mesh.position.distanceTo(gd.mesh.position.clone().setY(0.7)) < 0.7) {
             gd.hp -= 1; hit = true;
             gd.activated = true; // um tiro já acorda o guardião, não importa a distância
+            playShotHitSound();
             if (gd.hp <= 0) { gd.alive = false; spawnImpactEffect(gd.mesh.position); squashMesh(gd.mesh, true); playDefeatSound(); }
-            else { squashMesh(gd.mesh, false); playHitSound(); }
+            else { squashMesh(gd.mesh, false); }
             break;
           }
         }
         // chefão gigante
-        if (!hit && boss.active && !boss.dying && boss.mesh) {
-          const bdx = p.mesh.position.x - boss.mesh.position.x;
-          const bdz = p.mesh.position.z - boss.mesh.position.z;
-          if (bdx * bdx + bdz * bdz < 2.6 * 2.6 && p.mesh.position.y > 0 && p.mesh.position.y < 6.5) {
+        if (!hit && !p.ricocheted && boss.active && !boss.dying && boss.mesh) {
+          // 1) PONTO FRACO: só o círculo amarelo da barriga tira vida.
+          boss.weak.getWorldPosition(_bossWeakPos);
+          // Os tiros do personagem saem na altura da arma (bem abaixo da barriga),
+          // então o teste do ponto fraco é pela projeção horizontal do círculo.
+          const wdx = p.mesh.position.x - _bossWeakPos.x, wdz = p.mesh.position.z - _bossWeakPos.z;
+          if (wdx * wdx + wdz * wdz < 1.15 * 1.15 && p.mesh.position.y > 0 && p.mesh.position.y < 6.5) {
             hit = true;
+            playShotHitSound();
             damageBoss(1);
+          } else {
+            // 2) Qualquer outra parte do corpo: o tiro RICOCHETEIA (não causa dano).
+            const bdx = p.mesh.position.x - boss.mesh.position.x;
+            const bdz = p.mesh.position.z - boss.mesh.position.z;
+            const bd2 = bdx * bdx + bdz * bdz;
+            if (bd2 < 2.6 * 2.6 && p.mesh.position.y > 0 && p.mesh.position.y < 6.5) {
+              const bd = Math.sqrt(bd2) || 0.001;
+              // normal da superfície: do centro do chefão para o tiro (levemente pra cima)
+              const nrm = new THREE.Vector3(bdx / bd, 0.25, bdz / bd).normalize();
+              const dn = p.dir.dot(nrm);
+              if (dn < 0) {
+                p.dir.addScaledVector(nrm, -2 * dn);
+                p.dir.x += (Math.random() - 0.5) * 0.35;
+                p.dir.y += (Math.random() - 0.5) * 0.35;
+                p.dir.z += (Math.random() - 0.5) * 0.35;
+                p.dir.normalize();
+              }
+              // tira o tiro de dentro do corpo pra não "ricochetear" de novo
+              p.mesh.position.x = boss.mesh.position.x + nrm.x * 2.75;
+              p.mesh.position.z = boss.mesh.position.z + nrm.z * 2.75;
+              p.ricocheted = true;
+              p.life = Math.max(p.life, 2.2); // some logo depois
+              spawnImpactEffect(new THREE.Vector3(p.mesh.position.x, 0, p.mesh.position.z));
+              playRicochetSound();
+            }
           }
         }
         // normais
@@ -5028,7 +5241,7 @@
           const hitY = ne.mesh.position.y + 0.45;
           if (p.mesh.position.distanceTo(ne.mesh.position.clone().setY(hitY)) < 0.5) {
             ne.alive = false; hit = true;
-            spawnImpactEffect(ne.mesh.position); squashMesh(ne.mesh, true); playDefeatSound();
+            spawnImpactEffect(ne.mesh.position); squashMesh(ne.mesh, true); playShotHitSound(); playDefeatSound();
             break;
           }
         }
@@ -5041,6 +5254,7 @@
       // -------- projéteis dos inimigos --------
       for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
         const p = enemyProjectiles[i];
+        if (!p) continue; // o array pode ter sido esvaziado por um respawn no meio do loop
         const prevZ = p.mesh.position.z;
         p.mesh.position.addScaledVector(p.dir, (p.speed || ENEMY_PROJ_SPEED) * dt);
         p.life += dt;
@@ -5050,7 +5264,7 @@
         if (!dashGateOpen && prevZ <= 155 && p.mesh.position.z > 155) {
           spawnImpactEffect(new THREE.Vector3(p.mesh.position.x, p.mesh.position.y, 155));
           scene.remove(p.mesh);
-          enemyProjectiles.splice(i, 1);
+          removeEnemyProjectile(p);
           continue;
         }
         const dx = character.position.x - p.mesh.position.x;
@@ -5066,18 +5280,18 @@
         if (distXZ < (p.r || 0.45) && heightOverlap) {
           takeHit();
           scene.remove(p.mesh);
-          enemyProjectiles.splice(i, 1);
+          removeEnemyProjectile(p);
           continue;
         }
         if (p.fire && p.mesh.position.y < 0.05) {
           spawnImpactEffect(p.mesh.position);
           scene.remove(p.mesh);
-          enemyProjectiles.splice(i, 1);
+          removeEnemyProjectile(p);
           continue;
         }
         if (p.life > 4) {
           scene.remove(p.mesh);
-          enemyProjectiles.splice(i, 1);
+          removeEnemyProjectile(p);
         }
       }
 
@@ -5278,6 +5492,15 @@
       h.group.visible = fpBody;
       const isRight = h.ctrl.userData.hand === 'right';
       h.gun.visible = fpBody && hasGun && isRight;
+      if (isRight) {
+        // recoil: decai rápido; com as duas mãos (ou sem metralhadora) é zerado
+        const two = fpTwoHanded(xr);
+        const rk = Math.exp(-(two || !hasMG ? 30 : 6) * dt);
+        fpRecoilPitch *= rk; fpRecoilYaw *= rk; fpRecoilBack *= rk;
+        h.gun.rotation.y = fpRecoilPitch;   // sobe o cano (pitch no eixo X do controle)
+        h.gun.rotation.x = -fpRecoilYaw;    // desvio lateral
+        h.gun.position.z = fpRecoilBack;    // coice pra trás
+      }
       const grip = isRight ? xr.gripRightBtn : xr.gripLeftBtn;
       let tCurl = grip ? 1 : 0.1, tIdx = grip ? 1 : 0.1, tThumb = grip ? 1 : 0.2;
       if (!isRight && xr.triggerLeftBtn) tIdx = 1; // gatilho esquerdo dobra o indicador
