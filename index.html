@@ -549,6 +549,51 @@
   function playPoundSound()  { beep(150, 40,  0.16, 'sawtooth', 0.22); }
   function playPoundLandSound() { beep(120, 30, 0.22, 'square', 0.28); }
   function playShootSound()  { beep(950, 220, 0.09, 'sawtooth', 0.15); }
+  // Som da metralhadora: "pew" suave e cristalino (dois tons rápidos), com
+  // variação mínima de altura pra não cansar em rajada.
+  function playMGShootSound() {
+    const k = 1 + (Math.random() - 0.5) * 0.08;
+    beep(1500 * k, 520 * k, 0.075, 'triangle', 0.10);
+    beep(2400 * k, 1100 * k, 0.04, 'sine', 0.05);
+  }
+  function playFireSound()   { beep(260, 90, 0.25, 'sawtooth', 0.10); }
+  function playBossThud(v)   { beep(70, 35, 0.18, 'sine', v); }
+  // Rugido feio e grave do monstro: serras/quadrada desafinadas com tremolo,
+  // filtradas. 'muffled' = vindo de trás (abafado); pan = esquerda/direita.
+  function playBossRoar(vol, pan, muffled) {
+    ensureAudio();
+    const t0 = audioCtx.currentTime, dur = 1.4;
+    const out = audioCtx.createGain();
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.exponentialRampToValueAtTime(Math.max(vol * 0.35, 0.002), t0 + 0.15);
+    out.gain.exponentialRampToValueAtTime(0.0005, t0 + dur);
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = muffled ? 380 : 1400;
+    lp.connect(out);
+    if (audioCtx.createStereoPanner) {
+      const pn = audioCtx.createStereoPanner();
+      pn.pan.value = Math.max(-1, Math.min(1, pan));
+      out.connect(pn); pn.connect(audioCtx.destination);
+    } else {
+      out.connect(audioCtx.destination);
+    }
+    const lfo = audioCtx.createOscillator();
+    lfo.frequency.value = 23;
+    const lfoG = audioCtx.createGain();
+    lfoG.gain.value = 14;
+    lfo.connect(lfoG);
+    for (const s of [[78, 42, 'sawtooth'], [117, 58, 'square'], [53, 31, 'sawtooth']]) {
+      const o = audioCtx.createOscillator();
+      o.type = s[2];
+      o.frequency.setValueAtTime(s[0], t0);
+      o.frequency.exponentialRampToValueAtTime(s[1], t0 + dur);
+      lfoG.connect(o.frequency);
+      o.connect(lp);
+      o.start(t0); o.stop(t0 + dur + 0.05);
+    }
+    lfo.start(t0); lfo.stop(t0 + dur + 0.05);
+  }
   function playBounceSound() { beep(500, 260, 0.10, 'square', 0.15); }
   function playHitSound()    { beep(180, 90,  0.15, 'square', 0.20); }
   function playDefeatSound() { beep(400, 900, 0.25, 'triangle', 0.22); }
@@ -911,6 +956,42 @@
   gunOnPlayer.add(gunMuzzle);
   armR.add(gunOnPlayer);
   let hasGun = false;
+  let hasMG = false; // metralhadora (arma de cano longo, atira muito mais rápido)
+  // Peças extras que transformam a pistola em metralhadora: cano longo,
+  // quebra-chamas, carregador e coronha.
+  function makeMGParts(yOff) {
+    const g = new THREE.Group();
+    const metal = new THREE.MeshStandardMaterial({ color: 0x555a60, metalness: 0.6, roughness: 0.4 });
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.6, 8), gunBodyMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, yOff, -0.62);
+    const shroud = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.32), metal);
+    shroud.position.set(0, yOff, -0.42);
+    const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.07, 8), metal);
+    brake.rotation.x = Math.PI / 2;
+    brake.position.set(0, yOff, -0.93);
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.07), metal);
+    mag.position.set(0, yOff - 0.15, -0.14);
+    mag.rotation.x = 0.15;
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, 0.24), gunGripMat);
+    stock.position.set(0, yOff - 0.01, 0.2);
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.035, 0.2), metal);
+    sight.position.set(0, yOff + 0.06, -0.12);
+    g.add(barrel, shroud, brake, mag, stock, sight);
+    return g;
+  }
+  const mgPlayerParts = makeMGParts(0);
+  mgPlayerParts.visible = false;
+  gunOnPlayer.add(mgPlayerParts);
+  function applyMachineGun(on) {
+    hasMG = on;
+    mgPlayerParts.visible = on;
+    gunMuzzle.position.z = on ? -0.95 : -0.42;
+    for (const h of fpHands) {
+      h.mg.visible = on;
+      h.muzzle.position.z = on ? -0.95 : -0.38;
+    }
+  }
 
   // ---- MÃOS E ARMA EM PRIMEIRA PESSOA (VR) ----
   // Cada controle do Quest ganha uma MÃO com dedos (4 dedos + polegar) que
@@ -927,6 +1008,7 @@
     const group = new THREE.Group();
     group.visible = false;
     group.scale.setScalar(1.35);
+    group.rotation.z = -Math.PI / 2; // mão VERTICAL, palma virada pra dentro (direita)
     const skin = new THREE.MeshStandardMaterial({ color: 0xffd9b0 });
     // mão modelada como mão DIREITA (polegar em -X); a esquerda é espelhada
     const palm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.035, 0.1), skin);
@@ -969,15 +1051,20 @@
     const muzzle = new THREE.Object3D();
     muzzle.position.set(0, 0.045, -0.38);
     gun.add(gg, gs, gb, muzzle);
+    const mg = makeMGParts(0.045);
+    mg.visible = false;
+    gun.add(mg);
+    gun.rotation.z = Math.PI / 2; // compensa a mão girada: a arma continua apontando pra frente
     gun.visible = false;
     group.add(gun);
     ctrl.add(group);
     ctrl.addEventListener('connected', (e) => {
       ctrl.userData.hand = e.data && e.data.handedness;
       group.scale.x = (ctrl.userData.hand === 'left') ? -1.35 : 1.35; // espelha a mão esquerda
+      group.rotation.z = (ctrl.userData.hand === 'left') ? Math.PI / 2 : -Math.PI / 2; // vertical, palma pra dentro
     });
     ctrl.addEventListener('disconnected', () => { ctrl.userData.hand = null; });
-    fpHands.push({ ctrl, group, gun, muzzle, fingers, thumb, curl: 0.1, curlIdx: 0.1, curlThumb: 0.2 });
+    fpHands.push({ ctrl, group, gun, muzzle, mg, fingers, thumb, curl: 0.1, curlIdx: 0.1, curlThumb: 0.2 });
   }
 
   // =========================================================================
@@ -1765,6 +1852,41 @@
   );
   puzzleStone.position.set(-35.8, PUZZLE_H / 2, 120.4); // longe da placa: precisa arrastar em X e em Z
   scene.add(puzzleStone);
+  // 4 ALÇAS, uma em cada lado do bloco, pra pegar com a mão no VR (segurando
+  // o GRIP perto de uma delas). Cada alça = 2 suportes + barra vertical.
+  const puzzleHandlePts = [];
+  (function () {
+    const hm = new THREE.MeshStandardMaterial({ color: 0xffd23a, emissive: 0x996600, emissiveIntensity: 0.5 });
+    const yH = -0.15;
+    const sideRots = [0, Math.PI, Math.PI / 2, -Math.PI / 2]; // +Z, -Z, +X, -X
+    for (const rY of sideRots) {
+      const h = new THREE.Group();
+      for (const dy of [-0.16, 0.16]) {
+        const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.18, 8), hm);
+        peg.rotation.x = Math.PI / 2;
+        peg.position.set(0, yH + dy, 0.49);
+        h.add(peg);
+      }
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4, 10), hm);
+      bar.position.set(0, yH, 0.58);
+      h.add(bar);
+      const pt = new THREE.Object3D();
+      pt.position.set(0, yH, 0.58);
+      h.add(pt);
+      puzzleHandlePts.push(pt);
+      h.rotation.y = rY;
+      puzzleStone.add(h);
+    }
+  })();
+  const _hdlWp = new THREE.Vector3();
+  function nearPuzzleHandle(wp) {
+    puzzleStone.updateWorldMatrix(true, true);
+    for (const pt of puzzleHandlePts) {
+      pt.getWorldPosition(_hdlWp);
+      if (_hdlWp.distanceTo(wp) < 0.4) return true;
+    }
+    return false;
+  }
   let puzzleSolved = false;
   let puzzleGrab = null;       // mão (VR) que está segurando o bloco
   const puzzleGrabOff = new THREE.Vector3();
@@ -1939,6 +2061,260 @@
   );
   pedestal.position.set(STAR_POS.x, 0.4, STAR_POS.z);
   scene.add(pedestal);
+  // A estrela só aparece depois que o monstro gigante for derrotado.
+  star.visible = false;
+
+  // =========================================================================
+  // METRALHADORA (no lugar da estrela) + CHEFÃO GIGANTE
+  // =========================================================================
+  const mgItem = { mesh: null, taken: false };
+  (function () {
+    const g = new THREE.Group();
+    const ringM = new THREE.MeshStandardMaterial({ color: 0xffaa22, emissive: 0xcc6600, emissiveIntensity: 0.9 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.05, 10, 28), ringM);
+    ring.rotation.x = Math.PI / 2;
+    const holder = new THREE.Group();
+    const gGrip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.08), gunGripMat);
+    gGrip.position.set(0, -0.08, 0.04);
+    const gSlide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.32), gunBodyMat);
+    gSlide.position.set(0, 0.045, -0.08);
+    holder.add(gGrip, gSlide, makeMGParts(0.045));
+    holder.scale.setScalar(1.5);
+    holder.position.z = 0.5;
+    g.add(ring, holder);
+    g.position.set(STAR_POS.x, 1.55, STAR_POS.z);
+    scene.add(g);
+    mgItem.mesh = g;
+  })();
+
+  const BOSS_HP = 500;
+  const boss = { mesh: null, active: false, started: false, defeated: false, dying: false, hp: 0,
+                 flash: 0, fireT: 1, fanT: 3, roarT: 0.5, stepT: 0, deadT: 0, hintT: 0,
+                 legL: null, legR: null, flame: null, mouth: null, skin: null };
+  const bossBar = new THREE.Group();
+  const bossBarBg = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 0.55), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  const bossBarFillGeo = new THREE.PlaneGeometry(6, 0.35);
+  bossBarFillGeo.translate(3, 0, 0);
+  const bossBarFill = new THREE.Mesh(bossBarFillGeo, new THREE.MeshBasicMaterial({ color: 0xff3322 }));
+  bossBarFill.position.set(-3, 0, 0.02);
+  bossBar.add(bossBarBg, bossBarFill);
+  bossBar.visible = false;
+  scene.add(bossBar);
+
+  function makeBossMesh() {
+    const g = new THREE.Group();
+    const skin = new THREE.MeshStandardMaterial({ color: 0x4a0f0f, roughness: 0.8 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x1c0606 });
+    const glow = new THREE.MeshStandardMaterial({ color: 0xff7a00, emissive: 0xff4400, emissiveIntensity: 1.3 });
+    const eyeM = new THREE.MeshStandardMaterial({ color: 0xffee33, emissive: 0xffcc00, emissiveIntensity: 1.5 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(2.1, 20, 16), skin);
+    body.scale.set(1.1, 1.2, 1);
+    body.position.y = 3.4;
+    const lava = new THREE.Mesh(new THREE.SphereGeometry(1.1, 14, 12), glow);
+    lava.scale.set(1, 1, 0.5);
+    lava.position.set(0, 3.2, -1.7);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.3, 18, 14), skin);
+    head.position.set(0, 5.7, -1.0);
+    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 10), eyeM);
+    eL.position.set(-0.55, 5.95, -2.15);
+    const eR = eL.clone(); eR.position.x = 0.55;
+    const browL = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.18, 0.2), dark);
+    browL.position.set(-0.55, 6.3, -2.1); browL.rotation.z = -0.5;
+    const browR = browL.clone(); browR.position.x = 0.55; browR.rotation.z = 0.5;
+    const mouthIn = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 10), glow);
+    mouthIn.position.set(0, 5.15, -2.05);
+    const mouthPt = new THREE.Object3D();
+    mouthPt.position.set(0, 5.15, -2.5);
+    const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.38, 2.0, 8), dark);
+    hornL.position.set(-1.0, 7.0, -0.9); hornL.rotation.z = 0.4; hornL.rotation.x = -0.2;
+    const hornR = hornL.clone(); hornR.position.x = 1.0; hornR.rotation.z = -0.4;
+    g.add(body, lava, head, eL, eR, browL, browR, mouthIn, mouthPt, hornL, hornR);
+    for (let i = 0; i < 5; i++) {
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.1, 6), dark);
+      sp.position.set(0, 5.0 - i * 0.7, 1.7 + (i === 0 ? -0.2 : 0));
+      sp.rotation.x = Math.PI / 2 + 0.3;
+      g.add(sp);
+    }
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 2.6, 10), skin);
+      arm.position.set(sx * 2.7, 3.4, -0.3); arm.rotation.z = sx * 0.2;
+      const fist = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 10), dark);
+      fist.position.set(sx * 3.0, 1.9, -0.6);
+      g.add(arm, fist);
+    }
+    const legL = new THREE.Group(); legL.position.set(-1.2, 2.4, 0);
+    const legR = new THREE.Group(); legR.position.set(1.2, 2.4, 0);
+    for (const lg of [legL, legR]) {
+      const lm = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.95, 2.4, 10), skin);
+      lm.position.y = -1.2;
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 2.0), dark);
+      foot.position.set(0, -2.2, -0.3);
+      lg.add(lm, foot);
+      g.add(lg);
+    }
+    // chama contínua saindo da boca (cone apontando pra -Z)
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.7, 2.6, 10),
+      new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.8 }));
+    flame.rotation.x = -Math.PI / 2;
+    flame.position.set(0, 5.15, -3.4);
+    g.add(flame);
+    boss.legL = legL; boss.legR = legR; boss.flame = flame; boss.mouth = mouthPt; boss.skin = skin;
+    return g;
+  }
+
+  function startBossEvent() {
+    if (boss.started) return;
+    boss.started = true;
+    boss.mesh = makeBossMesh();
+    boss.mesh.position.set(0, 0, 331); // começa lá no início da fase
+    scene.add(boss.mesh);
+    boss.active = true;
+    boss.dying = false;
+    boss.hp = BOSS_HP;
+    boss.fireT = 1; boss.fanT = 3; boss.roarT = 0.4; boss.stepT = 0; boss.hintT = 0;
+    bossBar.visible = true;
+    bossBarFill.scale.x = 1;
+  }
+  // Se o personagem morrer durante a luta, o chefão some e a metralhadora
+  // volta ao pedestal (o jogador reaparece ao lado dela).
+  function resetBossEvent() {
+    if (!boss.started || boss.defeated) return;
+    if (boss.mesh) { scene.remove(boss.mesh); boss.mesh = null; }
+    boss.started = false; boss.active = false; boss.dying = false;
+    bossBar.visible = false;
+    mgItem.taken = false;
+    mgItem.mesh.visible = true;
+    applyMachineGun(false);
+    for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+      if (enemyProjectiles[i].fire) { scene.remove(enemyProjectiles[i].mesh); enemyProjectiles.splice(i, 1); }
+    }
+  }
+  function damageBoss(n) {
+    if (!boss.active || boss.dying || !boss.mesh) return;
+    boss.flash = 0.07;
+    boss.hp -= n;
+    if (boss.hp <= 0) {
+      const d = Math.hypot(character.position.x - boss.mesh.position.x, character.position.z - boss.mesh.position.z);
+      if (d > 8.5) {
+        boss.hp = 1; // aguenta tudo: só cai bem perto do personagem
+        if (t0HintOk()) showHint('Ele ainda não cai... só quando chegar bem perto!', 1800);
+      } else {
+        boss.hp = 0;
+        boss.dying = true;
+        boss.deadT = 0;
+        for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+          if (enemyProjectiles[i].fire) { scene.remove(enemyProjectiles[i].mesh); enemyProjectiles.splice(i, 1); }
+        }
+        playBossRoar(0.6, 0, false);
+        beep(300, 40, 1.6, 'sawtooth', 0.25);
+      }
+    }
+  }
+  let _lastBossHint = -99;
+  function t0HintOk() {
+    const now = performance.now() / 1000;
+    if (now - _lastBossHint > 3) { _lastBossHint = now; return true; }
+    return false;
+  }
+  function bossFire(yawOff) {
+    const origin = new THREE.Vector3();
+    boss.mouth.getWorldPosition(origin);
+    const dir = new THREE.Vector3(character.position.x, character.position.y + 0.75, character.position.z).sub(origin).normalize();
+    if (yawOff) {
+      const c = Math.cos(yawOff), s = Math.sin(yawOff);
+      const nx = dir.x * c - dir.z * s, nz = dir.x * s + dir.z * c;
+      dir.x = nx; dir.z = nz;
+    }
+    const mesh = makeOutlinedProjectile(0.32, 0xff7a1a, 0xff3300);
+    mesh.position.copy(origin);
+    scene.add(mesh);
+    enemyProjectiles.push({ mesh, dir, life: 0, speed: 8.5, r: 0.7, fire: true });
+  }
+  function bossRoarAt(dx, dz, dist) {
+    const d = Math.max(dist, 0.01);
+    const ux = -dx / d, uz = -dz / d; // do personagem para o chefão
+    const yaw = camPivot.rotation.y;
+    const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
+    const rightX = Math.cos(yaw), rightZ = -Math.sin(yaw);
+    const pan = ux * rightX + uz * rightZ;
+    const ahead = ux * fwdX + uz * fwdZ;
+    const vol = Math.max(0.05, Math.min(0.9, 0.12 + 0.8 * (1 - dist / 280)));
+    playBossRoar(vol, pan, ahead < -0.15);
+  }
+  const _bossBlink = 0;
+  function updateBoss(dt, t) {
+    if (!boss.active || !boss.mesh) return;
+    const m = boss.mesh;
+    const dx = character.position.x - m.position.x;
+    const dz = character.position.z - m.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (boss.flash > 0) boss.flash -= dt;
+    boss.skin.emissive.setHex(boss.flash > 0 ? 0x882200 : 0x000000);
+    bossBar.position.set(m.position.x, 9.6, m.position.z);
+    bossBar.rotation.y = camPivot.rotation.y;
+    bossBarFill.scale.x = Math.max(0.001, boss.hp / BOSS_HP);
+
+    if (boss.dying) {
+      boss.deadT += dt;
+      m.position.x += (Math.random() - 0.5) * 0.12;
+      boss.skin.emissive.setHex(Math.floor(boss.deadT * 14) % 2 === 0 ? 0xaa3300 : 0x000000);
+      if (Math.random() < dt * 8) {
+        spawnImpactEffect(new THREE.Vector3(m.position.x + (Math.random() - 0.5) * 4, 0, m.position.z + (Math.random() - 0.5) * 4));
+      }
+      if (boss.deadT > 2) {
+        const k = Math.max(0.001, 1 - (boss.deadT - 2) / 0.8);
+        m.scale.set(k, k, k);
+      }
+      if (boss.deadT > 2.8) {
+        scene.remove(m);
+        boss.mesh = null; boss.active = false; boss.defeated = true;
+        bossBar.visible = false;
+        star.visible = true;
+        playWinFanfare();
+        showHint('O monstro caiu! A ESTRELA apareceu!', 3000);
+      }
+      return;
+    }
+
+    // movimento: voa rápido de longe, depois desacelera e para a 5 de distância
+    const STOP = 5.0;
+    const speed = dist > 45 ? 17 : (dist > 12 ? 4.5 : 2.2);
+    if (dist > STOP) {
+      const s = Math.min(speed * dt, dist - STOP);
+      m.position.x += (dx / dist) * s;
+      m.position.z += (dz / dist) * s;
+    }
+    m.rotation.y = Math.atan2(-dx, -dz);
+    const wp = t * (dist > 45 ? 7 : 3.5);
+    boss.legL.rotation.x = Math.sin(wp) * 0.5;
+    boss.legR.rotation.x = -Math.sin(wp) * 0.5;
+    m.position.y = dist > STOP ? Math.abs(Math.sin(wp)) * 0.25 : 0;
+    const fl = 0.85 + Math.random() * 0.5;
+    boss.flame.visible = dist < 42;
+    boss.flame.scale.set(1 + Math.random() * 0.2, fl, 1 + Math.random() * 0.2);
+
+    // fogo
+    if (dist < 42) {
+      boss.fireT -= dt; boss.fanT -= dt;
+      if (boss.fireT <= 0) { boss.fireT = dist > 20 ? 0.9 : 0.5; bossFire(0); playFireSound(); }
+      if (boss.fanT <= 0) {
+        boss.fanT = 3.4;
+        for (let k = -3; k <= 3; k++) bossFire(k * 0.2);
+        playFireSound();
+      }
+    }
+    // encostar nele machuca
+    if (dist < 2.8 && character.position.y < 2.0) takeHit();
+
+    // sons: rugido (de trás, abafado, mais alto conforme se aproxima) e passos pesados
+    boss.roarT -= dt;
+    if (boss.roarT <= 0) { boss.roarT = 2.4 + Math.random() * 1.2; bossRoarAt(dx, dz, dist); }
+    boss.stepT -= dt;
+    if (boss.stepT <= 0 && dist > STOP + 0.5) {
+      boss.stepT = dist > 45 ? 0.28 : 0.6;
+      playBossThud(Math.max(0.02, Math.min(0.35, 0.05 + 0.4 * (1 - dist / 280))));
+    }
+  }
 
   // =========================================================================
   // EFEITO DE IMPACTO
@@ -2051,14 +2427,14 @@
       origin = origin.clone();
       origin.y = 0.22;
     }
-    const mesh = makeOutlinedProjectile(0.09, 0xffffaa, 0x666600);
+    const mesh = hasMG ? makeOutlinedProjectile(0.07, 0xffe066, 0xcc8800) : makeOutlinedProjectile(0.09, 0xffffaa, 0x666600);
     mesh.position.copy(origin);
     scene.add(mesh);
     // fromCrouch: o tiro foi disparado com o corpo ABAIXADO. Os inimigos
     // rápidos da T4 (needCrouch) só podem ser acertados por tiros assim —
     // em pé, o cano da arma fica acima deles e o tiro passa por cima.
     // Na PRIMEIRA PESSOA o que vale é ONDE o tiro bate: conta como "abaixado" sempre.
-    playerProjectiles.push({ mesh, dir: dir.clone(), life: 0, fromCrouch: crouching || !!fromFP });
+    playerProjectiles.push({ mesh, dir: dir.clone(), life: 0, fromCrouch: crouching || !!fromFP, speed: hasMG ? 26 : PLAYER_PROJ_SPEED });
   }
   function spawnEnemyProjectile(origin, dir) {
     const mesh = makeOutlinedProjectile(0.11, 0xff2222, 0x660000);
@@ -2323,6 +2699,7 @@
   // Reaparece no checkpoint com os corações cheios, invencível por um
   // instante, e dá uma piscadinha rápida de fade pra mostrar o retorno.
   function respawnAtCheckpoint() {
+    resetBossEvent();
     fallingIntoPit = false;
     dashMomentumActive = false;
     dashMomentumX = 0;
@@ -3597,8 +3974,8 @@
           origin.addScaledVector(fwd, 0.1);
         }
         spawnPlayerProjectile(origin, fwd, !!(fpBody && rightHand));
-        playShootSound();
-        shootCooldown = SHOOT_INTERVAL;
+        if (hasMG) playMGShootSound(); else playShootSound();
+        shootCooldown = hasMG ? 0.07 : SHOOT_INTERVAL;
       }
 
       // -------- braços --------
@@ -4142,9 +4519,7 @@
             h.ctrl.updateWorldMatrix(true, false);
             h.ctrl.getWorldPosition(_fpWp);
             if (gripNow && !puzzleGrab) {
-              if (Math.abs(_fpWp.x - puzzleStone.position.x) < 0.75 &&
-                  Math.abs(_fpWp.z - puzzleStone.position.z) < 0.75 &&
-                  _fpWp.y > -0.2 && _fpWp.y < PUZZLE_H + 0.2) {
+              if (nearPuzzleHandle(_fpWp)) {
                 puzzleGrab = h;
                 puzzleGrabOff.copy(puzzleStone.position).sub(_fpWp);
                 puzzleVY = 0;
@@ -4547,11 +4922,34 @@
       // os inimigos da fase atual morreram) --------
       updateT3Training(dt);
 
+      // -------- METRALHADORA (onde ficava a estrela): ao pegar, o chefão
+      // gigante parte do início da fase e vem rugindo por trás --------
+      if (!mgItem.taken) {
+        mgItem.mesh.position.y = 1.55 + Math.sin(t * 3) * 0.1;
+        mgItem.mesh.rotation.y += dt * 2.0;
+        const mdx = character.position.x - STAR_POS.x;
+        const mdz = character.position.z - STAR_POS.z;
+        if (Math.sqrt(mdx * mdx + mdz * mdz) < 0.9 && character.position.y < 1.5) {
+          mgItem.taken = true;
+          mgItem.mesh.visible = false;
+          hasGun = true;
+          gunOnPlayer.visible = true;
+          crosshairEl.style.display = 'block';
+          applyMachineGun(true);
+          // se morrer na luta, volta aqui (o chefão é reiniciado) e não à T4
+          checkpointPos.set(0, 0, 89.5);
+          playPickupSound();
+          startBossEvent();
+          showDialogue('Uma METRALHADORA! Atira muito mais rápido. Mas... que barulho horrível é esse vindo lá de trás, do início da fase? Está vindo uma coisa ENORME! Vou desviar do fogo e atirar sem parar — ele só vai cair quando chegar bem perto.', { name: 'Fracote' });
+        }
+      }
+      updateBoss(dt, t);
+
       // -------- projéteis do jogador --------
       for (let i = playerProjectiles.length - 1; i >= 0; i--) {
         const p = playerProjectiles[i];
         const prevZ = p.mesh.position.z;
-        p.mesh.position.addScaledVector(p.dir, PLAYER_PROJ_SPEED * dt);
+        p.mesh.position.addScaledVector(p.dir, (p.speed || PLAYER_PROJ_SPEED) * dt);
         p.life += dt;
         // Portão da P1 (z=155): enquanto estiver FECHADO, nenhum tiro passa
         // pelo plano — o jogador não pode acertar os inimigos da P1 (nem os
@@ -4613,6 +5011,15 @@
             break;
           }
         }
+        // chefão gigante
+        if (!hit && boss.active && !boss.dying && boss.mesh) {
+          const bdx = p.mesh.position.x - boss.mesh.position.x;
+          const bdz = p.mesh.position.z - boss.mesh.position.z;
+          if (bdx * bdx + bdz * bdz < 2.6 * 2.6 && p.mesh.position.y > 0 && p.mesh.position.y < 6.5) {
+            hit = true;
+            damageBoss(1);
+          }
+        }
         // normais
         if (!hit) for (const ne of normalEnemies) {
           if (!ne.alive) continue;
@@ -4635,7 +5042,7 @@
       for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
         const p = enemyProjectiles[i];
         const prevZ = p.mesh.position.z;
-        p.mesh.position.addScaledVector(p.dir, ENEMY_PROJ_SPEED * dt);
+        p.mesh.position.addScaledVector(p.dir, (p.speed || ENEMY_PROJ_SPEED) * dt);
         p.life += dt;
         // Portão da P1 (z=155): enquanto FECHADO, o portão também segura os
         // tiros dos inimigos de trás dele — é um muro de verdade, não só um
@@ -4656,8 +5063,14 @@
         const charFeet = character.position.y;
         const charHead = character.position.y + 1.55;
         const heightOverlap = p.mesh.position.y >= charFeet - 0.15 && p.mesh.position.y <= charHead;
-        if (distXZ < 0.45 && heightOverlap) {
+        if (distXZ < (p.r || 0.45) && heightOverlap) {
           takeHit();
+          scene.remove(p.mesh);
+          enemyProjectiles.splice(i, 1);
+          continue;
+        }
+        if (p.fire && p.mesh.position.y < 0.05) {
+          spawnImpactEffect(p.mesh.position);
           scene.remove(p.mesh);
           enemyProjectiles.splice(i, 1);
           continue;
@@ -4673,7 +5086,7 @@
         Math.pow(character.position.x - STAR_POS.x, 2) +
         Math.pow(character.position.z - STAR_POS.z, 2)
       );
-      if (dToStar < 0.8) {
+      if (star.visible && dToStar < 0.8) {
         winGame();
       }
     }
