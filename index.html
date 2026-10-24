@@ -1595,54 +1595,76 @@
     const group = new THREE.Group();
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x9a7a4a, roughness: 0.95 });
     // Poste curto da placa
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.5, 8), woodMat);
-    post.position.y = 0.25;
-    // Placa (tábua de sinalização, de frente pra quem chega — -Z)
-    const board = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.05), woodMat);
-    board.position.set(0, 0.58, -0.12);
-    // "✓" claro na placa (duas barrinhas em ângulo)
-    const chkMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const chk1 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.025, 0.02), chkMat);
-    chk1.position.set(-0.02, -0.02, 0.045);
-    chk1.rotation.z = Math.PI / 4;
-    const chk2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.025, 0.02), chkMat);
-    chk2.position.set(0.03, 0.045, 0.045);
-    chk2.rotation.z = -Math.PI / 4;
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 1.5, 8), woodMat);
+    post.position.y = 0.75;
+    // Placa GRANDE (de frente pra quem chega — -Z) com a palavra CHECKPOINT
+    const board = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 0.08), woodMat);
+    board.position.set(0, 1.55, -0.12);
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 1024; signCanvas.height = 358;
+    const signCtx = signCanvas.getContext('2d');
+    signCtx.fillStyle = '#7a5a2e'; signCtx.fillRect(0, 0, 1024, 358);
+    signCtx.strokeStyle = '#f2e3b8'; signCtx.lineWidth = 14; signCtx.strokeRect(14, 14, 996, 330);
+    signCtx.fillStyle = '#ffffff'; signCtx.font = 'bold 150px sans-serif';
+    signCtx.textAlign = 'center'; signCtx.textBaseline = 'middle';
+    signCtx.fillText('CHECKPOINT', 512, 185);
+    const signTex = crispTex(new THREE.CanvasTexture(signCanvas));
+    const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+    const chk1 = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 0.686), signMat);
+    chk1.position.set(0, 1.55, -0.12 + 0.045);
+    const chk2 = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 0.686), signMat);
+    chk2.position.set(0, 1.55, -0.12 - 0.045);
+    chk2.rotation.y = Math.PI;
     // Bandeira escondida: poste alto + bandeira que balança (aparece ao ativar)
     const flagGroup = new THREE.Group();
     flagGroup.visible = false;
-    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xd0d0d0 }));
-    flagPole.position.y = 0.75;
+    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.0, 8), new THREE.MeshStandardMaterial({ color: 0xd0d0d0 }));
+    flagPole.position.y = 1.5;
     const flagMat = new THREE.MeshStandardMaterial({ color: 0xff4444, emissive: 0x992222, emissiveIntensity: 0.35 });
-    const flag = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.26, 0.03), flagMat);
-    flag.position.set(0.3, 1.4, 0);
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.55, 0.05), flagMat);
+    flag.position.set(0.6, 2.7, 0);
     flagGroup.add(flagPole, flag);
     group.add(post, board, chk1, chk2, flagGroup);
     group.position.set(x, 0, z);
     scene.add(group);
     return { mesh: group, flagGroup, flag, board, activated: false };
   }
-  checkpoint = spawnCheckpoint(2.2, 170);
+  checkpoint = spawnCheckpoint(1.9, 170);
 
   // =========================================================================
   // PUZZLE (P4) — pedra empurrável + placa + parede que some + chave
   // =========================================================================
   // Placa de pressão (marca no chão)
-  const puzzlePlate = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.5, 0.05, 14),
+  // Buraco QUADRADO virado na DIAGONAL (diamante): o cubo só encaixa se estiver
+  // girado 45° (1 tiro, ou 3, 5...). Moldura clara + fundo escuro.
+  const puzzlePlate = new THREE.Group();
+  const holeFrame = new THREE.Mesh(
+    new THREE.BoxGeometry(1.1, 0.04, 1.1),
     new THREE.MeshStandardMaterial({ color: 0xccaa33, emissive: 0x886600, emissiveIntensity: 0.4 })
   );
+  const holeInner = new THREE.Mesh(
+    new THREE.BoxGeometry(0.9, 0.05, 0.9),
+    new THREE.MeshStandardMaterial({ color: 0x1a1a1a })
+  );
+  holeInner.position.y = 0.01;
+  puzzlePlate.add(holeFrame, holeInner);
+  puzzlePlate.rotation.y = Math.PI / 4;
   puzzlePlate.position.set(-38, 0.03, 119.5);
   scene.add(puzzlePlate);
 
   // Pedra empurrável
+  // Cubo ALTO (2,4 de altura) pra qualquer tiro acertar. Cada tiro gira 45° no
+  // sentido horário; o buraco é um diamante, então precisa de um número ÍMPAR de tiros.
+  const PUZZLE_H = 2.4;
   const puzzleStone = new THREE.Mesh(
-    new THREE.BoxGeometry(0.8, 0.8, 0.8),
+    new THREE.BoxGeometry(0.8, PUZZLE_H, 0.8),
     new THREE.MeshStandardMaterial({ color: 0x888877 })
   );
-  puzzleStone.position.set(-36.4, 0.4, 120.2); // mais longe da placa (antes -38, 120.5): precisa arrastar em X e em Z
+  puzzleStone.position.set(-36.4, PUZZLE_H / 2, 120.2); // longe da placa: precisa arrastar em X e em Z
   scene.add(puzzleStone);
   let puzzleSolved = false;
+  let puzzleHits = 0;          // quantos tiros o cubo já levou
+  let puzzleRotTarget = 0;     // ângulo alvo (rotation.y; horário = negativo)
 
   // Chave 1 vermelha (fica invisível até o puzzle ser resolvido, sem parede
   // bloqueando — ela simplesmente aparece quando a pedra pisa na placa)
@@ -2351,10 +2373,25 @@
     new THREE.PlaneGeometry(0.9, 0.9 * 560 / 1024),
     new THREE.MeshBasicMaterial({ map: vrDlgTex, transparent: true, side: THREE.DoubleSide, depthTest: false })
   );
-  vrDlgPlane.position.set(0, -0.2, -1.0);
   vrDlgPlane.renderOrder = 20;
   vrDlgPlane.visible = false;
-  camera.add(vrDlgPlane);
+  // FIXO NO MUNDO (não preso à cabeça): painel preso à cabeça treme junto com
+  // qualquer micro-oscilação do headset. Ele é posicionado à frente do olhar
+  // uma vez, quando o diálogo abre, e fica parado ali.
+  scene.add(vrDlgPlane);
+  let vrDlgPlaced = false;
+  const _vcp = new THREE.Vector3(), _vcd = new THREE.Vector3();
+  function placeVrDialogue() {
+    camera.updateMatrixWorld(true);
+    camera.getWorldPosition(_vcp);
+    camera.getWorldDirection(_vcd);
+    _vcd.y = 0;
+    if (_vcd.lengthSq() < 0.0001) _vcd.set(0, 0, -1);
+    _vcd.normalize();
+    const py = _vcp.y - 0.12;
+    vrDlgPlane.position.set(_vcp.x + _vcd.x * 1.1, py, _vcp.z + _vcd.z * 1.1);
+    vrDlgPlane.lookAt(_vcp.x, py, _vcp.z);
+  }
 
   function vrWrapLines(ctx, text, maxW) {
     const words = String(text).split(' ');
@@ -2755,7 +2792,10 @@
     const pad = getDesktopGamepadInput();
 
     // O painel de diálogo do VR só aparece dentro do headset
-    vrDlgPlane.visible = dialogueActive && renderer.xr.isPresenting;
+    const vrDlgShow = dialogueActive && renderer.xr.isPresenting;
+    if (vrDlgShow && !vrDlgPlaced) { placeVrDialogue(); vrDlgPlaced = true; }
+    if (!vrDlgShow) vrDlgPlaced = false;
+    vrDlgPlane.visible = vrDlgShow;
 
     // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
     if (dialogueActive) {
@@ -3698,17 +3738,27 @@
           puzzleStone.position.x += pushX * 1.2 * dt;
           puzzleStone.position.z += pushZ * 1.2 * dt;
         }
-        puzzleStone.position.y = 0.4;
+        puzzleStone.position.y = PUZZLE_H / 2;
+        // giro suave até o ângulo alvo
+        puzzleStone.rotation.y += (puzzleRotTarget - puzzleStone.rotation.y) * Math.min(1, 14 * dt);
         const pdx = puzzleStone.position.x - puzzlePlate.position.x;
         const pdz = puzzleStone.position.z - puzzlePlate.position.z;
-        if (Math.sqrt(pdx * pdx + pdz * pdz) < 0.45) {
+        // Só encaixa na posição CERTA e com o cubo girado 45° (nº ímpar de tiros)
+        if (Math.sqrt(pdx * pdx + pdz * pdz) < 0.45 && (puzzleHits % 2) === 1) {
           puzzleSolved = true;
-          puzzleStone.position.y = 0.05;
+          puzzleStone.rotation.y = puzzleRotTarget;
           key1Mesh.visible = true;
           key1Handle.visible = true;
           playPickupSound();
           showHint('Chave apareceu! Vá pegá-la!', 2000);
         }
+      }
+
+      // cubo encaixado: afunda no buraco
+      if (puzzleSolved) {
+        puzzleStone.position.x += (puzzlePlate.position.x - puzzleStone.position.x) * Math.min(1, 10 * dt);
+        puzzleStone.position.z += (puzzlePlate.position.z - puzzleStone.position.z) * Math.min(1, 10 * dt);
+        puzzleStone.position.y += ((0.12 - PUZZLE_H / 2) - puzzleStone.position.y) * Math.min(1, 6 * dt);
       }
 
       // -------- pegar chave vermelha (P4) --------
@@ -4005,7 +4055,7 @@
       if (checkpoint && !checkpoint.activated) {
         const dx = character.position.x - checkpoint.mesh.position.x;
         const dz = character.position.z - checkpoint.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.6) {
+        if (Math.sqrt(dx * dx + dz * dz) < 3.5) { // basta chegar perto (sem encostar)
           checkpoint.activated = true;
           // Some com a placa (posta + tábua + ✓) e mostra a bandeira
           checkpoint.board.visible = false;
@@ -4042,8 +4092,23 @@
           continue;
         }
         let hit = false;
+        // cubo do puzzle (P4): cada tiro gira 45° no sentido horário
+        if (!puzzleSolved) {
+          const bx = p.mesh.position.x - puzzleStone.position.x;
+          const bz = p.mesh.position.z - puzzleStone.position.z;
+          const cr = Math.cos(puzzleRotTarget), sr = Math.sin(puzzleRotTarget);
+          const lx = bx * cr - bz * sr, lz = bx * sr + bz * cr;
+          if (Math.abs(lx) < 0.49 && Math.abs(lz) < 0.49 &&
+              p.mesh.position.y > 0 && p.mesh.position.y < PUZZLE_H) {
+            puzzleHits += 1;
+            puzzleRotTarget -= Math.PI / 4;
+            spawnImpactEffect(p.mesh.position);
+            playHitSound();
+            hit = true;
+          }
+        }
         // atiradores
-        for (const se of shooterEnemies) {
+        if (!hit) for (const se of shooterEnemies) {
           if (!se.alive) continue;
           if (p.mesh.position.distanceTo(se.mesh.position.clone().setY(0.6)) < 0.6) {
             se.hp -= 1; hit = true;
