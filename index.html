@@ -9,9 +9,11 @@
   canvas { display:block; }
   #ui { position:fixed; inset:0; pointer-events:none; font-family: Verdana, Geneva, sans-serif; z-index:10; }
   #info {
-    position:absolute; top:70px; left:14px; color:#fff; background:rgba(0,0,0,0.35);
+    position:absolute; top:70px; left:14px; color:#ffe000; background:rgba(0,0,0,0.35);
     padding:10px 14px; border-radius:10px; font-size:13px; line-height:1.5; max-width:340px;
+    text-shadow:1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
   }
+  #info u { color:#ffe000; }
   #vr-button {
     position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
     pointer-events:auto; padding:14px 28px; font-size:17px; font-weight:bold;
@@ -21,12 +23,19 @@
   #vr-button:disabled { background:#666; cursor:not-allowed; }
   #message {
     position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
-    color:#fff; font-size:44px; font-weight:bold; text-align:center;
-    text-shadow: 0 0 10px #000, 0 0 20px #000; display:none; white-space:nowrap;
+    color:#ffe000; font-size:44px; font-weight:bold; text-align:center;
+    text-shadow:
+      3px 0 0 #000, -3px 0 0 #000, 0 3px 0 #000, 0 -3px 0 #000,
+      3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000,
+      0 8px 18px rgba(0,0,0,0.95);
+    display:none; white-space:nowrap;
   }
   #hint {
     position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
-    color:#fff; font-size:22px; text-align:center; text-shadow:0 0 8px #000;
+    color:#ffe000; font-size:22px; font-weight:bold; text-align:center;
+    text-shadow:
+      2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+      2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
     display:none;
   }
   #crosshair {
@@ -76,25 +85,72 @@
   }
   #win-overlay .btn-play { background:#2ea043; }
   #win-overlay .btn-play:hover { background:#258a38; }
+  /* LEGENDAS: amarelas com sombra preta, flutuando acima da cabeça de quem fala.
+     Sem caixa de texto, sem painel, sem fundo. */
   #dialogue-box {
-    position:absolute; bottom:8%; left:50%; transform:translateX(-50%);
-    width:min(560px, 82vw); pointer-events:auto; cursor:pointer;
-    background:rgba(15,15,25,0.86); border:2px solid #ff7a1a; border-radius:14px;
-    padding:16px 20px; box-shadow:0 6px 20px rgba(0,0,0,0.5); display:none;
+    position:absolute; left:0; top:0; transform:translate(-50%,-100%);
+    width:max-content; max-width:min(520px, 78vw);
+    pointer-events:auto; cursor:pointer;
+    background:none; border:none; box-shadow:none; padding:0;
+    text-align:center; display:none;
   }
-  #dialogue-name {
-    color:#ff9a3a; font-weight:bold; font-size:14px; margin-bottom:6px;
-    text-transform:uppercase; letter-spacing:0.5px;
-  }
+  #dialogue-name { display:none; }
   #dialogue-text {
-    color:#fff; font-size:18px; line-height:1.4; text-shadow:0 0 6px #000;
+    color:#ffe000; font-size:21px; font-weight:bold; line-height:1.32;
+    text-shadow:
+      2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+      2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000,
+      0 5px 12px rgba(0,0,0,0.95);
   }
-  #dialogue-hint { text-align:right; margin-top:12px; }
+  #dialogue-hint { text-align:center; margin-top:6px; }
   #dialogue-ok {
-    background:#ff7a1a; color:#fff; border:none; border-radius:10px; cursor:pointer;
-    font-size:18px; font-weight:bold; padding:8px 34px;
+    background:none; border:none; padding:0; cursor:pointer;
+    font-family:inherit; font-size:12px; font-weight:bold; color:#ffe000;
+    text-shadow:1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+    animation:dialogue-blink 1.3s infinite;
   }
-  #dialogue-ok:hover { background:#ff9a3a; }
+  #dialogue-ok:hover { color:#fff59a; }
+  #money-hud {
+    position:absolute; top:14px; right:16px; pointer-events:none;
+    display:flex; align-items:center; gap:8px;
+    background:rgba(15,15,25,0.72); border:2px solid #ffcc33; border-radius:30px;
+    padding:7px 16px 7px 10px; box-shadow:0 4px 14px rgba(0,0,0,0.45);
+  }
+  #money-hud .coin-ico {
+    width:24px; height:24px; border-radius:50%; flex:none;
+    background:radial-gradient(circle at 35% 30%, #fff3a0, #ffcc33 55%, #b8860b 100%);
+    border:2px solid #8a6508; box-shadow:0 0 8px rgba(255,204,51,0.55);
+  }
+  #money-value { color:#ffe066; font-size:19px; font-weight:bold; letter-spacing:0.5px; }
+  #shop-overlay {
+    position:absolute; inset:0; background:rgba(0,0,0,0.72); display:none;
+    align-items:center; justify-content:center; pointer-events:auto; z-index:30;
+  }
+  #shop-panel {
+    width:min(520px, 88vw); background:linear-gradient(180deg, rgba(26,30,48,0.98), rgba(12,14,26,0.98));
+    border:3px solid #ffcc33; border-radius:18px; padding:24px 26px 22px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.7), 0 0 24px rgba(255,204,51,0.18);
+    font-family: Verdana, Geneva, sans-serif; color:#fff;
+  }
+  #shop-kicker { color:#ff9a3a; font-size:12px; font-weight:bold; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+  #shop-title { color:#ffe066; font-size:26px; font-weight:bold; margin-bottom:10px; line-height:1.15; }
+  #shop-desc { color:#dfe6ff; font-size:15px; line-height:1.5; margin-bottom:16px; }
+  .shop-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-top:1px solid rgba(255,255,255,0.12); font-size:16px; }
+  .shop-row span { color:#aab4cc; }
+  .shop-row b { font-size:18px; }
+  #shop-price { color:#ffd23a; }
+  #shop-money { color:#7dff9a; }
+  #shop-msg { min-height:20px; margin-top:10px; color:#ff8a8a; font-size:14px; line-height:1.35; }
+  .shop-btns { display:flex; gap:12px; margin-top:14px; }
+  .shop-btns button {
+    flex:1; padding:12px 16px; border:none; border-radius:12px; cursor:pointer;
+    font-size:16px; font-weight:bold; font-family:inherit;
+  }
+  #shop-buy { background:#2ea043; color:#fff; }
+  #shop-buy:hover:not(:disabled) { background:#37bd52; }
+  #shop-buy:disabled { background:#4a4a55; color:#9a9aa5; cursor:not-allowed; }
+  #shop-exit { background:#3a3f52; color:#fff; }
+  #shop-exit:hover { background:#4a516a; }
   @keyframes dialogue-blink { 0%,100%{opacity:0.35;} 50%{opacity:1;} }
 </style>
 </head>
@@ -104,8 +160,7 @@
     <b>Fase VR - Aventura do Herói</b><br/>
     <u>Desktop:</u> WASD anda, Espaço/B/seta ↑ pula, seta ↓ agacha (parado) / cabeçada-dash (andando; partindo do chão atravessa buraco sem cair — pulo logo depois completa o salto) / no ar pancada forte, F/V/seta ← atira (com arma), G/seta → trava a mira, 4/6 gira câmera 45°, 8 aproxima/2 afasta a câmera, 5 reseta a câmera<br/>
     <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, GRIP esquerdo agacha/dash (partindo do chão atravessa buraco sem cair; pulo logo depois completa o salto), analógico direito gira/aproxima-afasta a câmera, clique do analógico direito (R3) reseta a câmera<br/>
-    Tutorial (7 plataformas): comece sem saber pular, evolua suas habilidades no caminho. Na 2ª plataforma (T2, metade do tamanho), 5 inimigos resistentes (só morrem com a pancada forte) — derrote os 5 para abrir o portão transparente; atrás dele, a ARMA (item da fase, atiradores não dropam mais) e 5 pedras redondas até a 3ª plataforma (que também é METADE do tamanho de T1). Lá, pegue o upgrade da TRAVA DE MIRA (G/seta →/GRIP direito) — a partir daí é um TREINO: uma fila GIGANTE de inimigos RÁPIDOS COM CHIFRES (velocidade em DOBRO e 30 deles, metade do que era antes) vindo da FRENTE, de longe, sem parar — mal dá tempo de atirar em pé; os chifres impedem pular em cima deles, então segure G para travar a mira e atire pra frente para derrubá-los! O portão transparente da T3 só abre quando TODOS forem derrotados. Logo atrás desse portão, na 1ª pedra, está o upgrade de ANDAR ABAIXADO (seta ↓ / GRIP esquerdo no chão, PARADO, agacha — a arma desce quase até o chão) — em seguida vem a T4, uma plataforma MENOR cheia de inimigos rápidos BAIXOS com chifres (40 deles, o dobro de antes, e em velocidade dobrada): de pé os tiros passam por cima, só ABAIXADO (arma perto do chão) acerta. Antes da T4 há uma plataforma com o upgrade do PULO DUPLO (aperte pulo de novo no ar) e, depois dela, um buraco de 6 unidades que só o pulo duplo atravessa. No FINAL da T4, o upgrade do DASH: mesma tecla do agachar, mas com o personagem EM MOVIMENTO dispara uma CABEÇADA pra frente na direção em que anda — mata qualquer inimigo no caminho e pega velocidade (estilo Crash Bandicoot). Depois dele, as plataformas vazias e as pedras foram removidas e o resto do jogo foi trazido pra cá, mas a P1 ficou a 13 unidades de distância da T4 — um vão GRANDE que exige o DASH SEGURADO + pulo na janela pra cruzar (dash sozinho ou pulo sozinho NÃO chegam). 6 plataformas + corredor final: inimigos normais, atiradores, rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar chave 1. Plataforma direita (P5): quiz matemático 3-5=? — acerte -2 para ganhar chave 2, errou morre. Com as 2 chaves, o portão da arena abre. Guardiões perseguem, espinhos. Ache a estrela no corredor!
-  </div>
+    Tutorial (7 plataformas): comece sabendo apenas andar. A 1ª plataforma (T1) tem 5 grupos de inimigos — bate-bate, cobra, girando, esquerda/direita e vindo pra frente — agora mais espaçados, com a plataforma alongada para o horizonte. O FINAL da T1 AFINA até um bico: primeiro fica a CÂMERA e só depois o PULO (não dá para comprar o pulo antes da câmera). A T1 tem exatamente 15 moedas de 1, que é o preço da CÂMERA (15) — ao comprá-la o bolso seca. Nas beiradas da T1 há 4 TOCAS DE PEDRA (formações rochosas naturais, com colisão, e arbustos crescendo em cima das pedras) com 5 moedas de 1 cada, no FUNDO da toca, junto às pedras do fundo: quem vai do início para o fim da fase não as enxerga, e elas só podem ser pegas depois de comprar a câmera. As 4 tocas somam exatamente 20, o preço do PULO — depois de comprar o pulo o dinheiro seca de novo. No começo existe uma plaforminha atrás do ponto de partida — AGORA UM POUCO MAIS AFASTADA, para o jogador treinar o pulo — só se chega com um PULO (sem parede invisível: se errar, cai) — e a moeda dela fica ATRÁS DE UMA PEDRA ALTA: com a câmera voltando do fim para o começo da fase não dá para vê-la. Depois da ponta fina há uma plataforma menor (sem checkpoint); só então começam 3 fileiras iguais de 5 inimigos lado a lado, que dão acesso à T2: cada um dos 15 inimigos enfileirados tem 1 moeda EM CIMA da cabeça. Depois, entre os 5 inimigos que só morrem com o PISÃO FORTE ficam 4 moedas no chão — e essas são as ÚNICAS 4 moedas da T2. Somando as 15 de cima dos inimigos + as 4 entre os resistentes + a 1 da plaforminha do início = exatamente 20, o preço da PANCADA FORTE (20) — e o dinheiro seca de novo. Ao comprar a câmera ela faz uma demonstração sozinha (sobe tudo, vai até a 1ª pessoa, volta, gira 360° para cada lado). TODOS os upgrades agora são COMPRADOS com dinheiro espalhado pelas fases: encoste no item e o Guia vem correndo vender — ele oferece na legenda amarela acima da cabeça, mostra o preço e o seu saldo; se faltar dinheiro, saia e colete mais moedas. Na T2 (metade do tamanho), 5 inimigos resistentes (só morrem com a pancada forte) — derrote os 5 para abrir o portão. No FINAL da T2 fica o PRIMEIRO CHECKPOINT (o da ponta fina foi retirado) e o Guia avisa: "Muito bem, seu primeiro Check point, qualquer problema, continuará daqui, vou deixar essa arma gratuita pra você, tá indo bem." Atrás do portão, a ARMA é GRATUITA (pega ao encostar, sem loja) e não há nenhuma moeda na T2 além das 4 entre os resistentes. Na T3, o upgrade da TRAVA DE MIRA libera um TREINO: 30 inimigos com chifres vindo da FRENTE — segure G para travar a mira e derrube todos; o portão só abre quando todos caírem. Logo atrás, o upgrade de ANDAR ABAIXADO (seta ↓ parado). Antes da T4 há o PULO DUPLO e, depois dela, o DASH: mesma tecla do agachar, mas andando dispara uma CABEÇADA pra frente que mata no caminho. Depois do dash, um vão GRANDE exige DASH + pulo. 6 plataformas + corredor final: inimigos normais, atiradores, rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar a chave 1. Plataforma direita (P5): quiz matemático — acerte para ganhar a chave 2; errou, morre. Com as 2 chaves o portão da arena abre. Guardiões perseguem, espinhos. Ache a estrela no corredor!  </div>
   <button id="vr-button">Entrar em VR</button>
   <div id="message"></div>
   <button id="restart-button">Repetir fase</button>
@@ -121,11 +176,26 @@
   <div id="dialogue-box">
     <div id="dialogue-name">Herói</div>
     <div id="dialogue-text"></div>
-    <div id="dialogue-hint"><button id="dialogue-ok" type="button">OK</button></div>
+    <div id="dialogue-hint"><button id="dialogue-ok" type="button">▶</button></div>
+  </div>
+  <div id="money-hud"><span class="coin-ico"></span><span id="money-value">0</span></div>
+  <div id="shop-overlay">
+    <div id="shop-panel">
+      <div id="shop-kicker">O Guia veio vender</div>
+      <div id="shop-title"></div>
+      <div id="shop-desc"></div>
+      <div class="shop-row"><span>Preço</span><b id="shop-price"></b></div>
+      <div class="shop-row"><span>Seu dinheiro</span><b id="shop-money"></b></div>
+      <div id="shop-msg"></div>
+      <div class="shop-btns">
+        <button id="shop-buy" type="button">Comprar</button>
+        <button id="shop-exit" type="button">Sair</button>
+      </div>
+    </div>
   </div>
   <div id="crosshair"></div>
   <div id="fade" style="position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.12s ease;"></div>
-  <div style="position:absolute;bottom:6px;right:8px;color:#fff8;font-size:11px;pointer-events:none;">build: câmera-crash-v1 + grito-boss + guia-v2</div>
+  <div style="position:absolute;bottom:6px;right:8px;color:#fff8;font-size:11px;pointer-events:none;">build: ponta-afilada-camera-demo-v9</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -180,11 +250,18 @@
     { cx:38, cz:118, hw:3,   hd:3,   color:0x8a7a5a }, // P5: quiz
     { cx:0,  cz:101, hw:10,  hd:13,  color:0x8a8a5a }, // P6: arena final
     { cx:0,  cz:88,  hw:2.5, hd:4,   color:0x7a7a4a }, // P7: corredor
-    { cx:0, cz:311, hw:3, hd:21, color:0x6bcb3b }, // T1 (z 290..332, alongada pra frente)
+    { cx:0, cz:312, hw:3, hd:22, color:0x6bcb3b }, // T1 (z 290..334) + ponta afilada até 284
     { cx:0, cz:261, hw:3, hd:9, color:0x74cd44 }, // T2
     { cx:0, cz:219, hw:3, hd:9, color:0x7dcf4d }, // T3
     { cx:0, cz:177, hw:3, hd:9, color:0x86d156 }, // T4
     { cx:0, cz:196, hw:3, hd:4, color:0x66ccee }, // TJ: pulo duplo
+    // ---- PLATAFORMAS ESCONDIDAS (só aparecem quando o jogador gira a câmera) ----
+    { cx:0,   cz:340.15, hw:1.7, hd:1.7, color:0x5fbf55 }, // ilhota escondida atrás do INÍCIO (1 pulo — agora mais afastada)
+    { cx:-4.8,cz:325,   hw:2.1, hd:3.2, color:0x63b84f }, // lateral esquerda
+    { cx: 4.8,cz:315,   hw:2.1, hd:3.2, color:0x63b84f }, // lateral direita
+    { cx:-4.8,cz:305,   hw:2.1, hd:3.2, color:0x63b84f }, // lateral esquerda
+    { cx: 4.8,cz:297,   hw:2.1, hd:3.2, color:0x63b84f }, // lateral direita
+    { cx:0,   cz:281.2, hw:1.9, hd:1.5, color:0x6fc24a }, // plaquinha logo depois da ponta fina (sem checkpoint)
   ];
   const CONNECTORS = [
     { x:0, z:146.5, r:1.1 }, { x:0, z:144.5, r:1.0 }, { x:0, z:142.5, r:1.0 },
@@ -194,10 +271,23 @@
     { x:0, z:248, r:1.0 }, { x:0, z:244, r:1.0 }, { x:0, z:240, r:1.0 }, { x:0, z:236, r:1.0 }, { x:0, z:232, r:1.0 },
   ];
 
+  // ---- PONTA MUITO AFILADA NO FIM DA T1 ----
+  // De 6 de largura ela vai afinando até quase um bico: assim o item da
+  // CÂMERA fica obrigatoriamente ANTES do item do PULO.
+  const TIP_Z_TOP = 290.0, TIP_Z_END = 283.6;
+  const TIP_HW_TOP = 3.0, TIP_HW_END = 0.28;
+  function tipHalfWidth(z) {
+    if (z > TIP_Z_TOP || z < TIP_Z_END) return -1;
+    const k = (TIP_Z_TOP - z) / (TIP_Z_TOP - TIP_Z_END);
+    return TIP_HW_TOP + (TIP_HW_END - TIP_HW_TOP) * k;
+  }
+
   function hasGroundAt(x, z) {
     for (const p of PLATFORMS) {
       if (Math.abs(x - p.cx) <= p.hw && Math.abs(z - p.cz) <= p.hd) return true;
     }
+    const tw = tipHalfWidth(z);
+    if (tw >= 0 && Math.abs(x) <= tw) return true;
     for (const s of CONNECTORS) {
       const dx = x - s.x, dz = z - s.z;
       if (dx * dx + dz * dz <= s.r * s.r) return true;
@@ -217,6 +307,10 @@
       const pz = Math.max(p.cz - p.hd, Math.min(z, p.cz + p.hd));
       const dx = px - x, dz = pz - z;
       if (dx * dx + dz * dz < r * r) return true;
+    }
+    {
+      const tw = tipHalfWidth(z);
+      if (tw >= 0 && Math.abs(x) <= tw + r) return true;
     }
     for (const s of CONNECTORS) {
       const dx = x - s.x, dz = z - s.z, rr = s.r + r;
@@ -503,6 +597,188 @@
     scene.add(stone);
   }
 
+  // ---- PONTA AFILADA DA T1 (de 6 de largura até um bico) ----
+  (function buildTip() {
+    const geo = new THREE.BufferGeometry();
+    const w0 = tipHalfWidth(TIP_Z_TOP - 0.001), w1 = tipHalfWidth(TIP_Z_END + 0.001);
+    const z0 = TIP_Z_TOP, z1 = TIP_Z_END, yT = 0, yB = -1;
+    const v = [
+      // topo
+      -w0, yT, z0,  w0, yT, z0,  w1, yT, z1,
+      -w0, yT, z0,  w1, yT, z1, -w1, yT, z1,
+      // fundo
+      -w0, yB, z0,  w1, yB, z1,  w0, yB, z0,
+      -w0, yB, z0, -w1, yB, z1,  w1, yB, z1,
+      // lateral esquerda
+      -w0, yT, z0, -w1, yT, z1, -w1, yB, z1,
+      -w0, yT, z0, -w1, yB, z1, -w0, yB, z0,
+      // lateral direita
+       w0, yT, z0,  w1, yB, z1,  w1, yT, z1,
+       w0, yT, z0,  w0, yB, z0,  w1, yB, z1,
+      // bico
+      -w1, yT, z1,  w1, yT, z1,  w1, yB, z1,
+      -w1, yT, z1,  w1, yB, z1, -w1, yB, z1
+    ];
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+    geo.computeVertexNormals();
+    scene.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x6bcb3b })));
+  })();
+
+  // =========================================================================
+  // CONSTRUÇÕES DE PEDRA E ARBUSTOS (dinheiro escondido ATRÁS)
+  // Ficam atrás/do lado da 1ª plataforma: só dá pra ver girando a câmera.
+  // =========================================================================
+  const rockMat  = new THREE.MeshStandardMaterial({ color: 0x8f8c81, roughness: 0.95 });
+  const rockMat2 = new THREE.MeshStandardMaterial({ color: 0x77746a, roughness: 0.95 });
+  const bushMat  = new THREE.MeshStandardMaterial({ color: 0x2f7a3a, roughness: 0.9 });
+  const bushMat2 = new THREE.MeshStandardMaterial({ color: 0x3d9448, roughness: 0.9 });
+  // ---- COLISÃO DAS PAREDES DE PEDRA ----
+  // Cada pedra/parede vira uma caixa sólida: o personagem não atravessa.
+  const SOLIDS = [];
+  const PLAYER_R = 0.34;
+  function addSolid(x, z, w, d, ry) {
+    const c = Math.abs(Math.cos(ry || 0)), s = Math.abs(Math.sin(ry || 0));
+    const hw = (c * w + s * d) / 2, hd = (s * w + c * d) / 2;
+    SOLIDS.push({ minX: x - hw, maxX: x + hw, minZ: z - hd, maxZ: z + hd });
+  }
+  function resolveSolids(oldX, oldZ) {
+    const p = character.position;
+    for (const b of SOLIDS) {
+      if (p.x <= b.minX - PLAYER_R || p.x >= b.maxX + PLAYER_R ||
+          p.z <= b.minZ - PLAYER_R || p.z >= b.maxZ + PLAYER_R) continue;
+      const freeX = !(oldX > b.minX - PLAYER_R && oldX < b.maxX + PLAYER_R);
+      const freeZ = !(oldZ > b.minZ - PLAYER_R && oldZ < b.maxZ + PLAYER_R);
+      if (freeX && !freeZ) { p.x = oldX; }
+      else if (freeZ && !freeX) { p.z = oldZ; }
+      else {
+        const dL = Math.abs(p.x - (b.minX - PLAYER_R));
+        const dR = Math.abs((b.maxX + PLAYER_R) - p.x);
+        const dN = Math.abs(p.z - (b.minZ - PLAYER_R));
+        const dF = Math.abs((b.maxZ + PLAYER_R) - p.z);
+        const m = Math.min(dL, dR, dN, dF);
+        if (m === dL) p.x = b.minX - PLAYER_R;
+        else if (m === dR) p.x = b.maxX + PLAYER_R;
+        else if (m === dN) p.z = b.minZ - PLAYER_R;
+        else p.z = b.maxZ + PLAYER_R;
+      }
+    }
+  }
+  function addRock(x, z, w, h, d, ry, mat, y0) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || rockMat);
+    m.position.set(x, (y0 || 0) + h / 2 - 0.05, z);
+    m.rotation.y = ry || 0;
+    scene.add(m);
+    addSolid(x, z, w, d, ry);
+    return m;
+  }
+  function addBush(x, z, s, mat, y) {
+    const g = new THREE.Group();
+    const lobes = [[0, 0.32, 0, 0.42], [0.28, 0.22, 0.08, 0.3], [-0.26, 0.2, -0.05, 0.28], [0.05, 0.24, -0.26, 0.26]];
+    for (const L of lobes) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(L[3], 10, 8), mat || bushMat);
+      b.position.set(L[0], L[1], L[2]);
+      g.add(b);
+    }
+    g.position.set(x, y || 0, z);
+    g.scale.setScalar(s);
+    scene.add(g);
+    return g;
+  }
+  // muro de pedra que esconde o que está atrás dele + arbustos em volta
+  function addStoneNook(x, z, ry) {
+    addRock(x, z, 1.6, 1.7, 0.6, ry || 0, rockMat);
+    addRock(x - 0.75, z + 0.45, 0.9, 1.05, 0.9, 0.3, rockMat2);
+    addRock(x + 0.8, z + 0.4, 0.85, 1.0, 0.9, -0.25, rockMat2);
+    addBush(x - 1.25, z + 0.85, 0.85);
+    addBush(x + 1.3, z + 0.8, 0.8, bushMat2);
+    addBush(x + 0.35, z - 0.75, 0.62);
+  }
+
+  // Muros decorativos nas beiradas da T1, posicionados LONGE das bocas das
+  // construções (para não atrapalhar a entrada de frente).
+  addStoneNook(-2.6, 330.0, 0.08);
+  addStoneNook( 2.6, 325.6, -0.08);
+  addStoneNook(-2.6, 311.2, 0.08);
+  // ---- AS 4 CONSTRUÇÕES ESCONDIDAS (2 de cada lado da plataforma) ----
+  // São TOCAS NATURAIS: pedras irregulares empilhadas (sem paredes retas de
+  // casa), todas COM COLISÃO, formando um abrigo fechado com a boca voltada
+  // para o lado do FIM da fase — quem anda para o final vê só as pedras de
+  // fundo; a entrada aparece quando o Fracote volta e gira a câmera.
+  // As 5 moedas de cada toca ficam no CHÃO, FUNDO da toca, coladas nas
+  // pedras do fundo (escondidas de quem vem do início para o fim da fase).
+  const HIDEOUTS = [
+    { x: -5.0, z: 325, side: -1 },
+    { x:  5.0, z: 315, side:  1 },
+    { x: -5.0, z: 305, side: -1 },
+    { x:  5.0, z: 297, side:  1 }
+  ];
+  // Pedra natural (dodecaedro irregular) com colisão aproximada.
+  function addBoulder(x, z, r, sy, mat, y0) {
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat || rockMat);
+    m.position.set(x, (y0 || 0) + r * sy * 0.9, z);
+    m.rotation.set((Math.random() - 0.5) * 0.55, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.55);
+    m.scale.set(1 + Math.random() * 0.16, sy, 1 + Math.random() * 0.12);
+    scene.add(m);
+    addSolid(x, z, r * 2.0, r * 2.0, 0);
+    return m;
+  }
+  // [xAbs, dz, raio, escalaY, alturaBase, material]
+  const CAVE_ROCKS = [
+    // costas (esconde as moedas de quem vai para o final da fase)
+    [3.90,  1.90, 1.00, 1.25, 0,    0],
+    [5.00,  2.05, 1.15, 1.35, 0,    1],
+    [6.10,  1.90, 1.00, 1.20, 0,    0],
+    [4.50,  2.05, 0.62, 1.00, 2.00, 1],
+    [5.70,  2.10, 0.66, 1.05, 2.10, 0],
+    // laterais (fecham os lados do abrigo)
+    [3.45,  0.55, 0.85, 1.20, 0,    1],
+    [3.40, -0.85, 0.78, 1.05, 0,    0],
+    [6.70,  0.55, 0.85, 1.15, 0,    0],
+    [6.75, -0.85, 0.78, 1.00, 0,    1],
+    // pedras soltas na boca (deixam a entrada livre no meio)
+    [3.85, -1.90, 0.50, 0.80, 0,    1],
+    [6.20, -1.95, 0.45, 0.70, 0,    0],
+    // pedrinhas no fundo, decorativas (recolhidas junto à parede do fundo)
+    [4.35,  1.45, 0.36, 0.60, 0,    0],
+    [5.75,  1.50, 0.33, 0.55, 0,    1]
+  ];
+  function addCave(h) {
+    const s = h.side;
+    for (const R of CAVE_ROCKS) {
+      addBoulder(s * R[0], h.z + R[1], R[2], R[3], R[5] ? rockMat2 : rockMat, R[4]);
+    }
+    // arbustos em volta (não tapam a boca)
+    addBush(s * 3.5,  h.z - 2.45, 0.8, bushMat2);
+    addBush(s * 6.75, h.z - 2.4,  0.75);
+    addBush(s * 4.3,  h.z + 2.75, 0.7);
+    addBush(s * 6.0,  h.z + 2.85, 0.65, bushMat2);
+    // ---- ARBUSTOS CRESCENDO EM CIMA DAS PEDRAS ----
+    // Musgo/vegetação agarrada nas rochas: deixa a toca com cara de
+    // formação natural e quebra a silhueta dura da pedra. O y é a altura
+    // do topo de cada pedra, menos um pouco, para o arbusto nascer de dentro
+    // dela e só aparecer por cima (nada flutuando).
+    addBush(s * 3.85, h.z + 1.85, 0.50, bushMat,  2.20);
+    addBush(s * 5.05, h.z + 2.05, 0.55, bushMat2, 2.78);
+    addBush(s * 6.05, h.z + 1.87, 0.46, bushMat,  2.12);
+    addBush(s * 4.48, h.z + 2.05, 0.42, bushMat2, 3.02);
+    addBush(s * 5.68, h.z + 2.10, 0.38, bushMat,  3.25);
+    // tufos na base das pedras
+    addBush(s * 3.15, h.z + 2.20, 0.60, bushMat2);
+    addBush(s * 6.95, h.z + 2.25, 0.55, bushMat);
+    addBush(s * 3.15, h.z - 0.15, 0.45, bushMat);
+  }
+  for (const h of HIDEOUTS) addCave(h);
+  // Fundo da plaforminha do INÍCIO: pedras baixas + arbustos nas beiradas.
+  // A PEDRA DO MEIO é alta de propósito: esconde a moeda da ilhota de quem
+  // olha para o começo com a câmera (visão que vem do fim da fase). Ela é
+  // estreita para sobrar passagem dos dois lados até a moeda.
+  addRock(-1.45, 341.55, 0.8, 0.75, 0.6, 0.2, rockMat2);
+  addRock( 1.45, 341.50, 0.8, 0.7, 0.6, -0.25, rockMat);
+  addRock(0, 339.55, 1.10, 1.90, 0.50, 0.08, rockMat);
+  addBush(-1.3, 338.95, 0.95); addBush(1.3, 338.95, 0.9, bushMat2);
+  addBush(-0.78, 339.67, 0.7, bushMat2); addBush(0.82, 339.65, 0.75);
+  addBush(-1.05, 292.6, 0.7); addBush(1.1, 285.9, 0.55, bushMat2);
+
   // =========================================================================
   // PONTES DE PLATAFORMAS CIRCULARES (P3→P4 que caem, P3→P5 móveis)
   // =========================================================================
@@ -559,9 +835,9 @@
   buildBridge(-5, PLATFORMS[2].cz, PLATFORMS[3].cx + PLATFORMS[3].hw, PLATFORMS[3].cz, -1, ['falling'], BRIDGE_COUNT + 2);
   buildBridge(5, PLATFORMS[2].cz, PLATFORMS[4].cx - PLATFORMS[4].hw, PLATFORMS[4].cz, 1, ['moving'], BRIDGE_COUNT + 1);
 
-  // Tutorial T1→T2: só duas pedras paradas; o resto do vão é atravessado
+  // Tutorial T1→T2: nenhuma pedra parada — a plataforma redonda que ficava
+  // embaixo dos itens de PULO e CÂMERA foi removida. O vão é atravessado
   // pulando em cima de inimigos parados.
-  addBridgeStone(0, 288, 1.3, 'static', 1);
 
   function updateBridgePlatforms(dt, t) {
     for (const b of bridgePlatforms) {
@@ -919,7 +1195,8 @@
     }
     scene.add(g);
     normalEnemies.push({
-      mesh: g, alive: true, hp: 1, baseX: x, baseZ: z,
+      mesh: g, alive: true, hp: 1, baseX: (opts.bounceCenter !== undefined ? opts.bounceCenter : x), startX: x, baseZ: z,
+      dir: opts.dir || 1, startDir: opts.dir || 1,
       range: opts.range !== undefined ? opts.range : 1.5 + Math.random(),
       speed: opts.speed !== undefined ? opts.speed : 1.0 + Math.random() * 0.5,
       patrolSpeed: opts.patrolSpeed !== undefined ? opts.patrolSpeed : 1.0,
@@ -940,41 +1217,71 @@
       cState: 'idle', cT: 0, cDirX: 0, cDirZ: 0, cCool: 0,
     });
   }
+  // Bate-bate: anda até bater no colega ou na beirada e volta pelo mesmo caminho.
+  function updateBounceEnemies(dt) {
+    const list = [];
+    for (const ne of normalEnemies) {
+      if (!ne.alive || ne.pattern !== 'bounce') continue;
+      list.push(ne);
+      const cp = ne.mesh.position;
+      cp.z = ne.baseZ;
+      cp.x += ne.dir * ne.speed * dt;
+      const lo = ne.baseX - ne.amp, hi = ne.baseX + ne.amp;
+      if (cp.x < lo) { cp.x = lo; ne.dir = 1; }
+      else if (cp.x > hi) { cp.x = hi; ne.dir = -1; }
+    }
+    const MIN_SEP = 0.95;
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i], b = list[j];
+        if (Math.abs(a.baseZ - b.baseZ) > 0.01) continue;
+        const dx = b.mesh.position.x - a.mesh.position.x;
+        if (Math.abs(dx) < MIN_SEP) {
+          const mid = (a.mesh.position.x + b.mesh.position.x) / 2;
+          a.mesh.position.x = mid - MIN_SEP / 2;
+          b.mesh.position.x = mid + MIN_SEP / 2;
+          a.dir = -1; b.dir = 1;
+        }
+      }
+    }
+  }
+
   // T1 (tutorial, início do jogo): só inimigos vermelhos redondos.
-  // ---- T1 CRIATIVA: sem pulo, sem arma — só desviando! ----
-  // A) PORTÕES VAIVÉM: duas fileiras de varredores em fases opostas (acha a brecha e passa)
-  spawnNormalEnemy(0, 326, { pattern: 'sweep', amp: 2.5, freq: 1.5, phase: 0 });
-  spawnNormalEnemy(0, 326, { pattern: 'sweep', amp: 2.5, freq: 1.5, phase: Math.PI });
-  spawnNormalEnemy(0, 322.5, { pattern: 'sweep', amp: 2.5, freq: 1.9, phase: 1.2 });
-  spawnNormalEnemy(0, 322.5, { pattern: 'sweep', amp: 2.5, freq: 1.9, phase: 1.2 + Math.PI });
-  // B) COBRA (espelhada): a onda corre na MESMA direção do jogador (se afastando dele),
-  //    então a brecha "foge" pra frente e dá pra seguir ela até passar sem tomar dano.
+  // ---- T1: 5 grupos de inimigos, cada etapa mais longe rumo ao horizonte ----
+  // A) BATE-BATE: 4 inimigos em 2 duplas. Eles batem um no outro e VOLTAM,
+  //    sem atravessar: a brecha aparece nas beiradas quando eles se separam.
+  spawnNormalEnemy(-2.2, 327.0, { pattern: 'bounce', dir:  1, bounceCenter: 0, amp: 2.6, speed: 2.4 });
+  spawnNormalEnemy( 2.2, 327.0, { pattern: 'bounce', dir: -1, bounceCenter: 0, amp: 2.6, speed: 2.4 });
+  spawnNormalEnemy( 2.2, 323.2, { pattern: 'bounce', dir: -1, bounceCenter: 0, amp: 2.6, speed: 2.0 });
+  spawnNormalEnemy(-2.2, 323.2, { pattern: 'bounce', dir:  1, bounceCenter: 0, amp: 2.6, speed: 2.0 });
+  // B) COBRA: 6 inimigos em onda, a brecha corre pra frente junto com o jogador.
   for (let i = 0; i < 6; i++) {
-    spawnNormalEnemy(0, 319.5 - i * 0.9, { pattern: 'wave', amp: 2.1, freq: 2.0, phase: -i * 0.85 });
+    spawnNormalEnemy(0, 318.0 - i * 0.9, { pattern: 'wave', amp: 2.1, freq: 2.0, phase: -i * 0.85 });
   }
-  // (camera em z=313: respiro)
-  // C) CARROSSEL: anel de 4 girando; entra no tempo certo, passa pelo meio ou pela beirada
+  // C) GIRANDO: 4 inimigos em carrossel; entre no tempo certo e passe pelo meio/beirada.
   for (let i = 0; i < 4; i++) {
-    spawnNormalEnemy(0, 307, { pattern: 'orbit', amp: 2.2, freq: 1.5, phase: i * Math.PI / 2 });
+    spawnNormalEnemy(0, 308.5, { pattern: 'orbit', amp: 2.2, freq: 1.5, phase: i * Math.PI / 2 });
   }
-  // D) TRAVESSIA: duas "ruas" de inimigos cruzando a pista de lado a lado, em sentidos opostos.
-  //    Nada persegue o jogador: é só esperar a brecha e atravessar (estilo Frogger).
-  spawnNormalEnemy(0, 303.9, { pattern: 'cross', freq: 2.8, phase: 0,   len: 7 });
-  spawnNormalEnemy(0, 303.9, { pattern: 'cross', freq: 2.8, phase: 3.5, len: 7 });
-  spawnNormalEnemy(0, 302.0, { pattern: 'cross', freq: -2.4, phase: 1.5, len: 7 });
-  spawnNormalEnemy(0, 302.0, { pattern: 'cross', freq: -2.4, phase: 5.0, len: 7 });
-  // E) BOLICHE: bolas rolando na sua direção, em três pistas, com intervalos diferentes
-  spawnNormalEnemy(-2.0, 0, { pattern: 'roller', freq: 3.2, phase: 0, zStart: 293, len: 8 });
-  spawnNormalEnemy(-2.0, 0, { pattern: 'roller', freq: 3.2, phase: 4.2, zStart: 293, len: 8 });
-  spawnNormalEnemy(0.0, 0, { pattern: 'roller', freq: 4.0, phase: 2.0, zStart: 293, len: 8 });
-  spawnNormalEnemy(2.0, 0, { pattern: 'roller', freq: 3.6, phase: 5.0, zStart: 293, len: 8 });
-  spawnNormalEnemy(2.0, 0, { pattern: 'roller', freq: 3.6, phase: 1.0, zStart: 293, len: 8 });
-  // T1→T2: inimigos parados em fila; o personagem pula de cabeça em cabeça.
-  spawnNormalEnemy(0, 284, { range: 0 });
-  spawnNormalEnemy(0, 281, { range: 0 });
-  spawnNormalEnemy(0, 278, { range: 0 });
-  spawnNormalEnemy(0, 275, { range: 0 });
-  spawnNormalEnemy(0, 272, { range: 0 });
+  // D) ESQUERDA E DIREITA: duas ruas cruzando a pista de lado a lado, em sentidos opostos.
+  spawnNormalEnemy(0, 302.2, { pattern: 'cross', freq: 2.8, phase: 0,   len: 7 });
+  spawnNormalEnemy(0, 302.2, { pattern: 'cross', freq: 2.8, phase: 3.5, len: 7 });
+  spawnNormalEnemy(0, 300.4, { pattern: 'cross', freq: -2.4, phase: 1.5, len: 7 });
+  spawnNormalEnemy(0, 300.4, { pattern: 'cross', freq: -2.4, phase: 5.0, len: 7 });
+  // E) VÊM PRA FRENTE: bolas rolando na direção do jogador, em pistas e ritmos diferentes.
+  spawnNormalEnemy(-2.0, 0, { pattern: 'roller', freq: 3.2, phase: 0, zStart: 291.5, len: 4.6 });
+  spawnNormalEnemy(-2.0, 0, { pattern: 'roller', freq: 3.2, phase: 4.2, zStart: 291.5, len: 4.6 });
+  spawnNormalEnemy( 0.0, 0, { pattern: 'roller', freq: 4.0, phase: 2.0, zStart: 291.5, len: 4.6 });
+  spawnNormalEnemy( 2.0, 0, { pattern: 'roller', freq: 3.6, phase: 5.0, zStart: 291.5, len: 4.6 });
+  spawnNormalEnemy( 2.0, 0, { pattern: 'roller', freq: 3.6, phase: 1.0, zStart: 291.5, len: 4.6 });
+  // T1→T2: TRÊS fileiras iguais, lado a lado, de 5 inimigos parados cada.
+  // O personagem pula de cabeça em cabeça por qualquer uma das fileiras.
+  const ROW_X = [-1.7, 0, 1.7];
+  const ROW_Z = [278.3, 276.5, 274.7, 272.9, 271.1];
+  for (const rx of ROW_X) {
+    for (const rz of ROW_Z) {
+      spawnNormalEnemy(rx, rz, { range: 0 });
+    }
+  }
   // T2: CINCO inimigos "resistentes" (só morrem com a pancada forte).
   spawnNormalEnemy(-1.5, 268, { stompOnly: true, range: 1.2, patrolSpeed: 2.2, gateGuard: true });
   spawnNormalEnemy(0.0, 265, { stompOnly: true, range: 1.2, patrolSpeed: 2.2, gateGuard: true });
@@ -1247,9 +1554,10 @@
     scene.add(g);
     jumpPickups.push({ mesh: g, baseY: 0.9 });
   }
-  spawnJumpPickup(0, 291.2);
+  // O PULO vem DEPOIS da câmera, mais para o bico da ponta.
+  spawnJumpPickup(0, 285.4);
 
-  // ITEM DA CÂMERA (meio da T1)
+  // ITEM DA CÂMERA (FIM da T1, vizinho do upgrade de pulo)
   let hasCameraAbility = false;
   let cameraPickups = [];
   function spawnCameraPickup(x, z) {
@@ -1267,7 +1575,8 @@
     scene.add(g);
     cameraPickups.push({ mesh: g, baseY: 0.9 });
   }
-  spawnCameraPickup(0, 313);
+  // A CÂMERA vem PRIMEIRO, já na entrada da ponta afilada.
+  spawnCameraPickup(0, 288.2);
 
   // ITEM DE PANCADA FORTE (T2)
   let stompPickups = [];
@@ -1384,10 +1693,336 @@
   spawnDashItem(0, 170);
 
   // =========================================================================
+  // DINHEIRO, MOEDAS E LOJA DE UPGRADES
+  // A partir daqui TODO upgrade é comprado com dinheiro espalhado pelas fases.
+  // =========================================================================
+  let money = 0;
+  let coinSeq = 0;
+  let cameraCoinHintShown = false;
+  const collectedCoinIds = new Set();
+  const coinPickups = [];
+  let shopActive = false;
+  let currentShop = null;
+
+  // Preços crescentes, na ordem em que os itens aparecem no caminho.
+  const UPGRADE_DEFS = {
+    jump: {
+      title: 'Pulo', price: 20,
+      desc: 'Aprenda a pular para atravessar vãos e alcançar plataformas mais altas. Segure o botão para um pulo mais alto e mais longo.',
+      post: 'Agora você já sabe pular. Será que consegue chegar na segunda plataforma?',
+      apply: function () { hasJumpAbility = true; }
+    },
+    camera: {
+      title: 'Câmera', price: 15,
+      desc: 'Libera o controle da visão: gire com o analógico DIREITO (no PC, teclas 4 e 6), aproxime com 8 e afaste com 2. Aperte o analógico direito (ou 5) para voltar ao normal.',
+      post: 'Você pegou a CÂMERA! Agora dá pra mexer na visão com o analógico DIREITO: para os lados gira a câmera, para cima aproxima (zoom) e para baixo afasta. Aproximando bastante chega à primeira pessoa. Apertando o analógico direito, a câmera volta ao normal. (No PC: teclas 4 e 6 giram, 8 e 2 dão zoom, 5 reseta.)',
+      apply: function () { hasCameraAbility = true; }
+    },
+    stomp: {
+      title: 'Pancada Forte', price: 20,
+      desc: 'No ar, desça com força para esmagar inimigos resistentes. Alguns inimigos só morrem com a pancada forte.',
+      post: 'Agora você sabe pisar forte! Alguns inimigos só caem assim.',
+      apply: function () { hasStompAbility = true; }
+    },
+    gun: {
+      title: 'Arma (grátis)', price: 0,
+      desc: 'Equipa uma arma de fogo. Atire com F / gatilho direito para derrubar inimigos à distância.',
+      post: 'A ARMA é sua, de graça! Aperte F (ou o gatilho direito) para atirar nos inimigos à distância.',
+      apply: function () {
+        hasGun = true;
+        gunOnPlayer.visible = true;
+        crosshairEl.style.display = 'block';
+      }
+    },
+    aim: {
+      title: 'Trava de Mira', price: 20,
+      desc: 'Segure G / GRIP direito para travar a mira e atirar para frente mesmo andando de lado. Essencial contra a fila de inimigos que vem da frente.',
+      post: 'Você pegou a trava de mira! Segurando G, você atira para frente mesmo andando de lado. Vem MUITA gente vindo da frente sem parar — derrube todos!',
+      apply: function () {
+        hasAimLockAbility = true;
+        if (!t3WaveSpawned) { t3WaveSpawned = true; spawnT3Wave(); }
+      }
+    },
+    crouch: {
+      title: 'Andar Abaixado', price: 25,
+      desc: 'No chão e parado, agache com seta ↓ / GRIP esquerdo. A arma desce quase até o chão — é assim que se acerta inimigos baixos.',
+      post: 'Agora você sabe andar ABAIXADO! A seta ↓ no chão agacha o corpo e a arma desce junto — é assim que você acerta aqueles bichos baixos de chifres lá na plataforma menor. Tiro em pé passa por cima deles.',
+      apply: function () { hasCrouchAbility = true; }
+    },
+    dbl: {
+      title: 'Pulo Duplo', price: 30,
+      desc: 'Aperte pulo de novo no ar para dar um segundo impulso. Segure o botão nos dois pulos para ir mais longe e atravessar o buraco enorme.',
+      post: 'PULO DUPLO! Pule no chão e, ainda no ar, aperte o pulo de novo para dar mais um impulso. Segure o botão nos dois pulos pra ir mais longe — com ele você atravessa aquele buraco enorme.',
+      apply: function () {
+        hasDoubleJumpAbility = true;
+        saveCheckpoint(0, 197);
+      }
+    },
+    dash: {
+      title: 'Dash (Cabeçada)', price: 40,
+      desc: 'Andando, seta ↓ / GRIP esquerdo dispara uma cabeçada pra frente: mata qualquer inimigo no caminho e pega velocidade. Parado, a mesma tecla agacha.',
+      post: 'Agora você tem o DASH! Mesma tecla do agachar (seta ↓): PARADO agacha, e ANDANDO dispara a cabeçada pra frente — quebra qualquer inimigo no caminho e pega velocidade. Dá pra escapar e atacar ao mesmo tempo!',
+      apply: function () {
+        hasDashAbility = true;
+        if (!dashGateOpen) {
+          dashGateOpen = true;
+          dashGate.position.y = 2;
+          showHint('Portão aberto! Agora posso cruzar o vão com o dash e atacar os inimigos da P1!', 2500);
+        }
+      }
+    }
+  };
+
+  // Liga cada item do tutorial à sua entrada na loja.
+  const tagShop = function (arr, key) {
+    if (arr.length) arr[arr.length - 1].upgradeKey = key;
+  };
+  tagShop(jumpPickups, 'jump');
+  tagShop(cameraPickups, 'camera');
+  tagShop(stompPickups, 'stomp');
+  tagShop(gunItems, 'gun');
+  tagShop(aimLockItems, 'aim');
+  tagShop(crouchItems, 'crouch');
+  tagShop(doubleJumpItems, 'dbl');
+  tagShop(dashItems, 'dash');
+
+  const moneyValueEl = document.getElementById('money-value');
+  const shopOverlayEl = document.getElementById('shop-overlay');
+  const shopTitleEl = document.getElementById('shop-title');
+  const shopDescEl = document.getElementById('shop-desc');
+  const shopPriceEl = document.getElementById('shop-price');
+  const shopMoneyEl = document.getElementById('shop-money');
+  const shopMsgEl = document.getElementById('shop-msg');
+  const shopBuyBtn = document.getElementById('shop-buy');
+  const shopExitBtn = document.getElementById('shop-exit');
+
+  function updateMoneyUI() {
+    if (moneyValueEl) moneyValueEl.textContent = String(money);
+  }
+  function playCoinSound() { beep(1050, 1600, 0.10, 'triangle', 0.16); }
+
+  // -------- MOEDAS --------
+  const coinGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.07, 18);
+  const coinMat = new THREE.MeshStandardMaterial({
+    color: 0xffcc33, emissive: 0xb8860b, emissiveIntensity: 0.65,
+    metalness: 0.7, roughness: 0.35
+  });
+  function spawnCoin(x, z, value, y, pickR) {
+    const g = new THREE.Group();
+    const c = new THREE.Mesh(coinGeo, coinMat);
+    c.rotation.x = Math.PI / 2;
+    g.add(c);
+    const by = (y === undefined || y === null) ? 0.78 : y;
+    g.position.set(x, by, z);
+    g.rotation.y = Math.random() * Math.PI * 2;
+    scene.add(g);
+    coinPickups.push({
+      mesh: g, baseY: by, value: value || 1, phase: Math.random() * Math.PI * 2,
+      pickR: pickR || 0.55,
+      id: 'coin' + (coinSeq++)
+    });
+  }
+  function spawnCoinRow(entries) {
+    for (const e of entries) spawnCoin(e[0], e[1], e[2]);
+  }
+
+  // ---- Distribuição do dinheiro ----
+  // ECONOMIA FECHADA DO INÍCIO:
+  //   T1 (antes da câmera): 15 moedas de 1 = 15  ->  preço da CÂMERA (15)
+  //   4 tocas: 5 moedas de 1 cada = 20 no total ->  preço do PULO (20)
+  // Assim, depois de comprar a câmera, sobram exatamente 20 moedas (as das
+  // tocas) e o dinheiro "seca" ao comprar o pulo.
+  // Trecho 1 (T1, antes da câmera): 15 moedas de 1 = 15.
+  // Espalhadas em zigue-zague de beirada a beirada para exigir desvio.
+  spawnCoinRow([
+    [-2.30, 331.2, 1], [ 2.35, 328.6, 1], [ 0.10, 326.6, 1],
+    [ 2.55, 323.9, 1], [-2.55, 321.3, 1], [-0.30, 318.9, 1],
+    [ 2.45, 316.4, 1], [-2.45, 313.9, 1], [ 0.45, 311.5, 1],
+    [ 2.55, 309.0, 1], [-2.55, 306.4, 1], [ 0.00, 303.9, 1],
+    [ 2.20, 301.4, 1], [-2.20, 298.8, 1], [ 0.00, 296.0, 1]
+  ]);
+  // ---- DINHEIRO NO FUNDO DAS 4 CONSTRUÇÕES ESCONDIDAS ----
+  // Exatamente 5 moedas de 1 por toca (= 5). As 4 tocas somam 20, o preço
+  // do PULO. Ficam no ponto MAIS FUNDO da toca, encostadas na parede de
+  // pedra do fundo: para quem vai do início para o fim da fase (câmera nas
+  // costas) a própria parede tapa tudo; só aparecem quando o Fracote volta
+  // e gira a câmera do fim para o começo.
+  const CAVE_COIN_SLOTS = [
+    [ 0.22, 0.62], [-0.24, 0.68], [ 0.10, 0.74], [-0.12, 0.60], [ 0.02, 0.70]
+  ];
+  for (const h of HIDEOUTS) {
+    for (let i = 0; i < 5; i++) {
+      const sx = h.side * CAVE_COIN_SLOTS[i][0];
+      const sz = CAVE_COIN_SLOTS[i][1];
+      spawnCoin(h.x + sx, h.z + sz, 1, 0.24, 0.50);
+      const cv = coinPickups[coinPickups.length - 1];
+      // só dá para pegar depois de comprar a CÂMERA
+      cv.requiresCamera = true;
+      cv.mesh.scale.setScalar(0.55);
+    }
+  }
+  // Ilhota escondida atrás do início: UMA moeda de 1, atrás da PEDRA ALTA do
+  // fundo — com a câmera voltando do fim para o começo da fase ela não
+  // aparece. O acesso é SÓ pelo PULO (sem pedras de passagem).
+  spawnCoin(0, 340.45, 1);
+  // ---- DEPOIS DO PULO: dinheiro da PANCADA FORTE (20) ----
+  // 15 moedas de 1 EM CIMA da cabeça de cada inimigo enfileirado (as 3
+  // fileiras de 5 que dão acesso à T2). Só se pegam passando por cima deles.
+  for (const rx of ROW_X) {
+    for (const rz of ROW_Z) {
+      spawnCoin(rx, rz, 1, 1.75, 0.62);
+    }
+  }
+  // 4 moedas de 1 no chão, ENTRE os 5 inimigos que só morrem com o pisão.
+  spawnCoinRow([
+    [-0.75, 266.5, 1], [ 0.75, 263.5, 1], [ 0.15, 260.5, 1], [ 0.00, 257.5, 1]
+  ]);
+  // 15 (em cima dos inimigos) + 4 (entre os resistentes) + 1 (ilhota do
+  // início) = 20 = preço da PANCADA FORTE. Ao comprá-la o bolso seca.
+  // A T2 NÃO TEM NENHUMA OUTRA MOEDA: só essas 4 entre os inimigos
+  // resistentes. Depois do portão a ARMA é GRATUITA.
+  // Trecho 4 (arma → trava de mira): 7 moedas de 3 = 21.
+  spawnCoinRow([
+    [0, 247, 3], [0, 244, 3], [0, 241, 3], [0, 238, 3],
+    [0, 235, 3], [0, 232, 3], [0, 229, 3]
+  ]);
+  // Trecho 5 (trava de mira → andar abaixado): 13 moedas de 2 = 26.
+  (function () {
+    for (let i = 0; i < 13; i++) spawnCoin((i % 2 === 0 ? 0.75 : -0.75), 225 - i * 1.3, 2);
+  })();
+  // Trecho 6 (abaixado → pulo duplo): 6 moedas de 5 = 30.
+  spawnCoinRow([
+    [0.65, 204, 5], [-0.65, 202.5, 5], [0.65, 201, 5],
+    [-0.65, 199.5, 5], [0.65, 198, 5], [-0.65, 196.5, 5]
+  ]);
+  // Trecho 7 (pulo duplo → dash, na T4): 8 moedas de 5 = 40.
+  spawnCoinRow([
+    [0.7, 193, 5], [-0.7, 190, 5], [0.7, 187, 5], [-0.7, 184, 5],
+    [0.7, 181, 5], [-0.7, 178, 5], [0.7, 175, 5], [-0.7, 172, 5]
+  ]);
+  updateMoneyUI();
+
+  function refreshShopUI() {
+    if (!currentShop) return;
+    const def = UPGRADE_DEFS[currentShop.key];
+    shopMoneyEl.textContent = String(money);
+    if (money >= def.price) {
+      shopBuyBtn.disabled = false;
+      shopBuyBtn.textContent = 'Comprar';
+      shopMsgEl.textContent = '';
+      shopExitBtn.textContent = 'Sair';
+    } else {
+      shopBuyBtn.disabled = true;
+      shopBuyBtn.textContent = 'Comprar';
+      shopMsgEl.textContent = 'Faltam ' + (def.price - money) + ' moedas. Clique em Sair e colete mais dinheiro pelas fases.';
+      shopExitBtn.textContent = 'Sair e coletar dinheiro';
+    }
+  }
+  // -------- A COMPRA É FEITA PELO GUIA --------
+  // Ao encostar no item, o Guia vem correndo até o herói, oferece o item na
+  // legenda acima da cabeça dele e, quando o jogador aceita continuar, abre a
+  // venda (mesmo painel, agora apresentado por ele).
+  let pendingOffer = null;
+  function openUpgradeShop(pickup, arr, key) {
+    const def = UPGRADE_DEFS[key];
+    if (!def || shopActive || dialogueActive || pendingOffer) return;
+    // O PULO só é vendido DEPOIS da CÂMERA (a ponta afilada força essa ordem).
+    if (key === 'jump' && !hasCameraAbility) {
+      pickup.armed = false;
+      npcCall();
+      showDialogue('Ainda não! Primeiro compre a CÂMERA — ela fica logo aqui atrás, na entrada da ponta. Sem a câmera você não acha as moedas escondidas atrás das pedras.', { name: NPC_NAME });
+      return;
+    }
+    // ITEM GRATUITO (a ARMA): não abre loja, pega direto ao encostar.
+    if (def.price <= 0) {
+      pickup.armed = false;
+      scene.remove(pickup.mesh);
+      const i = arr.indexOf(pickup);
+      if (i >= 0) arr.splice(i, 1);
+      def.apply();
+      playPickupSound();
+      saveGame();
+      if (def.post) showDialogue(def.post, { name: NPC_NAME });
+      return;
+    }
+    pendingOffer = { pickup: pickup, arr: arr, key: key };
+    npcCall();
+    const falta = money < def.price;
+    showDialogue(
+      'Quer comprar ' + def.title + ' por ' + def.price + ' moedas? ' +
+      (falta ? 'Você só tem ' + money + ', vai faltar um pouco.' : 'Você tem ' + money + '. Basta confirmar.'),
+      {
+        name: NPC_NAME,
+        onClose: function () {
+          const p = pendingOffer;
+          pendingOffer = null;
+          if (!p) return;
+          // o Guia fica parado ao lado durante a venda
+          if (npcMode === 'leave') { npcMode = 'intro'; npcLeaveT = 0; npcFaceTarget = null; }
+          openShopPanel(p.pickup, p.arr, p.key);
+        }
+      }
+    );
+  }
+  function openShopPanel(pickup, arr, key) {
+    const def = UPGRADE_DEFS[key];
+    if (!def || shopActive) return;
+    shopActive = true;
+    currentShop = { pickup: pickup, arr: arr, key: key };
+    shopTitleEl.textContent = def.title;
+    shopDescEl.textContent = def.desc;
+    shopPriceEl.textContent = def.price + ' moedas';
+    refreshShopUI();
+    shopOverlayEl.style.display = 'flex';
+  }
+  function closeShop(disarm) {
+    shopOverlayEl.style.display = 'none';
+    shopActive = false;
+    if (disarm !== false && currentShop && currentShop.pickup) currentShop.pickup.armed = false;
+    currentShop = null;
+    // terminou a venda: o Guia se despede e sai de cena
+    if (!introBusy && npcMode === 'intro') { npcMode = 'leave'; npcLeaveT = 0; npcFaceTarget = null; npcGesture = null; }
+  }
+  function tryOpenUpgrade(pickup, arr, key, dist) {
+    if (dialogueActive || shopActive || pendingOffer) return;
+    if (pickup.armed === false) {
+      if (dist > 1.1) pickup.armed = true;
+      return;
+    }
+    if (dist < 0.6) openUpgradeShop(pickup, arr, key);
+  }
+  function buyCurrentUpgrade() {
+    if (!currentShop) return;
+    const def = UPGRADE_DEFS[currentShop.key];
+    if (!def || money < def.price) { refreshShopUI(); return; }
+    const pickup = currentShop.pickup, arr = currentShop.arr, key = currentShop.key;
+    money -= def.price;
+    updateMoneyUI();
+    scene.remove(pickup.mesh);
+    const idx = arr.indexOf(pickup);
+    if (idx >= 0) arr.splice(idx, 1);
+    def.apply();
+    closeShop(false);
+    playPickupSound();
+    if (key === 'camera') {
+      // comprou a câmera: o Guia fala e ela mesma faz a demonstração
+      showDialogue('A CÂMERA é sua! Fica de olho: eu vou mostrar tudo o que ela faz.', {
+        name: NPC_NAME,
+        onClose: function () { startCameraDemo(); }
+      });
+    } else if (def.post) {
+      showDialogue(def.post, { name: NPC_NAME });
+    }
+    saveGame();
+  }
+  shopBuyBtn.addEventListener('click', buyCurrentUpgrade);
+  shopExitBtn.addEventListener('click', function () { closeShop(true); });
+
+  // =========================================================================
   // CHECKPOINT (fim da T4, ao lado DIREITO do item do dash)
   // =========================================================================
-  let checkpoint = null;
-  function spawnCheckpoint(x, z) {
+  const checkpoints = [];
+  function spawnCheckpoint(x, z, message, after) {
     const group = new THREE.Group();
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x9a7a4a, roughness: 0.95 });
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 1.5, 8), woodMat);
@@ -1430,9 +2065,16 @@
     group.position.set(x, 0, z);
     scene.add(group);
     flagGroup.visible = false;
-    return { mesh: group, flagGroup, flag, board, signMat, liveTex, activated: false };
+    return { mesh: group, flagGroup, flag, board, signMat, liveTex, activated: false, message: message || 'Checkpoint!', after: after || null };
   }
-  checkpoint = spawnCheckpoint(1.9, 170);
+  // Checkpoint do fim da T2: no FINAL da plataforma dos inimigos resistentes,
+  // logo antes do portão e da arma gratuita. É o primeiro checkpoint do jogo.
+  checkpoints.push(spawnCheckpoint(0, 254.2,
+    'Checkpoint! Se você cair agora, reaparece aqui mesmo — no fim da plataforma dos inimigos resistentes, antes do portão da arma.',
+    'Muito bem, seu primeiro Check point, qualquer problema, continuará daqui, vou deixar essa arma gratuita pra você, tá indo bem.'));
+  // Checkpoint do fim da T4, ao lado DIREITO do item do dash.
+  checkpoints.push(spawnCheckpoint(1.9, 170,
+    'Checkpoint! Se você cair agora, reaparece aqui mesmo — logo ao lado do item do dash, já na beirinha da primeira plataforma com inimigos.'));
 
   // =========================================================================
   // PUZZLE (P4) — pedra empurrável + placa + chave
@@ -2174,6 +2816,32 @@
   let prevCamStickVert = 0;
   let prevCamResetKey = false;
   let prevCamResetStick = false;
+
+  // ---- DEMONSTRAÇÃO AUTOMÁTICA DA CÂMERA (ao comprar a câmera) ----
+  // A câmera sozinha: sobe tudo -> desce até a 1ª pessoa -> volta ao normal ->
+  // gira 360° para um lado -> gira 360° para o outro -> volta ao original.
+  let camDemo = null;
+  function startCameraDemo() {
+    if (camDemo) return;
+    const hDef = CAM_HEIGHT + CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP * CAM_HEIGHT_STEP;
+    const bDef = CAM_BACK_OFFSET + CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP * CAM_BACK_STEP;
+    const hUp  = CAM_HEIGHT + CAM_HEIGHT_LEVEL_MAX * CAM_HEIGHT_STEP;
+    const bUp  = CAM_BACK_OFFSET + CAM_HEIGHT_LEVEL_MAX * CAM_BACK_STEP;
+    const hFp  = character.position.y + FP_EYE_HEIGHT;
+    camDemo = {
+      i: 0, t: 0,
+      fromH: dolly.position.y, fromB: dolly.position.z, fromYaw: camPivot.rotation.y,
+      phases: [
+        { name: 'up',    dur: 1.5, h: hUp,  b: bUp,  yaw: 0 },
+        { name: 'fp',    dur: 1.9, h: hFp,  b: 0.05, yaw: 0 },
+        { name: 'back',  dur: 1.6, h: hDef, b: bDef, yaw: 0 },
+        { name: 'spinL', dur: 2.8, h: hDef, b: bDef, yaw: Math.PI * 2 },
+        { name: 'spinR', dur: 2.8, h: hDef, b: bDef, yaw: 0 }
+      ]
+    };
+    camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP;
+    camYawTarget = camPivot.rotation.y;
+  }
   let gameWon = false;
   let facingAngle = Math.PI;
   let arenaActivated = false;
@@ -2236,7 +2904,7 @@
     standingPlatform = null;
     hearts = MAX_HEARTS;
     invulnTimer = HURT_BLINK_TIME;
-    if (checkpoint && !checkpoint.activated) respawnAllEnemies();
+    if (!checkpoints.some((c) => c.activated)) respawnAllEnemies();
     character.position.copy(checkpointPos);
     camPivot.position.set(checkpointPos.x, 0, checkpointPos.z);
     updateHeartsUI();
@@ -2257,7 +2925,8 @@
       if (ne.t3Phase !== undefined && t3Phase >= 2) continue;
       ne.alive = true;
       ne.hp = 1;
-      ne.mesh.position.set(ne.baseX, ne.flying ? ne.flyHeight : 0, ne.baseZ);
+      ne.mesh.position.set(ne.startX !== undefined ? ne.startX : ne.baseX, ne.flying ? ne.flyHeight : 0, ne.baseZ);
+      if (ne.pattern === 'bounce') ne.dir = ne.startDir || 1;
       ne.cState = 'idle'; ne.cT = 0; ne.cCool = 0;
       revive(ne);
     }
@@ -2347,11 +3016,35 @@
   const dialogueBoxEl  = document.getElementById('dialogue-box');
   const dialogueNameEl = document.getElementById('dialogue-name');
   const dialogueTextEl = document.getElementById('dialogue-text');
+
+  // ---- legenda ancorada acima da cabeça de quem está falando ----
+  const HEAD_LABEL_OFFSET = 1.95;   // altura acima dos pés do personagem
+  const _dlgHead = new THREE.Vector3();
+  function speakerHeadWorld(out) {
+    if (dialogueSpeaker === 'npc') {
+      out.set(npc.position.x, npc.position.y + HEAD_LABEL_OFFSET, npc.position.z);
+    } else {
+      out.set(character.position.x, character.position.y + HEAD_LABEL_OFFSET, character.position.z);
+    }
+    return out;
+  }
+  function updateDialogueLabelPosition() {
+    if (!dialogueActive) return;
+    speakerHeadWorld(_dlgHead).project(camera);
+    const W = window.innerWidth, H = window.innerHeight;
+    let sx = (_dlgHead.x * 0.5 + 0.5) * W;
+    let sy = (-_dlgHead.y * 0.5 + 0.5) * H;
+    if (_dlgHead.z > 1 || !isFinite(sx) || !isFinite(sy)) { sx = W * 0.5; sy = H * 0.34; }
+    sx = Math.max(110, Math.min(W - 110, sx));
+    sy = Math.max(70, Math.min(H - 30, sy));
+    dialogueBoxEl.style.left = sx.toFixed(1) + 'px';
+    dialogueBoxEl.style.top  = sy.toFixed(1) + 'px';
+  }
   // =========================================================================
   // MENU PRINCIPAL (Jogo BRobows — Wobercron Doido) + OPÇÕES + SALVAR/CARREGAR
   // =========================================================================
   const SETTINGS_KEY = 'brobows_settings_v1';
-  const SAVE_KEY = 'brobows_save_v1';
+  const SAVE_KEY = 'brobows_save_v2'; // v2: economia nova (pisão 20)
   const settings = { turn: 'fast', deg: 30 };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -2556,7 +3249,8 @@
         jump: hasJumpAbility, stomp: hasStompAbility, gun: hasGun, aim: hasAimLockAbility,
         crouch: hasCrouchAbility, dbl: hasDoubleJumpAbility, dash: hasDashAbility, cam: hasCameraAbility,
         t2: t2GateOpen, t3: t3GateOpen, t3p: t3Phase, dgate: dashGateOpen,
-        cp: !!(checkpoint && checkpoint.activated),
+        cp: checkpoints.some((c) => c.activated),
+        money: money, coins: Array.from(collectedCoinIds),
       }));
     } catch (e) {}
   }
@@ -2576,15 +3270,35 @@
     if (hasDoubleJumpAbility) clearArr(doubleJumpItems);
     if (hasDashAbility) clearArr(dashItems);
     if (hasCameraAbility) clearArr(cameraPickups);
+    if (typeof d.money === 'number') money = Math.max(0, d.money | 0);
+    if (Array.isArray(d.coins)) {
+      for (const id of d.coins) collectedCoinIds.add(id);
+      for (let i = coinPickups.length - 1; i >= 0; i--) {
+        if (collectedCoinIds.has(coinPickups[i].id)) {
+          scene.remove(coinPickups[i].mesh);
+          coinPickups.splice(i, 1);
+        }
+      }
+    }
+    updateMoneyUI();
     t2GateOpen = !!d.t2; t3GateOpen = !!d.t3; t3Phase = d.t3p | 0; dashGateOpen = !!d.dgate;
     if (t2GateOpen) t2Gate.position.y = -3;
     if (t3GateOpen) t3Gate.position.y = -3;
     if (dashGateOpen) dashGate.position.y = -3;
-    if (d.cp && checkpoint) {
-      checkpoint.activated = true;
-      checkpoint.signMat.map = checkpoint.liveTex;
-      checkpoint.signMat.needsUpdate = true;
-      checkpoint.mesh.scale.set(1.5, 1.5, 1.5);
+    if (d.cp && checkpoints.length) {
+      // ativa o checkpoint mais próximo do ponto salvo
+      let best = null, bestD = Infinity;
+      for (const c of checkpoints) {
+        const ddx = c.mesh.position.x - d.x, ddz = c.mesh.position.z - d.z;
+        const dd = ddx * ddx + ddz * ddz;
+        if (dd < bestD) { bestD = dd; best = c; }
+      }
+      if (best) {
+        best.activated = true;
+        best.signMat.map = best.liveTex;
+        best.signMat.needsUpdate = true;
+        best.mesh.scale.set(1.5, 1.5, 1.5);
+      }
     }
     checkpointPos.set(d.x, 0, d.z);
     character.position.set(d.x, 0, d.z);
@@ -2608,9 +3322,9 @@
   );
   vrDlgPlane.renderOrder = 20;
   vrDlgPlane.visible = false;
-  dolly.add(vrDlgPlane);
+  scene.add(vrDlgPlane);
   let vrDlgFrames = 0;
-  const _vcp = new THREE.Vector3(), _vcd = new THREE.Vector3();
+  const _vcp = new THREE.Vector3(), _vcd = new THREE.Vector3(), _vcp2 = new THREE.Vector3();
   function placeVrDialogue() {
     renderer.xr.getCamera(camera);
     _vcp.copy(camera.position);
@@ -2618,9 +3332,12 @@
     _vcd.y = 0;
     if (_vcd.lengthSq() < 0.0001) _vcd.set(0, 0, -1);
     _vcd.normalize();
-    const py = _vcp.y - 0.12;
-    vrDlgPlane.position.set(_vcp.x + _vcd.x * 1.1, py, _vcp.z + _vcd.z * 1.1);
-    vrDlgPlane.rotation.set(0, Math.atan2(-_vcd.x, -_vcd.z), 0);
+    // a legenda fica logo ACIMA da cabeça de quem está falando
+    speakerHeadWorld(_vcp2);
+    const px = _vcp2.x, py = _vcp2.y + 0.5, pz = _vcp2.z;
+    vrDlgPlane.position.set(px, py, pz);
+    // vira o plano para o jogador (billboard no eixo vertical)
+    vrDlgPlane.rotation.set(0, Math.atan2(_vcp.x - px, _vcp.z - pz), 0);
   }
   renderer.xr.addEventListener('sessionstart', function () { if (dialogueActive) dialogueTimer = 0; });
 
@@ -2639,39 +3356,39 @@
   function drawVrDialogue(name, text) {
     const c = vrDlgCtx, W = vrDlgCanvas.width, H = vrDlgCanvas.height;
     c.clearRect(0, 0, W, H);
-    const r = 36;
-    c.beginPath();
-    c.moveTo(r, 4); c.lineTo(W - r, 4); c.quadraticCurveTo(W - 4, 4, W - 4, r);
-    c.lineTo(W - 4, H - r); c.quadraticCurveTo(W - 4, H - 4, W - r, H - 4);
-    c.lineTo(r, H - 4); c.quadraticCurveTo(4, H - 4, 4, H - r);
-    c.lineTo(4, r); c.quadraticCurveTo(4, 4, r, 4); c.closePath();
-    c.fillStyle = 'rgba(15,15,25,0.92)'; c.fill();
-    c.lineWidth = 8; c.strokeStyle = '#ff7a1a'; c.stroke();
-    c.textAlign = 'left'; c.textBaseline = 'top';
-    c.fillStyle = '#ff9a3a'; c.font = 'bold 40px sans-serif';
-    c.fillText(String(name).toUpperCase(), 48, 36);
-    const maxW = W - 96, top = 100, bottom = H - 150;
-    let size = 46, lines = [];
+    // texto amarelo com sombra preta, sem caixa/fundo
+    const maxW = W - 70;
+    let size = 54, lines = [];
     for (; size >= 26; size -= 2) {
-      c.font = size + 'px sans-serif';
+      c.font = 'bold ' + size + 'px Verdana, sans-serif';
       lines = vrWrapLines(c, text, maxW);
-      if (lines.length * size * 1.3 <= bottom - top) break;
+      if (lines.length * size * 1.3 <= H - 110) break;
     }
-    c.fillStyle = '#ffffff';
-    lines.forEach((ln, i) => c.fillText(ln, 48, top + i * size * 1.3));
-    const bw = 220, bh = 84, bx = W - 48 - bw, by = H - 36 - bh;
-    c.fillStyle = '#ff7a1a';
-    c.beginPath();
-    c.moveTo(bx + 18, by); c.lineTo(bx + bw - 18, by); c.quadraticCurveTo(bx + bw, by, bx + bw, by + 18);
-    c.lineTo(bx + bw, by + bh - 18); c.quadraticCurveTo(bx + bw, by + bh, bx + bw - 18, by + bh);
-    c.lineTo(bx + 18, by + bh); c.quadraticCurveTo(bx, by + bh, bx, by + bh - 18);
-    c.lineTo(bx, by + 18); c.quadraticCurveTo(bx, by, bx + 18, by); c.closePath(); c.fill();
-    c.fillStyle = '#ffffff'; c.font = 'bold 48px sans-serif';
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('OK', bx + bw / 2, by + bh / 2 + 2);
-    c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.fillStyle = '#ffcc99'; c.font = '30px sans-serif';
-    c.fillText('aperte A/X ou o gatilho para dar OK', 48, by + bh / 2);
+    c.lineJoin = 'round';
+    c.strokeStyle = '#000000';
+    c.lineWidth = Math.max(6, size * 0.22);
+    c.shadowColor = 'rgba(0,0,0,0.95)';
+    c.shadowBlur = 16;
+    c.shadowOffsetX = 0;
+    c.shadowOffsetY = 6;
+    c.fillStyle = '#ffe000';
+    const totalH = lines.length * size * 1.3;
+    // desloca meia linha para o texto nascer logo acima da cabeça
+    let y = (H - 60 - totalH) / 2 + size * 0.7;
+    for (const ln of lines) {
+      c.strokeText(ln, W / 2, y);
+      c.fillText(ln, W / 2, y);
+      y += size * 1.3;
+    }
+    c.shadowBlur = 0; c.shadowOffsetY = 0;
+    c.font = 'bold 26px Verdana, sans-serif';
+    c.lineWidth = 7;
+    c.strokeStyle = '#000000';
+    c.fillStyle = '#ffe000';
+    const hint = 'A / X ou o gatilho para continuar';
+    c.strokeText(hint, W / 2, H - 34);
+    c.fillText(hint, W / 2, H - 34);
     vrDlgTex.needsUpdate = true;
   }
 
@@ -2683,10 +3400,11 @@
     dialogueBoxEl.style.display = 'block';
     dialogueActive = true;
     dialogueTimer = 0;
-    dialogueMinTime = opts.minTime !== undefined ? opts.minTime : 1.0;
+    dialogueMinTime = opts.minTime !== undefined ? opts.minTime : 0.4;
     dialogueOnClose = opts.onClose || null;
     dialogueSpeaker = opts.name === NPC_NAME ? 'npc' : (opts.name === HERO_NAME ? 'hero' : null);
     if (opts.name === NPC_NAME) npcCall();
+    updateDialogueLabelPosition();
   }
   let dialogueOnClose = null;
   let dialogueSpeaker = null;
@@ -2694,12 +3412,18 @@
     if (!dialogueActive) return;
     dialogueActive = false;
     dialogueBoxEl.style.display = 'none';
+    // evita pular sem querer quando a fala é fechada com o botão de ação
+    jumpPrevHeld = !!(keys['Space'] || keys['KeyB'] || keys['ArrowUp']);
     const cb = dialogueOnClose; dialogueOnClose = null;
     dialogueSpeaker = null;
     if (npcMode === 'arrive' && !introBusy) { npcMode = 'leave'; npcLeaveT = 0; }
     if (cb) cb();
   }
   document.getElementById('dialogue-ok').addEventListener('click', () => {
+    if (dialogueTimer >= dialogueMinTime) dismissDialogue();
+  });
+  // clicar/toque na própria legenda também avança
+  dialogueBoxEl.addEventListener('click', () => {
     if (dialogueTimer >= dialogueMinTime) dismissDialogue();
   });
   let dlgOkPrev = false;
@@ -2788,7 +3512,7 @@
   function npcCall() {
     if (introBusy) return;
     if (npcMode === 'away') {
-      npcSpot(14, 0.9, _npcT);
+      npcSpot(4.2, 1.6, _npcT);
       npc.position.set(_npcT.x, Math.max(0, character.position.y), _npcT.z);
       npcFace = angTo(character.position.x - npc.position.x, character.position.z - npc.position.z);
     }
@@ -2803,8 +3527,11 @@
     { who: 'npc',  text: 'Você vai jogar esse jogo que todos estão falando que é "O melhor jogo mais barato de todos os tempos"?', hero: 'npc', npcFace: 'hero', npcGesture: 'hero' },
     { who: 'hero', text: 'Eu e ele vamos jogar.', hero: 'camera', heroPoint: 'camera', npcFace: 'hero' },
     { who: 'npc',  text: 'Mas esse jogo tem gráficos muito ruins, olhe aí!', hero: 'horizon', npcFace: 'horizon', npcGesture: 'wave' },
-    { who: 'hero', text: 'Calma, eu já consegui chegar ao fim desse jogo, o que todos falam faz sentido.', hero: 'npc', npcFace: 'hero' },
-    { who: 'npc',  text: 'Duvido você ou ele conseguir chegar ao fim desse jogo.', hero: 'npc', npcFace: 'hero', npcGesture: 'both', npcHeadAlt: true }
+    { who: 'hero', text: 'Calma, queremos ver se o que todos estão falando realmente faz sentido. Será que esse jogo é "O Melhor Jogo Mais Barato de Todos os Tempos"?', hero: 'npc', npcFace: 'hero' },
+    { who: 'npc',  text: 'Vejam vocês mesmo,', hero: 'npc', npcFace: 'hero' },
+    { who: 'npc',  text: 'Duvido vocês conseguirem chegar ao fim desse jogo.', hero: 'npc', npcFace: 'hero', npcGesture: 'both', npcHeadAlt: true },
+    { who: 'npc',  text: 'Você vai começar com poucas mecânicas de Gameplay, agora você só sabe andar, e mais nada.', hero: 'npc', npcFace: 'hero', npcGesture: 'hero' },
+    { who: 'npc',  text: 'Vá, colete dinheiro para comprar novas habilidades.', hero: 'npc', npcFace: 'hero', npcGesture: 'hero' }
   ];
   function playIntro(i) {
     if (i >= INTRO_STEPS.length) {
@@ -3229,6 +3956,7 @@
     if (dtHist.length > 4) dtHist.shift();
     let dtSum = 0; for (const d of dtHist) dtSum += d;
     const dt = dtSum / dtHist.length;
+    const _prevPX = character.position.x, _prevPZ = character.position.z;
 
     const xr = getXRInput();
     const pad = getDesktopGamepadInput();
@@ -3242,7 +3970,8 @@
     // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
     if (dialogueActive) {
       dialogueTimer += dt;
-      const okNow = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn);
+      const okNow = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn ||
+        keys['Space'] || keys['Enter'] || keys['NumpadEnter'] || keys['KeyE'] || keys['KeyF']);
       if (dialogueTimer >= dialogueMinTime && okNow && !dlgOkPrev) {
         dismissDialogue();
       }
@@ -3250,9 +3979,10 @@
     } else {
       dlgOkPrev = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn);
     }
+    updateDialogueLabelPosition();
 
     // relógio de jogo pausável (para durante diálogo e menu)
-    if (!dialogueActive && !menuActive) gameplayTime += dt;
+    if (!dialogueActive && !shopActive && !menuActive && !camDemo) gameplayTime += dt;
     const t = gameplayTime;
 
     updateBridgePlatforms(dt, t);
@@ -3267,7 +3997,7 @@
       }
     }
 
-    if (!gameWon && !deathAnim && !winAnim && !dialogueActive && !menuActive && !introBusy) {
+    if (!gameWon && !deathAnim && !winAnim && !dialogueActive && !shopActive && !menuActive && !introBusy && !camDemo) {
       // -------- entradas --------
       let moveX = 0, moveZ = 0;
       if (keys['KeyW'])                       moveZ -= 1;
@@ -3325,7 +4055,9 @@
           character.position.z += worldDir.z * currentMoveSpeed * dt;
         }
         character.position.x = Math.max(-42, Math.min(42, character.position.x));
-        character.position.z = Math.max(85, Math.min(332, character.position.z));
+        // limites do mundo — sem parede invisível: a plaforminha atrás do
+        // início é alcançada com um PULO (se errar, cai no vazio).
+        character.position.z = Math.max(85, Math.min(342, character.position.z));
         // Bloqueio porta vermelha (z=95)
         if (!redDoorOpen && character.position.z < 95) {
           character.position.z = 95;
@@ -3733,6 +4465,7 @@
       }
 
       // -------- inimigos normais --------
+      updateBounceEnemies(dt);
       for (const ne of normalEnemies) {
         if (!ne.alive) continue;
         if (ne.flying) {
@@ -3778,6 +4511,8 @@
             ne.mesh.position.x = Math.max(ne.baseX - halfRange, Math.min(ne.baseX + halfRange, ne.mesh.position.x));
             ne.mesh.position.z = Math.max(ne.baseZ - halfRange, Math.min(ne.baseZ + halfRange, ne.mesh.position.z));
           }
+        } else if (ne.pattern === 'bounce') {
+          // posição calculada em updateBounceEnemies()
         } else if (ne.pattern === 'sweep') {
           ne.mesh.position.x = ne.baseX + Math.sin(t * ne.freq + ne.phase) * ne.amp;
           ne.mesh.position.z = ne.baseZ;
@@ -4253,166 +4988,82 @@
         }
       }
 
-      // -------- item da CÂMERA --------
-      for (let i = cameraPickups.length - 1; i >= 0; i--) {
-        const cp = cameraPickups[i];
-        cp.mesh.position.y = cp.baseY + Math.sin(t * 3) * 0.12;
-        cp.mesh.rotation.y += dt * 2.2;
-        const dx = character.position.x - cp.mesh.position.x;
-        const dz = character.position.z - cp.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.6) {
-          hasCameraAbility = true;
-          scene.remove(cp.mesh);
-          cameraPickups.splice(i, 1);
-          playPickupSound();
-          showDialogue('Você pegou a CÂMERA! Agora dá pra mexer na visão com o analógico DIREITO: para os lados gira a câmera, para cima aproxima (zoom) e para baixo afasta. Aproximando bastante chega à primeira pessoa. Apertando o analógico direito, a câmera volta ao normal. (No PC: teclas 4 e 6 giram, 8 e 2 dão zoom, 5 reseta.)', { name: NPC_NAME });
+      // -------- itens de upgrade: agora são COMPRADOS (abrem a loja) --------
+      // Encostar no item abre a tela com nome, explicação, preço e saldo.
+      const upgradeLoops = [
+        { arr: cameraPickups, key: 'camera' },
+        { arr: jumpPickups, key: 'jump' },
+        { arr: stompPickups, key: 'stomp' },
+        { arr: gunItems, key: 'gun' },
+        { arr: aimLockItems, key: 'aim' },
+        { arr: crouchItems, key: 'crouch' },
+        { arr: doubleJumpItems, key: 'dbl' },
+        { arr: dashItems, key: 'dash' }
+      ];
+      for (const up of upgradeLoops) {
+        for (let i = up.arr.length - 1; i >= 0; i--) {
+          const it = up.arr[i];
+          it.mesh.position.y = it.baseY + Math.sin(t * 3) * 0.12;
+          it.mesh.rotation.y += dt * 2.2;
+          const dx = character.position.x - it.mesh.position.x;
+          const dz = character.position.z - it.mesh.position.z;
+          tryOpenUpgrade(it, up.arr, it.upgradeKey || up.key, Math.sqrt(dx * dx + dz * dz));
         }
       }
 
-      // -------- item de pulo --------
-      for (let i = jumpPickups.length - 1; i >= 0; i--) {
-        const jp = jumpPickups[i];
-        jp.mesh.position.y = jp.baseY + Math.sin(t * 3) * 0.12;
-        jp.mesh.rotation.y += dt * 2.2;
-        const dx = character.position.x - jp.mesh.position.x;
-        const dz = character.position.z - jp.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
-          hasJumpAbility = true;
-          scene.remove(jp.mesh);
-          jumpPickups.splice(i, 1);
-          playPickupSound();
-          showDialogue('Agora você já sabe pular. Será que consegue chegar na segunda plataforma?', { name: NPC_NAME });
-        }
-      }
-
-      // -------- item de pancada forte --------
-      for (let i = stompPickups.length - 1; i >= 0; i--) {
-        const sp = stompPickups[i];
-        sp.mesh.position.y = sp.baseY + Math.sin(t * 3) * 0.12;
-        sp.mesh.rotation.y += dt * 2.2;
-        const dx = character.position.x - sp.mesh.position.x;
-        const dz = character.position.z - sp.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
-          hasStompAbility = true;
-          scene.remove(sp.mesh);
-          stompPickups.splice(i, 1);
-          playPickupSound();
-          showDialogue('Agora você sabe pisar forte! Alguns inimigos só caem assim.', { name: NPC_NAME });
-        }
-      }
-
-      // -------- item da ARMA --------
-      for (let i = gunItems.length - 1; i >= 0; i--) {
-        const gi = gunItems[i];
-        gi.mesh.position.y = gi.baseY + Math.sin(t * 3) * 0.12;
-        gi.mesh.rotation.y += dt * 2.2;
-        const dx = character.position.x - gi.mesh.position.x;
-        const dz = character.position.z - gi.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
-          hasGun = true;
-          gunOnPlayer.visible = true;
-          crosshairEl.style.display = 'block';
-          scene.remove(gi.mesh);
-          gunItems.splice(i, 1);
-          playPickupSound();
-          showDialogue('Você achou uma arma! Agora pode atirar com F.', { name: NPC_NAME });
-        }
-      }
-
-      // -------- item da TRAVA DE MIRA --------
-      for (let i = aimLockItems.length - 1; i >= 0; i--) {
-        const ai = aimLockItems[i];
-        ai.mesh.position.y = ai.baseY + Math.sin(t * 3) * 0.12;
-        ai.mesh.rotation.y += dt * 2.2;
-        const dx = character.position.x - ai.mesh.position.x;
-        const dz = character.position.z - ai.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
-          hasAimLockAbility = true;
-          scene.remove(ai.mesh);
-          aimLockItems.splice(i, 1);
-          playPickupSound();
-          if (!t3WaveSpawned) {
-            t3WaveSpawned = true;
-            spawnT3Wave();
+      // -------- moedas espalhadas pelas fases --------
+      for (let i = coinPickups.length - 1; i >= 0; i--) {
+        const c = coinPickups[i];
+        c.mesh.position.y = c.baseY + Math.sin(t * 3 + c.phase) * 0.12;
+        c.mesh.rotation.y += dt * 3.2;
+        const dx = character.position.x - c.mesh.position.x;
+        const dz = character.position.z - c.mesh.position.z;
+        const cr = c.pickR || 0.55;
+        if (dx * dx + dz * dz < cr * cr) {
+          // Moedas do fundo das tocas: só depois da CÂMERA.
+          if (c.requiresCamera && !hasCameraAbility) {
+            if (!cameraCoinHintShown) {
+              cameraCoinHintShown = true;
+              showHint('Tem moedas aí no fundo da toca, mas está escuro demais para achar. Preciso da CÂMERA para enxergar!', 2800);
+            }
+            continue;
           }
-          showDialogue('Você pegou a trava de mira! Segurando G, você atira para frente mesmo andando de lado. Vem MUITA gente vindo da frente sem parar — derrube todos!', { name: NPC_NAME });
+          money += c.value;
+          collectedCoinIds.add(c.id);
+          updateMoneyUI();
+          playCoinSound();
+          scene.remove(c.mesh);
+          coinPickups.splice(i, 1);
+          // salva na hora: a moeda coletada não volta (e o dinheiro gasto
+          // depois fica gasto — o bolso "seca" e não dá para farmar)
+          saveGame();
         }
       }
 
-      // -------- item de ANDAR ABAIXADO --------
-      for (let i = crouchItems.length - 1; i >= 0; i--) {
-        const ci = crouchItems[i];
-        ci.mesh.position.y = ci.baseY + Math.sin(t * 3) * 0.12;
-        ci.mesh.rotation.y += dt * 2.2;
-        const dx = character.position.x - ci.mesh.position.x;
-        const dz = character.position.z - ci.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
-          hasCrouchAbility = true;
-          scene.remove(ci.mesh);
-          crouchItems.splice(i, 1);
-          playPickupSound();
-          showDialogue('Agora você sabe andar ABAIXADO! A seta ↓ no chão agacha o corpo e a arma desce junto — é assim que você acerta aqueles bichos baixos de chifres lá na plataforma menor. Tiro em pé passa por cima deles.', { name: NPC_NAME });
-        }
-      }
-
-      // -------- item do PULO DUPLO --------
-      for (let i = doubleJumpItems.length - 1; i >= 0; i--) {
-        const dj = doubleJumpItems[i];
-        dj.mesh.position.y = dj.baseY + Math.sin(t * 3) * 0.12;
-        dj.mesh.rotation.y += dt * 2.2;
-        const dx = character.position.x - dj.mesh.position.x;
-        const dz = character.position.z - dj.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
-          hasDoubleJumpAbility = true;
-          saveCheckpoint(0, 197);
-          scene.remove(dj.mesh);
-          doubleJumpItems.splice(i, 1);
-          playPickupSound();
-          showDialogue('PULO DUPLO! Pule no chão e, ainda no ar, aperte o pulo de novo para dar mais um impulso. Segure o botão nos dois pulos pra ir mais longe — com ele você atravessa aquele buraco enorme.', { name: NPC_NAME });
-        }
-      }
-
-      // -------- item do DASH --------
-      for (let i = dashItems.length - 1; i >= 0; i--) {
-        const di = dashItems[i];
-        di.mesh.position.y = di.baseY + Math.sin(t * 3) * 0.12;
-        di.mesh.rotation.y += dt * 2.2;
-        const dx = character.position.x - di.mesh.position.x;
-        const dz = character.position.z - di.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 0.5) {
-          hasDashAbility = true;
-          if (!dashGateOpen) {
-            dashGateOpen = true;
-            dashGate.position.y = 2;
-            showHint('Portão aberto! Agora posso cruzar o vão com o dash e atacar os inimigos da P1!', 2500);
+      // -------- CHECKPOINTS --------
+      for (const cp of checkpoints) {
+        if (!cp.activated) {
+          const dx = character.position.x - cp.mesh.position.x;
+          const dz = character.position.z - cp.mesh.position.z;
+          if (Math.sqrt(dx * dx + dz * dz) < 1.2) {
+            cp.activated = true;
+            cp.signMat.map = cp.liveTex;
+            cp.signMat.needsUpdate = true;
+            saveCheckpoint(cp.mesh.position.x, cp.mesh.position.z);
+            playPickupSound();
+            showDialogue(cp.message, {
+              name: NPC_NAME,
+              onClose: cp.after ? function () { showDialogue(cp.after, { name: NPC_NAME }); } : null
+            });
           }
-          scene.remove(di.mesh);
-          dashItems.splice(i, 1);
-          playPickupSound();
-          showDialogue('Agora você tem o DASH! Mesma tecla do agachar (seta ↓): PARADO agacha, e ANDANDO dispara a cabeçada pra frente — quebra qualquer inimigo no caminho e pega velocidade. Dá pra escapar e atacar ao mesmo tempo!', { name: NPC_NAME });
+        } else {
+          const cs = cp.mesh.scale.x + (1.5 - cp.mesh.scale.x) * Math.min(1, 4 * dt);
+          cp.mesh.scale.set(cs, cs, cs);
+          cp.mesh.rotation.y = Math.sin(t * 2.2) * 0.08;
+          cp.mesh.position.y = Math.sin(t * 3) * 0.03;
+          const glow = 1.1 + Math.sin(t * 4) * 0.12;
+          cp.signMat.color.setRGB(glow, glow, glow);
         }
-      }
-
-      // -------- CHECKPOINT --------
-      if (checkpoint && !checkpoint.activated) {
-        const dx = character.position.x - checkpoint.mesh.position.x;
-        const dz = character.position.z - checkpoint.mesh.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 1.2) {
-          checkpoint.activated = true;
-          checkpoint.signMat.map = checkpoint.liveTex;
-          checkpoint.signMat.needsUpdate = true;
-          saveCheckpoint(checkpoint.mesh.position.x, checkpoint.mesh.position.z);
-          playPickupSound();
-          showDialogue('Checkpoint! Se você cair agora, reaparece aqui mesmo — logo ao lado do item do dash, já na beirinha da primeira plataforma com inimigos.', { name: NPC_NAME });
-        }
-      }
-      if (checkpoint && checkpoint.activated) {
-        const cs = checkpoint.mesh.scale.x + (1.5 - checkpoint.mesh.scale.x) * Math.min(1, 4 * dt);
-        checkpoint.mesh.scale.set(cs, cs, cs);
-        checkpoint.mesh.rotation.y = Math.sin(t * 2.2) * 0.08;
-        checkpoint.mesh.position.y = Math.sin(t * 3) * 0.03;
-        const glow = 1.1 + Math.sin(t * 4) * 0.12;
-        checkpoint.signMat.color.setRGB(glow, glow, glow);
       }
 
       // -------- treino da T3 --------
@@ -4652,6 +5303,9 @@
       && (!!enemyMeshUnder || hasGroundAt(character.position.x, character.position.z)
           || hasGroundNear(character.position.x, character.position.z, SHADOW_R));
 
+    // -------- COLISÃO DAS PAREDES DE PEDRA --------
+    resolveSolids(_prevPX, _prevPZ);
+
     // -------- câmera --------
     camPivot.position.z = character.position.z;
     camPivot.position.x += (character.position.x - camPivot.position.x) * 3.5 * dt;
@@ -4665,7 +5319,7 @@
     else if (d6) yawDir = -1;
     else if (xr.rightStickX < -0.6) yawDir = 1;
     else if (xr.rightStickX > 0.6) yawDir = -1;
-    if (hasCameraAbility && !menuActive) {
+    if (hasCameraAbility && !menuActive && !camDemo) {
       if (settings.turn === 'smooth') {
         let rate = 0;
         if (d4) rate = 1; else if (d6) rate = -1;
@@ -4681,7 +5335,9 @@
     }
     camYawDirPrev = yawDir;
 
-    if (settings.turn === 'mixed') {
+    if (camDemo) {
+      // durante a demonstração a câmera obedece só ao roteiro
+    } else if (settings.turn === 'mixed') {
       let yawDiff = camYawTarget - camPivot.rotation.y;
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
       while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
@@ -4698,7 +5354,7 @@
     else if (d2) hDir = 1;
     else if (xr.rightStickY < -0.6) hDir = -1;
     else if (xr.rightStickY > 0.6) hDir = 1;
-    if (hasCameraAbility && !menuActive && hDir !== 0) {
+    if (hasCameraAbility && !menuActive && !camDemo && hDir !== 0) {
       const camMin = renderer.xr.isPresenting ? CAM_LEVEL_FP : CAM_HEIGHT_LEVEL_MIN;
       if (hDir !== camHeightDirPrev) {
         camHeightLevel = Math.max(camMin, Math.min(CAM_HEIGHT_LEVEL_MAX, camHeightLevel + hDir));
@@ -4716,7 +5372,7 @@
     // resetar a câmera (tecla 5 / R3)
     const d5 = !!keys['Digit5'];
     const stickClick = !!xr.rightStickClick;
-    if (hasCameraAbility && ((d5 && !prevCamResetKey) || (stickClick && !prevCamResetStick))) {
+    if (hasCameraAbility && !camDemo && ((d5 && !prevCamResetKey) || (stickClick && !prevCamResetStick))) {
       camYawTarget = 0;
       camHeightLevel = renderer.xr.isPresenting ? CAM_HEIGHT_LEVEL_DEFAULT : CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP;
     }
@@ -4725,6 +5381,30 @@
 
     let camHeightTarget = CAM_HEIGHT + camHeightLevel * CAM_HEIGHT_STEP;
     let camBackTarget = CAM_BACK_OFFSET + camHeightLevel * CAM_BACK_STEP;
+
+    // -------- ROTEIRO AUTOMÁTICO DA CÂMERA (demonstração ao comprar) --------
+    if (camDemo) {
+      camDemo.t += dt;
+      const ph = camDemo.phases[camDemo.i];
+      let k = Math.min(1, camDemo.t / ph.dur);
+      k = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;   // suave
+      camHeightTarget = camDemo.fromH + (ph.h - camDemo.fromH) * k;
+      camBackTarget   = camDemo.fromB + (ph.b - camDemo.fromB) * k;
+      camPivot.rotation.y = camDemo.fromYaw + (ph.yaw - camDemo.fromYaw) * k;
+      camYawTarget = camPivot.rotation.y;
+      if (camDemo.t >= ph.dur) {
+        camDemo.fromH = ph.h; camDemo.fromB = ph.b; camDemo.fromYaw = ph.yaw;
+        camDemo.t = 0;
+        camDemo.i++;
+        if (camDemo.i >= camDemo.phases.length) {
+          camDemo = null;
+          camPivot.rotation.y = 0;
+          camYawTarget = 0;
+          camHeightLevel = CAM_HEIGHT_LEVEL_DEFAULT_DESKTOP;
+          showDialogue('Divirta-se com a câmera, encontre mais moedas.', { name: NPC_NAME });
+        }
+      }
+    }
     // -------- PRIMEIRA PESSOA (VR) --------
     fpActive = renderer.xr.isPresenting && hasCameraAbility && camHeightLevel <= CAM_LEVEL_FP;
     if (fpActive) {
@@ -4738,7 +5418,8 @@
     dolly.position.y += (camHeightTarget - dolly.position.y) * Math.min(1, zoomK * dt);
     dolly.position.z += (camBackTarget - dolly.position.z) * Math.min(1, zoomK * dt);
     fpBody = fpActive && dolly.position.z < 1.5;
-    character.visible = !fpBody;
+    const camDemoFp = !!camDemo && camDemo.phases[camDemo.i].name === 'fp' && dolly.position.z < 1.1;
+    character.visible = !(fpBody || camDemoFp);
     for (const h of fpHands) {
       h.group.visible = fpBody;
       const isRight = h.ctrl.userData.hand === 'right';
