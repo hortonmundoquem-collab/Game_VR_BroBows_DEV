@@ -195,7 +195,7 @@
   </div>
   <div id="crosshair"></div>
   <div id="fade" style="position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.12s ease;"></div>
-  <div style="position:absolute;bottom:6px;right:8px;color:#fff8;font-size:11px;pointer-events:none;">build: ponta-afilada-camera-demo-v9</div>
+  <div style="position:absolute;bottom:6px;right:8px;color:#fff8;font-size:11px;pointer-events:none;">build: ponta-afilada-camera-demo-v10</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1703,6 +1703,8 @@
   const coinPickups = [];
   let shopActive = false;
   let currentShop = null;
+  // Painel 3D da loja (VR). Fica true quando o canvas/plano já existem.
+  var vrShopReady = false;
 
   // Preços crescentes, na ordem em que os itens aparecem no caminho.
   const UPGRADE_DEFS = {
@@ -1917,6 +1919,7 @@
       shopMsgEl.textContent = 'Faltam ' + (def.price - money) + ' moedas. Clique em Sair e colete mais dinheiro pelas fases.';
       shopExitBtn.textContent = 'Sair e coletar dinheiro';
     }
+    if (vrShopReady) drawVrShop();
   }
   // -------- A COMPRA É FEITA PELO GUIA --------
   // Ao encostar no item, o Guia vem correndo até o herói, oferece o item na
@@ -1969,6 +1972,9 @@
     if (!def || shopActive) return;
     shopActive = true;
     currentShop = { pickup: pickup, arr: arr, key: key };
+    // painel VR: recomeça o estado dos botões/rays
+    vrShopFrames = 0;
+    vrShopHover = null;
     shopTitleEl.textContent = def.title;
     shopDescEl.textContent = def.desc;
     shopPriceEl.textContent = def.price + ' moedas';
@@ -3174,14 +3180,17 @@
     vrMenuTex.needsUpdate = true;
   }
   function placeVrMenu() {
-    renderer.xr.getCamera(camera);
-    _vcp.copy(camera.position);
-    _vcd.set(0, 0, -1).applyQuaternion(camera.quaternion);
-    _vcd.y = 0;
-    if (_vcd.lengthSq() < 0.0001) _vcd.set(0, 0, -1);
-    _vcd.normalize();
-    vrMenuPlane.position.set(_vcp.x + _vcd.x * 1.6, _vcp.y - 0.05, _vcp.z + _vcd.z * 1.6);
-    vrMenuPlane.rotation.set(0, Math.atan2(-_vcd.x, -_vcd.z), 0);
+    // posição/orientação REAIS da cabeça (em VR camera.position fica local).
+    // Lê direto da matrixWorld, sem updateWorldMatrix (que sobrescreveria a
+    // pose do headset definida pelo WebXR).
+    _mO.setFromMatrixPosition(camera.matrixWorld);
+    _mQ.setFromRotationMatrix(camera.matrixWorld);
+    _mD.set(0, 0, -1).applyQuaternion(_mQ);
+    _mD.y = 0;
+    if (_mD.lengthSq() < 0.0001) _mD.set(0, 0, -1);
+    _mD.normalize();
+    vrMenuPlane.position.set(_mO.x + _mD.x * 1.6, _mO.y - 0.05, _mO.z + _mD.z * 1.6);
+    vrMenuPlane.rotation.set(0, Math.atan2(-_mD.x, -_mD.z), 0);
   }
   function updateMenu(xrIn) {
     menuDom.style.display = (menuActive && !renderer.xr.isPresenting) ? 'block' : 'none';
@@ -3312,34 +3321,36 @@
   refreshMenu();
 
   // -------- DIÁLOGO EM VR --------
+  // Painel PRESO À CÂMERA (mesmo esquema do HUD, que funciona no VR): fica
+  // sempre bem na frente do jogador, grande e na orientação certa — igual à
+  // legenda do PC, sem texto espelhado nem letra miúda.
   const vrDlgCanvas = document.createElement('canvas');
   vrDlgCanvas.width = 1024; vrDlgCanvas.height = 560;
   const vrDlgCtx = vrDlgCanvas.getContext('2d');
   const vrDlgTex = crispTex(new THREE.CanvasTexture(vrDlgCanvas));
   const vrDlgPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.9, 0.9 * 560 / 1024),
+    new THREE.PlaneGeometry(1.5, 1.5 * 560 / 1024),
     new THREE.MeshBasicMaterial({ map: vrDlgTex, transparent: true, side: THREE.DoubleSide, depthTest: false })
   );
-  vrDlgPlane.renderOrder = 20;
+  vrDlgPlane.position.set(0, -0.02, -1.0);
+  vrDlgPlane.renderOrder = 40;
   vrDlgPlane.visible = false;
-  scene.add(vrDlgPlane);
-  let vrDlgFrames = 0;
-  const _vcp = new THREE.Vector3(), _vcd = new THREE.Vector3(), _vcp2 = new THREE.Vector3();
-  function placeVrDialogue() {
-    renderer.xr.getCamera(camera);
-    _vcp.copy(camera.position);
-    _vcd.set(0, 0, -1).applyQuaternion(camera.quaternion);
-    _vcd.y = 0;
-    if (_vcd.lengthSq() < 0.0001) _vcd.set(0, 0, -1);
-    _vcd.normalize();
-    // a legenda fica logo ACIMA da cabeça de quem está falando
-    speakerHeadWorld(_vcp2);
-    const px = _vcp2.x, py = _vcp2.y + 0.5, pz = _vcp2.z;
-    vrDlgPlane.position.set(px, py, pz);
-    // vira o plano para o jogador (billboard no eixo vertical)
-    vrDlgPlane.rotation.set(0, Math.atan2(_vcp.x - px, _vcp.z - pz), 0);
-  }
+  camera.add(vrDlgPlane);
   renderer.xr.addEventListener('sessionstart', function () { if (dialogueActive) dialogueTimer = 0; });
+
+  function vrRoundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r);
+    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r);
+    c.quadraticCurveTo(x, y, x + r, y);
+    c.closePath();
+  }
 
   function vrWrapLines(ctx, text, maxW) {
     const words = String(text).split(' ');
@@ -3356,41 +3367,184 @@
   function drawVrDialogue(name, text) {
     const c = vrDlgCtx, W = vrDlgCanvas.width, H = vrDlgCanvas.height;
     c.clearRect(0, 0, W, H);
-    // texto amarelo com sombra preta, sem caixa/fundo
-    const maxW = W - 70;
+    // fundo escuro arredondado (garante leitura em qualquer cenário)
+    vrRoundRect(c, 10, 8, W - 20, H - 16, 28);
+    c.fillStyle = 'rgba(8,10,20,0.80)';
+    c.fill();
+    c.lineWidth = 5; c.strokeStyle = 'rgba(255,204,51,0.85)'; c.stroke();
+    // nome de quem fala
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.font = 'bold 30px Verdana, sans-serif';
+    c.fillStyle = '#ffcc33';
+    c.fillText(String(name || 'Herói').toUpperCase(), 44, 62);
+    // texto amarelo, grande, quebrando linha sozinho
+    const maxW = W - 110;
+    const bodyTop = 96, bodyBottom = H - 76;
     let size = 54, lines = [];
-    for (; size >= 26; size -= 2) {
+    for (; size >= 30; size -= 2) {
       c.font = 'bold ' + size + 'px Verdana, sans-serif';
       lines = vrWrapLines(c, text, maxW);
-      if (lines.length * size * 1.3 <= H - 110) break;
+      if (lines.length * size * 1.24 <= bodyBottom - bodyTop) break;
     }
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.lineJoin = 'round';
     c.strokeStyle = '#000000';
-    c.lineWidth = Math.max(6, size * 0.22);
-    c.shadowColor = 'rgba(0,0,0,0.95)';
-    c.shadowBlur = 16;
-    c.shadowOffsetX = 0;
-    c.shadowOffsetY = 6;
+    c.lineWidth = Math.max(6, size * 0.20);
     c.fillStyle = '#ffe000';
-    const totalH = lines.length * size * 1.3;
-    // desloca meia linha para o texto nascer logo acima da cabeça
-    let y = (H - 60 - totalH) / 2 + size * 0.7;
+    const totalH = lines.length * size * 1.24;
+    let y = bodyTop + (bodyBottom - bodyTop - totalH) / 2 + size * 0.62;
     for (const ln of lines) {
       c.strokeText(ln, W / 2, y);
       c.fillText(ln, W / 2, y);
-      y += size * 1.3;
+      y += size * 1.24;
     }
-    c.shadowBlur = 0; c.shadowOffsetY = 0;
-    c.font = 'bold 26px Verdana, sans-serif';
-    c.lineWidth = 7;
+    // dica de como continuar
+    c.font = 'bold 27px Verdana, sans-serif';
+    c.lineWidth = 6;
     c.strokeStyle = '#000000';
     c.fillStyle = '#ffe000';
     const hint = 'A / X ou o gatilho para continuar';
-    c.strokeText(hint, W / 2, H - 34);
-    c.fillText(hint, W / 2, H - 34);
+    c.strokeText(hint, W / 2, H - 40);
+    c.fillText(hint, W / 2, H - 40);
     vrDlgTex.needsUpdate = true;
   }
+
+  // -------- LOJA DO GUIA EM VR --------
+  // O painel HTML da loja não existe dentro do VR, então a venda acontece
+  // num painel 3D preso à câmera, com botões "Comprar" e "Sair" apontados
+  // pelo controle (ray) e acionados pelo gatilho.
+  const vrShopCanvas = document.createElement('canvas');
+  vrShopCanvas.width = 1024; vrShopCanvas.height = 840;
+  const vrShopCtx = vrShopCanvas.getContext('2d');
+  const vrShopTex = crispTex(new THREE.CanvasTexture(vrShopCanvas));
+  const vrShopPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.5, 1.5 * 840 / 1024),
+    new THREE.MeshBasicMaterial({ map: vrShopTex, transparent: true, side: THREE.DoubleSide, depthTest: false })
+  );
+  vrShopPlane.position.set(0, -0.02, -1.2);
+  vrShopPlane.renderOrder = 45;
+  vrShopPlane.visible = false;
+  camera.add(vrShopPlane);
+  var vrShopFrames = 0;
+  var vrShopHover = null;
+  const VR_SHOP_BTN = {
+    buy:  { x: 140, y: 700, w: 350, h: 100, label: 'Comprar' },
+    exit: { x: 534, y: 700, w: 350, h: 100, label: 'Sair' }
+  };
+  function vrShopHit(px, py) {
+    for (const k in VR_SHOP_BTN) {
+      const b = VR_SHOP_BTN[k];
+      if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) return k;
+    }
+    return null;
+  }
+  function drawVrShop() {
+    if (!vrShopReady) return;
+    const c = vrShopCtx, W = 1024, H = 840;
+    c.clearRect(0, 0, W, H);
+    vrRoundRect(c, 10, 8, W - 20, H - 16, 34);
+    c.fillStyle = 'rgba(12,14,26,0.96)'; c.fill();
+    c.lineWidth = 6; c.strokeStyle = '#ffcc33'; c.stroke();
+    const def = currentShop ? UPGRADE_DEFS[currentShop.key] : null;
+    c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    c.fillStyle = '#ffe000'; c.font = 'bold 24px Verdana, sans-serif';
+    c.fillText('Aponte o controle e aperte o gatilho', W / 2, 56);
+    c.textAlign = 'left';
+    c.fillStyle = '#ff9a3a'; c.font = 'bold 28px Verdana, sans-serif';
+    c.fillText('O GUIA VEIO VENDER', 56, 108);
+    c.fillStyle = '#ffe066'; c.font = 'bold 54px Verdana, sans-serif';
+    c.fillText(def ? def.title : '', 56, 180);
+    // descrição com quebra automática
+    const maxW = W - 112;
+    let size = 34, lines = [];
+    for (; size >= 22; size -= 2) {
+      c.font = size + 'px Verdana, sans-serif';
+      lines = vrWrapLines(c, def ? def.desc : '', maxW);
+      if (lines.length * size * 1.35 <= 280) break;
+    }
+    c.fillStyle = '#dfe6ff';
+    let y = 236;
+    for (const ln of lines) { c.fillText(ln, 56, y); y += size * 1.35; }
+    // preço / saldo
+    c.strokeStyle = 'rgba(255,255,255,0.16)'; c.lineWidth = 2;
+    for (const yy of [520, 590]) { c.beginPath(); c.moveTo(56, yy); c.lineTo(W - 56, yy); c.stroke(); }
+    c.font = 'bold 34px Verdana, sans-serif';
+    c.fillStyle = '#aab4cc'; c.textAlign = 'left';
+    c.fillText('Preço', 56, 568);
+    c.fillStyle = '#ffffff'; c.textAlign = 'right';
+    c.fillText((def ? def.price : 0) + ' moedas', W - 56, 568);
+    c.fillStyle = '#aab4cc'; c.textAlign = 'left';
+    c.fillText('Seu dinheiro', 56, 638);
+    const canBuy = !!(def && money >= def.price);
+    c.fillStyle = canBuy ? '#7dff9a' : '#ff8a8a'; c.textAlign = 'right';
+    c.fillText(money + ' moedas', W - 56, 638);
+    if (!canBuy && def) {
+      c.textAlign = 'center'; c.fillStyle = '#ffb347';
+      c.font = 'bold 27px Verdana, sans-serif';
+      c.fillText('Faltam ' + (def.price - money) + ' moedas. Saia e colete mais.', W / 2, 680);
+    }
+    // botões
+    for (const k in VR_SHOP_BTN) {
+      const b = VR_SHOP_BTN[k];
+      const hov = vrShopHover === k;
+      const disabled = (k === 'buy' && !canBuy);
+      vrRoundRect(c, b.x, b.y, b.w, b.h, 22);
+      c.fillStyle = disabled ? 'rgba(90,90,100,0.55)'
+        : (k === 'buy' ? (hov ? '#3ddc63' : '#2ea043') : (hov ? '#e05555' : '#cc3333'));
+      c.fill();
+      c.lineWidth = 4; c.strokeStyle = hov ? '#ffffff' : 'rgba(0,0,0,0.35)'; c.stroke();
+      c.fillStyle = disabled ? 'rgba(255,255,255,0.5)' : '#ffffff';
+      c.font = 'bold 40px Verdana, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 2);
+    }
+    c.textBaseline = 'alphabetic';
+    vrShopTex.needsUpdate = true;
+  }
+  vrShopReady = true;
+  drawVrShop();
+
+  function updateVrShop(xrIn) {
+    const show = shopActive && renderer.xr.isPresenting;
+    vrShopPlane.visible = show;
+    if (!show) {
+      vrShopFrames = 0;
+      for (const h of fpHands) h.shopPrev = false;
+      return;
+    }
+    for (const h of fpHands) if (h.ctrl.userData.hand) h.ray.visible = true;
+    let hover = null, sel = null;
+    for (const h of fpHands) {
+      const hand = h.ctrl.userData.hand;
+      if (!hand) continue;
+      const pressed = hand === 'right' ? xrIn.shootBtn : xrIn.triggerLeftBtn;
+      // ignora o gatilho que acabou de fechar o diálogo
+      if (vrShopFrames < 2) h.shopPrev = pressed;
+      h.ctrl.updateWorldMatrix(true, false);
+      h.ctrl.getWorldPosition(_mO);
+      h.ctrl.getWorldQuaternion(_mQ);
+      _mD.set(0, 0, -1).applyQuaternion(_mQ);
+      _mRay.set(_mO, _mD);
+      const hit = _mRay.intersectObject(vrShopPlane, false)[0];
+      if (hit && hit.uv) {
+        const id = vrShopHit(hit.uv.x * 1024, (1 - hit.uv.y) * 840);
+        if (id) { hover = id; if (pressed && !h.shopPrev) sel = id; }
+      }
+      h.shopPrev = pressed;
+    }
+    if (hover !== vrShopHover) { vrShopHover = hover; drawVrShop(); }
+    if (sel) {
+      if (sel === 'buy') {
+        const def = currentShop ? UPGRADE_DEFS[currentShop.key] : null;
+        if (def && money >= def.price) buyCurrentUpgrade();
+        else refreshShopUI();
+      } else {
+        closeShop();
+      }
+    }
+    vrShopFrames++;
+  }
+
 
   function showDialogue(text, opts) {
     opts = opts || {};
@@ -3759,8 +3913,8 @@
   }
   updateKeysUI();
 
-  const HUD_DESKTOP = { x: -0.34, heartsY: 0.24, keysY: 0.16, z: -0.6 };
-  const HUD_VR      = { x: -0.20, heartsY: 0.13, keysY: 0.055, z: -0.6 };
+  const HUD_DESKTOP = { x: -0.34, heartsY: 0.24, keysY: 0.16, moneyY: 0.085, z: -0.6 };
+  const HUD_VR      = { x: -0.20, heartsY: 0.13, keysY: 0.055, moneyY: -0.02, z: -0.6 };
 
   const heartsPlaneMat = new THREE.MeshBasicMaterial({
     map: heartsTexture, transparent: true, side: THREE.DoubleSide, depthTest: false
@@ -3780,10 +3934,57 @@
   keysPlane.renderOrder = 10;
   camera.add(keysPlane);
 
+  // ---- CONTADOR DE MOEDAS DO HUD (3D) ----
+  // No VR o HUD em HTML não aparece; este painel mostra as moedas logo
+  // ABAIXO DAS CHAVES, como no PC.
+  const moneyHudCanvas = document.createElement('canvas');
+  moneyHudCanvas.width = 240; moneyHudCanvas.height = 96;
+  const moneyHudCtx = moneyHudCanvas.getContext('2d');
+  const moneyHudTex = crispTex(new THREE.CanvasTexture(moneyHudCanvas));
+  const moneyHudPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.15, 0.15 * 96 / 240),
+    new THREE.MeshBasicMaterial({ map: moneyHudTex, transparent: true, side: THREE.DoubleSide, depthTest: false })
+  );
+  moneyHudPlane.position.set(HUD_DESKTOP.x, HUD_DESKTOP.moneyY, HUD_DESKTOP.z);
+  moneyHudPlane.renderOrder = 10;
+  camera.add(moneyHudPlane);
+  let lastMoneyShown = -1;
+  function drawMoneyCanvas() {
+    const c = moneyHudCtx, W = 240, H = 96;
+    c.clearRect(0, 0, W, H);
+    // pílula escura de fundo
+    vrRoundRect(c, 2, 14, W - 4, 68, 34);
+    c.fillStyle = 'rgba(10,12,22,0.62)';
+    c.fill();
+    c.lineWidth = 4; c.strokeStyle = 'rgba(255,204,51,0.85)'; c.stroke();
+    // moeda
+    const cx = 44, cy = 48, r = 25;
+    const grad = c.createRadialGradient(cx - 8, cy - 9, 4, cx, cy, r);
+    grad.addColorStop(0, '#fff3a0');
+    grad.addColorStop(0.55, '#ffcc33');
+    grad.addColorStop(1, '#b8860b');
+    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2);
+    c.fillStyle = grad; c.fill();
+    c.lineWidth = 4; c.strokeStyle = '#8a6508'; c.stroke();
+    // valor
+    const txt = String(money);
+    c.font = 'bold 50px Verdana, sans-serif';
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.lineJoin = 'round';
+    c.lineWidth = 8; c.strokeStyle = '#000000';
+    c.strokeText(txt, 82, 50);
+    c.fillStyle = '#ffe066';
+    c.fillText(txt, 82, 50);
+    moneyHudTex.needsUpdate = true;
+  }
+  drawMoneyCanvas();
+  lastMoneyShown = money;
+
   function updateHudAnchors() {
     const anchor = renderer.xr.isPresenting ? HUD_VR : HUD_DESKTOP;
     heartsPlane.position.set(anchor.x, anchor.heartsY, anchor.z);
     keysPlane.position.set(anchor.x, anchor.keysY, anchor.z);
+    moneyHudPlane.position.set(anchor.x, anchor.moneyY, anchor.z);
   }
   renderer.xr.addEventListener('sessionstart', updateHudAnchors);
   renderer.xr.addEventListener('sessionend', updateHudAnchors);
@@ -3962,10 +4163,10 @@
     const pad = getDesktopGamepadInput();
 
     updateMenu(xr);
+    if (lastMoneyShown !== money) { lastMoneyShown = money; drawMoneyCanvas(); }
     const vrDlgShow = dialogueActive && renderer.xr.isPresenting;
-    if (vrDlgShow && vrDlgFrames < 40) { placeVrDialogue(); }
-    if (vrDlgShow) vrDlgFrames++; else vrDlgFrames = 0;
     vrDlgPlane.visible = vrDlgShow;
+    updateVrShop(xr);
 
     // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
     if (dialogueActive) {
