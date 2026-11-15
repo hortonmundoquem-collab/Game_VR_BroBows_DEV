@@ -5666,6 +5666,9 @@
     }
 
     updateNpc(dt);
+    // Atualiza a pose da cabeça ANTES do render: painéis presos à câmera (HUD, diálogo, loja)
+    // usavam a pose do quadro anterior e tremiam ao girar a cabeça.
+    if (renderer.xr.isPresenting) renderer.xr.getCamera(camera);
     renderer.render(scene, camera);
   }
 
