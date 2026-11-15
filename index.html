@@ -183,7 +183,7 @@
     <div id="dialogue-text"></div>
     <div id="dialogue-hint"><button id="dialogue-ok" type="button">▶</button></div>
   </div>
-  <div id="money-hud"><span class="coin-ico"></span><span id="money-value">0</span></div>
+  <div id="money-hud" style="display:none"><span class="coin-ico"></span><span id="money-value">0</span></div>
   <div id="shop-overlay">
     <div id="shop-panel">
       <div id="shop-kicker">O Guia veio vender</div>
@@ -1930,13 +1930,21 @@
       shopMsgEl.textContent = 'Faltam ' + (def.price - money) + ' moedas. Clique em Sair e colete mais dinheiro pelas fases.';
       shopExitBtn.textContent = 'Sair e coletar dinheiro';
     }
-    if (vrShopReady) drawVrShop();
+    const falta = money < def.price;
+    const txt = def.title + ' — ' + def.price + ' moedas (você tem ' + money + '). ' + def.desc +
+      (falta ? ' Faltam ' + (def.price - money) + ' moedas, colete mais!' : '');
+    const xrOn = renderer.xr.isPresenting;
+    const hint = falta
+      ? (xrOn ? 'Gatilho esquerdo: sair e coletar dinheiro' : 'Esc / Q: sair e coletar dinheiro')
+      : (xrOn ? 'Gatilho direito: COMPRAR  |  Gatilho esquerdo: sair' : 'Enter / E: COMPRAR  |  Esc / Q: sair');
+    drawVrDialogue(NPC_NAME, txt, hint);
   }
   // -------- A COMPRA É FEITA PELO GUIA --------
   // Ao encostar no item, o Guia vem correndo até o herói, oferece o item na
   // legenda acima da cabeça dele e, quando o jogador aceita continuar, abre a
   // venda (mesmo painel, agora apresentado por ele).
   let pendingOffer = null;
+  let shopBuyPrev = true, shopExitPrev = true;
   function openUpgradeShop(pickup, arr, key) {
     const def = UPGRADE_DEFS[key];
     if (!def || shopActive || dialogueActive || pendingOffer) return;
@@ -1959,24 +1967,9 @@
       if (def.post) showDialogue(def.post, { name: NPC_NAME });
       return;
     }
-    pendingOffer = { pickup: pickup, arr: arr, key: key };
+    // a venda é feita direto na legenda do Guia, acima da cabeça dele
     npcCall();
-    const falta = money < def.price;
-    showDialogue(
-      'Quer comprar ' + def.title + ' por ' + def.price + ' moedas? ' +
-      (falta ? 'Você só tem ' + money + ', vai faltar um pouco.' : 'Você tem ' + money + '. Basta confirmar.'),
-      {
-        name: NPC_NAME,
-        onClose: function () {
-          const p = pendingOffer;
-          pendingOffer = null;
-          if (!p) return;
-          // o Guia fica parado ao lado durante a venda
-          if (npcMode === 'leave') { npcMode = 'intro'; npcLeaveT = 0; npcFaceTarget = null; }
-          openShopPanel(p.pickup, p.arr, p.key);
-        }
-      }
-    );
+    openShopPanel(pickup, arr, key);
   }
   function openShopPanel(pickup, arr, key) {
     const def = UPGRADE_DEFS[key];
@@ -1986,19 +1979,18 @@
     // painel VR: recomeça o estado dos botões/rays
     vrShopFrames = 0;
     vrShopHover = null;
-    shopTitleEl.textContent = def.title;
-    shopDescEl.textContent = def.desc;
-    shopPriceEl.textContent = def.price + ' moedas';
+    shopBuyPrev = true; shopExitPrev = true;
+    dialogueSpeaker = 'npc';
     refreshShopUI();
-    shopOverlayEl.style.display = 'flex';
   }
   function closeShop(disarm) {
     shopOverlayEl.style.display = 'none';
     shopActive = false;
     if (disarm !== false && currentShop && currentShop.pickup) currentShop.pickup.armed = false;
     currentShop = null;
+    if (!dialogueActive) dialogueSpeaker = null;
     // terminou a venda: o Guia se despede e sai de cena
-    if (!introBusy && npcMode === 'intro') { npcMode = 'leave'; npcLeaveT = 0; npcFaceTarget = null; npcGesture = null; }
+    if (!introBusy && (npcMode === 'intro' || npcMode === 'arrive')) { npcMode = 'leave'; npcLeaveT = 0; npcFaceTarget = null; npcGesture = null; }
   }
   function tryOpenUpgrade(pickup, arr, key, dist) {
     if (dialogueActive || shopActive || pendingOffer) return;
@@ -3146,7 +3138,7 @@
   const menuDom = document.createElement('canvas');
   menuDom.width = MW; menuDom.height = MH;
   menuDom.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,122vh);height:auto;z-index:60;cursor:pointer;';
-  document.body.appendChild(menuDom);
+  /* menu agora é o mesmo painel 3D do VR */
   const menuDomCtx = menuDom.getContext('2d');
   function domMenuPos(e) {
     const r = menuDom.getBoundingClientRect();
@@ -3175,6 +3167,15 @@
   vrMenuPlane.visible = false;
   dolly.add(vrMenuPlane);
   let vrMenuFrames = 0;
+  const deskMouse = new THREE.Vector2(0, 0);
+  let deskClick = false;
+  window.addEventListener('mousemove', (e) => {
+    deskMouse.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  });
+  window.addEventListener('mousedown', (e) => {
+    deskMouse.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    deskClick = true;
+  });
   const _mRay = new THREE.Raycaster();
   const _mO = new THREE.Vector3(), _mD = new THREE.Vector3(), _mQ = new THREE.Quaternion();
   const _mLineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -3)]);
@@ -3204,11 +3205,26 @@
     vrMenuPlane.rotation.set(0, Math.atan2(-_mD.x, -_mD.z), 0);
   }
   function updateMenu(xrIn) {
-    menuDom.style.display = (menuActive && !renderer.xr.isPresenting) ? 'block' : 'none';
-    const show = menuActive && renderer.xr.isPresenting;
+    menuDom.style.display = 'none';
+    const inXR = renderer.xr.isPresenting;
+    const show = menuActive;
     vrMenuPlane.visible = show;
-    for (const h of fpHands) h.ray.visible = show && !!h.ctrl.userData.hand;
-    if (!show) { vrMenuFrames = 0; return; }
+    for (const h of fpHands) h.ray.visible = show && inXR && !!h.ctrl.userData.hand;
+    if (!show) { vrMenuFrames = 0; deskClick = false; return; }
+    if (!inXR) {
+      vrMenuPlane.position.set(0, 0, -1.6).applyQuaternion(camera.quaternion);
+      vrMenuPlane.quaternion.copy(camera.quaternion);
+      camera.updateMatrixWorld(true);
+      vrMenuPlane.updateWorldMatrix(true, false);
+      _mRay.setFromCamera(deskMouse, camera);
+      const dh = _mRay.intersectObject(vrMenuPlane, false)[0];
+      let dHover = null;
+      if (dh && dh.uv) dHover = menuHit(dh.uv.x * MW, (1 - dh.uv.y) * MH);
+      if (dHover !== menuVrHover) { menuVrHover = dHover; refreshMenu(); }
+      const clicked = deskClick; deskClick = false;
+      if (clicked && dHover) menuAction(dHover);
+      return;
+    }
     if (vrMenuFrames < 40) placeVrMenu();
     vrMenuFrames++;
     vrMenuPlane.updateWorldMatrix(true, false);
@@ -3365,7 +3381,7 @@
   scene.add(vrCapGroup);
   const _capCam = new THREE.Vector3(), _capHead = new THREE.Vector3();
   function updateVrCaption() {
-    const show = dialogueActive && renderer.xr.isPresenting;
+    const show = dialogueActive || shopActive;
     vrCapGroup.visible = show;
     if (!show) return;
     speakerHeadWorld(_capHead);
@@ -3374,7 +3390,7 @@
     const dist = Math.hypot(_capCam.x - _capHead.x, _capCam.y - _capHead.y, _capCam.z - _capHead.z);
     if (dist > 1.2) {
       vrCapGroup.position.copy(_capHead);
-      vrCapGroup.scale.setScalar(Math.min(3.2, Math.max(0.45, dist / 5.2)));
+      vrCapGroup.scale.setScalar(Math.min(5, Math.max(0.45, dist / (renderer.xr.isPresenting ? 5.2 : 3.4))));
       vrArrowOut.visible = vrArrowIn.visible = true;
     } else {
       // quem fala está colado na câmera (1a pessoa): texto à frente do corpo, sem seta.
@@ -3387,6 +3403,12 @@
     vrCapGroup.rotation.y = Math.atan2(_capCam.x - vrCapGroup.position.x, _capCam.z - vrCapGroup.position.z);
   }
   renderer.xr.addEventListener('sessionstart', function () { if (dialogueActive) dialogueTimer = 0; });
+  function redrawCaptionForDevice() {
+    if (shopActive) refreshShopUI();
+    else if (dialogueActive && lastDlg) drawVrDialogue(lastDlg.name, lastDlg.text);
+  }
+  renderer.xr.addEventListener('sessionstart', redrawCaptionForDevice);
+  renderer.xr.addEventListener('sessionend', redrawCaptionForDevice);
 
   function vrRoundRect(c, x, y, w, h, r) {
     c.beginPath();
@@ -3414,7 +3436,9 @@
     if (line) lines.push(line);
     return lines;
   }
-  function drawVrDialogue(name, text) {
+  let lastDlg = null;
+  function drawVrDialogue(name, text, hintOverride) {
+    lastDlg = { name: name, text: text };
     const c = vrDlgCtx, W = vrDlgCanvas.width, H = vrDlgCanvas.height;
     c.clearRect(0, 0, W, H);   // sem fundo, sem caixa: só letras com contorno
     const isNpc = name === NPC_NAME;
@@ -3423,7 +3447,7 @@
     // dica de como continuar (pequena, no pé da legenda)
     c.font = 'bold 28px Verdana, sans-serif';
     c.lineWidth = 7; c.strokeStyle = '#000000'; c.fillStyle = '#ffffff';
-    const hint = 'A / X ou gatilho: continuar';
+    const hint = hintOverride || (renderer.xr.isPresenting ? 'A / X ou gatilho: continuar' : 'Espaço / Enter / clique: continuar');
     c.strokeText(hint, W / 2, H - 26); c.fillText(hint, W / 2, H - 26);
     // texto da fala, quebrando linha sozinho, de baixo para cima (fica colado na seta)
     const maxW = W - 80, bottom = H - 70, top = 70;
@@ -3541,45 +3565,18 @@
   vrShopReady = true;
   drawVrShop();
 
-  function updateVrShop(xrIn) {
-    const show = shopActive && renderer.xr.isPresenting;
-    vrShopPlane.visible = show;
-    if (!show) {
-      vrShopFrames = 0;
-      for (const h of fpHands) h.shopPrev = false;
-      return;
+  function updateVrShop(xrIn, padIn) {
+    vrShopPlane.visible = false;
+    if (!shopActive) { shopBuyPrev = true; shopExitPrev = true; return; }
+    const buyNow = !!(xrIn.shootBtn || keys['Enter'] || keys['NumpadEnter'] || keys['KeyE'] || padIn.jumpBtn);
+    const exitNow = !!(xrIn.triggerLeftBtn || xrIn.gripLeftBtn || keys['Escape'] || keys['KeyQ'] || keys['Backspace'] || keys['ArrowDown']);
+    const buyEdge = buyNow && !shopBuyPrev, exitEdge = exitNow && !shopExitPrev;
+    shopBuyPrev = buyNow; shopExitPrev = exitNow;
+    if (exitEdge) { closeShop(true); return; }
+    if (buyEdge && currentShop) {
+      const def = UPGRADE_DEFS[currentShop.key];
+      if (def && money >= def.price) buyCurrentUpgrade();
     }
-    for (const h of fpHands) if (h.ctrl.userData.hand) h.ray.visible = true;
-    let hover = null, sel = null;
-    for (const h of fpHands) {
-      const hand = h.ctrl.userData.hand;
-      if (!hand) continue;
-      const pressed = hand === 'right' ? xrIn.shootBtn : xrIn.triggerLeftBtn;
-      // ignora o gatilho que acabou de fechar o diálogo
-      if (vrShopFrames < 2) h.shopPrev = pressed;
-      h.ctrl.updateWorldMatrix(true, false);
-      h.ctrl.getWorldPosition(_mO);
-      h.ctrl.getWorldQuaternion(_mQ);
-      _mD.set(0, 0, -1).applyQuaternion(_mQ);
-      _mRay.set(_mO, _mD);
-      const hit = _mRay.intersectObject(vrShopPlane, false)[0];
-      if (hit && hit.uv) {
-        const id = vrShopHit(hit.uv.x * 1024, (1 - hit.uv.y) * 840);
-        if (id) { hover = id; if (pressed && !h.shopPrev) sel = id; }
-      }
-      h.shopPrev = pressed;
-    }
-    if (hover !== vrShopHover) { vrShopHover = hover; drawVrShop(); }
-    if (sel) {
-      if (sel === 'buy') {
-        const def = currentShop ? UPGRADE_DEFS[currentShop.key] : null;
-        if (def && money >= def.price) buyCurrentUpgrade();
-        else refreshShopUI();
-      } else {
-        closeShop();
-      }
-    }
-    vrShopFrames++;
   }
 
 
@@ -3588,7 +3585,6 @@
     drawVrDialogue(opts.name || 'Herói', text);
     dialogueNameEl.textContent = opts.name || 'Herói';
     dialogueTextEl.textContent = text;
-    dialogueBoxEl.style.display = 'block';
     dialogueActive = true;
     dialogueTimer = 0;
     dialogueMinTime = opts.minTime !== undefined ? opts.minTime : 0.4;
@@ -3614,6 +3610,9 @@
     if (dialogueTimer >= dialogueMinTime) dismissDialogue();
   });
   // clicar/toque na própria legenda também avança
+  window.addEventListener('mousedown', () => {
+    if (dialogueActive && dialogueTimer >= dialogueMinTime) dismissDialogue();
+  });
   dialogueBoxEl.addEventListener('click', () => {
     if (dialogueTimer >= dialogueMinTime) dismissDialogue();
   });
@@ -3757,7 +3756,7 @@
     npcT += dt;
     // só quem está falando mexe a boca
     const mk = Math.min(1, dt * 20);
-    const spN = dialogueActive && dialogueSpeaker === 'npc';
+    const spN = (dialogueActive || shopActive) && dialogueSpeaker === 'npc';
     const spH = dialogueActive && dialogueSpeaker === 'hero';
     npcMouth.scale.y += ((spN ? 0.5 + Math.abs(Math.sin(npcT * 12)) * 1.6 : 1) - npcMouth.scale.y) * mk;
     mouth.scale.y    += ((spH ? 0.5 + Math.abs(Math.sin(npcT * 12)) * 1.6 : 1) - mouth.scale.y) * mk;
@@ -4202,7 +4201,7 @@
     updateMenu(xr);
     if (lastMoneyShown !== money) { lastMoneyShown = money; drawMoneyCanvas(); }
     updateVrCaption();
-    updateVrShop(xr);
+    updateVrShop(xr, pad);
 
     // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
     if (dialogueActive) {
@@ -4214,7 +4213,8 @@
       }
       dlgOkPrev = okNow;
     } else {
-      dlgOkPrev = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn);
+      dlgOkPrev = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn ||
+        keys['Space'] || keys['Enter'] || keys['NumpadEnter'] || keys['KeyE'] || keys['KeyF']);
     }
     updateDialogueLabelPosition();
 
