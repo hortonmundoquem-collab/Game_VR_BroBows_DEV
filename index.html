@@ -374,13 +374,13 @@
   renderer.xr.enabled = true;
 
   // ---- NITIDEZ NO QUEST 3 ----
-  const XR_SCALE = parseFloat(new URLSearchParams(location.search).get('q')) || 1.3;
+  const XR_SCALE = parseFloat(new URLSearchParams(location.search).get('q')) || 1.0;
   renderer.xr.setFramebufferScaleFactor(XR_SCALE);
   function noFoveation() {
     try {
       const sess = renderer.xr.getSession && renderer.xr.getSession();
       const layer = sess && sess.renderState && sess.renderState.baseLayer;
-      if (layer && 'fixedFoveation' in layer) layer.fixedFoveation = 0;
+      if (layer && 'fixedFoveation' in layer) layer.fixedFoveation = 0.5;
     } catch (e) {}
   }
   renderer.xr.addEventListener('sessionstart', noFoveation);
@@ -389,7 +389,7 @@
       const sess = renderer.xr.getSession && renderer.xr.getSession();
       if (!sess || !sess.updateTargetFrameRate || !sess.supportedFrameRates) return;
       const rates = Array.from(sess.supportedFrameRates);
-      const want = parseFloat(new URLSearchParams(location.search).get('fps')) || Math.max.apply(null, rates);
+      const want = parseFloat(new URLSearchParams(location.search).get('fps')) || (rates.includes(90) ? 90 : Math.max.apply(null, rates));
       const pick = rates.includes(want) ? want : Math.max.apply(null, rates);
       sess.updateTargetFrameRate(pick).catch(() => {});
     } catch (e) {}
@@ -4156,7 +4156,7 @@
     dtHist.push(rawDt);
     if (dtHist.length > 4) dtHist.shift();
     let dtSum = 0; for (const d of dtHist) dtSum += d;
-    const dt = dtSum / dtHist.length;
+    const dt = renderer.xr.isPresenting ? rawDt : dtSum / dtHist.length;
     const _prevPX = character.position.x, _prevPZ = character.position.z;
 
     const xr = getXRInput();
