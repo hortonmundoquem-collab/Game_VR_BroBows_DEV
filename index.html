@@ -163,7 +163,7 @@
 <div id="ui">
   <div id="info">
     <b>Fase VR - Aventura do Herói</b><br/>
-    <u>Desktop:</u> WASD anda, Espaço/B/seta ↑ pula, seta ↓ agacha (parado) / cabeçada-dash (andando; partindo do chão atravessa buraco sem cair — pulo logo depois completa o salto) / no ar pancada forte, F/V/seta ← atira (com arma), G/seta → trava a mira, 4/6 gira câmera 45°, 8 aproxima/2 afasta a câmera, 5 reseta a câmera<br/>
+    <u>Desktop:</u> WASD anda, I (ou Espaço) pula, O (ou seta ↓) agacha (parado) / cabeçada-dash (andando; partindo do chão atravessa buraco sem cair — pulo logo depois completa o salto) / no ar pancada forte, J (ou F) atira (com arma), G/seta → trava a mira, 3/4 gira câmera, 1 aproxima/2 afasta a câmera, 5 reseta a câmera<br/>
     <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, GRIP esquerdo agacha/dash (partindo do chão atravessa buraco sem cair; pulo logo depois completa o salto), analógico direito gira/aproxima-afasta a câmera, clique do analógico direito (R3) reseta a câmera<br/>
     Tutorial (7 plataformas): comece sabendo apenas andar. A 1ª plataforma (T1) tem 5 grupos de inimigos — bate-bate, cobra, girando, esquerda/direita e vindo pra frente — agora mais espaçados, com a plataforma alongada para o horizonte. O FINAL da T1 AFINA até um bico: primeiro fica a CÂMERA e só depois o PULO (não dá para comprar o pulo antes da câmera). A T1 tem exatamente 15 moedas de 1, que é o preço da CÂMERA (15) — ao comprá-la o bolso seca. Nas beiradas da T1 há 4 TOCAS DE PEDRA (formações rochosas naturais, com colisão, e arbustos crescendo em cima das pedras) com 5 moedas de 1 cada, no FUNDO da toca, junto às pedras do fundo: quem vai do início para o fim da fase não as enxerga, e elas só podem ser pegas depois de comprar a câmera. As 4 tocas somam exatamente 20, o preço do PULO — depois de comprar o pulo o dinheiro seca de novo. No começo existe uma plaforminha atrás do ponto de partida — AGORA UM POUCO MAIS AFASTADA, para o jogador treinar o pulo — só se chega com um PULO (sem parede invisível: se errar, cai) — e a moeda dela fica ATRÁS DE UMA PEDRA ALTA: com a câmera voltando do fim para o começo da fase não dá para vê-la. Depois da ponta fina há uma plataforma menor (sem checkpoint); só então começam 3 fileiras iguais de 5 inimigos lado a lado, que dão acesso à T2: cada um dos 15 inimigos enfileirados tem 1 moeda EM CIMA da cabeça. Depois, entre os 5 inimigos que só morrem com o PISÃO FORTE ficam 4 moedas no chão — e essas são as ÚNICAS 4 moedas da T2. Somando as 15 de cima dos inimigos + as 4 entre os resistentes + a 1 da plaforminha do início = exatamente 20, o preço da PANCADA FORTE (20) — e o dinheiro seca de novo. Ao comprar a câmera ela faz uma demonstração sozinha (sobe tudo, vai até a 1ª pessoa, volta, gira 360° para cada lado). TODOS os upgrades agora são COMPRADOS com dinheiro espalhado pelas fases: encoste no item e o Guia vem correndo vender — ele oferece na legenda amarela acima da cabeça, mostra o preço e o seu saldo; se faltar dinheiro, saia e colete mais moedas. Na T2 (metade do tamanho), 5 inimigos resistentes (só morrem com a pancada forte) — derrote os 5 para abrir o portão. No FINAL da T2 fica o PRIMEIRO CHECKPOINT (o da ponta fina foi retirado) e o Guia avisa: "Muito bem, seu primeiro Check point, qualquer problema, continuará daqui, vou deixar essa arma gratuita pra você, tá indo bem." Atrás do portão, a ARMA é GRATUITA (pega ao encostar, sem loja) e não há nenhuma moeda na T2 além das 4 entre os resistentes. Na T3, o upgrade da TRAVA DE MIRA libera um TREINO: 30 inimigos com chifres vindo da FRENTE — segure G para travar a mira e derrube todos; o portão só abre quando todos caírem. Logo atrás, o upgrade de ANDAR ABAIXADO (seta ↓ parado). Antes da T4 há o PULO DUPLO e, depois dela, o DASH: mesma tecla do agachar, mas andando dispara uma CABEÇADA pra frente que mata no caminho. Depois do dash, um vão GRANDE exige DASH + pulo. 6 plataformas + corredor final: inimigos normais, atiradores, rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar a chave 1. Plataforma direita (P5): quiz matemático — acerte para ganhar a chave 2; errou, morre. Com as 2 chaves o portão da arena abre. Guardiões perseguem, espinhos. Ache a estrela no corredor!  </div>
   <button id="vr-button">Entrar em VR</button>
@@ -735,6 +735,17 @@
     addSolid(x, z, r * 2.0, r * 2.0, 0);
     return m;
   }
+  // Pedra-TETO: só visual (sem colisão), apoiada por cima para tapar a visão
+  // de quem olha com a câmera alta.
+  function addCapRock(x, y, z, r, sx, sy, sz, ry, mat, rz, rx) {
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat || rockMat);
+    m.position.set(x, y, z);
+    m.rotation.set(rx === undefined ? 0.12 : rx, ry || 0, rz === undefined ? -0.08 : rz);
+    m.scale.set(sx, sy, sz);
+    m.userData.bake = true;
+    scene.add(m);
+    return m;
+  }
   // [xAbs, dz, raio, escalaY, alturaBase, material]
   const CAVE_ROCKS = [
     // costas (esconde as moedas de quem vai para o final da fase)
@@ -760,6 +771,12 @@
     for (const R of CAVE_ROCKS) {
       addBoulder(s * R[0], h.z + R[1], R[2], R[3], R[5] ? rockMat2 : rockMat, R[4]);
     }
+    // pedra grande por CIMA da toca: cobre as moedas de quem olha de cima
+    addCapRock(s * 5.07, 2.3, h.z + 0.6, 1.0, 1.5, 0.5, 1.55, s * 0.3, rockMat2);
+    addBush(s * 5.0, h.z + 0.75, 0.5, bushMat, 2.55);
+    // 2ª pedra, por CIMA e a 45° para o lado do centro da fase:
+    // caverna da ESQUERDA -> inclinada para a DIREITA; da DIREITA -> para a ESQUERDA.
+    addCapRock(s * 3.7, 3.0, h.z + 1.6, 1.0, 1.7, 0.4, 1.6, 0, rockMat, s * Math.PI / 4, 0);
     // arbustos em volta (não tapam a boca)
     addBush(s * 3.5,  h.z - 2.45, 0.8, bushMat2);
     addBush(s * 6.75, h.z - 2.4,  0.75);
@@ -788,6 +805,12 @@
   addRock(-1.45, 341.55, 0.8, 0.75, 0.6, 0.2, rockMat2);
   addRock( 1.45, 341.50, 0.8, 0.7, 0.6, -0.25, rockMat);
   addRock(0, 339.55, 1.10, 1.90, 0.50, 0.08, rockMat);
+  // pedra por CIMA da pedra alta: tapa a moeda de quem olha com a câmera alta
+  addCapRock(0, 2.4, 340.3, 1.1, 1.5, 0.55, 1.15, 0.2, rockMat2);
+  // PAREDE de pedra do lado oposto (atrás da moeda), fechando entre as pedras baixas
+  addRock(0, 341.5, 2.3, 2.3, 0.7, 0, rockMat);
+  addBush(-0.5, 341.5, 0.55, bushMat2, 2.2);
+  addBush(0.2, 340.0, 0.5, bushMat, 2.7);
   addBush(-1.3, 338.95, 0.95); addBush(1.3, 338.95, 0.9, bushMat2);
   addBush(-0.78, 339.67, 0.7, bushMat2); addBush(0.82, 339.65, 0.75);
   addBush(-1.05, 292.6, 0.7); addBush(1.1, 285.9, 0.55, bushMat2);
@@ -1158,31 +1181,59 @@
   const stompOnlyEnemyMat = new THREE.MeshStandardMaterial({ color: 0x7a1010, metalness: 0.4, roughness: 0.5, emissive: 0x2a0000, emissiveIntensity: 0.3 });
   const flyerWingMat = new THREE.MeshStandardMaterial({ color: 0x553322, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
   const normalEnemies = [];
+  // ---- Inimigo bola: geometria ENXUTA e COMPARTILHADA ----
+  // corpo 12x8 (168 triângulos) + rosto (olhos, pupilas, sobrancelhas, boca e,
+  // se tiver, chifres) fundido numa peça só com cores por vértice.
+  // Total: ~490 triângulos e 2 peças por bola (antes: ~1350 e 8 peças).
+  const ballFaceMat = new THREE.MeshStandardMaterial({ vertexColors: true });
+  let _ballBody = null; const _ballFace = {};
+  function ballBodyGeo() {
+    if (!_ballBody) _ballBody = new THREE.SphereGeometry(0.45, 12, 8);
+    return _ballBody;
+  }
+  function ballFaceGeo(horned) {
+    const key = horned ? 'h' : 'n';
+    if (_ballFace[key]) return _ballFace[key];
+    const parts = [
+      [new THREE.SphereGeometry(0.13, 8, 6), -0.17, 0.56, -0.38, 0, 0, 0, 0xffffff],
+      [new THREE.SphereGeometry(0.13, 8, 6),  0.17, 0.56, -0.38, 0, 0, 0, 0xffffff],
+      [new THREE.SphereGeometry(0.06, 6, 4), -0.17, 0.55, -0.47, 0, 0, 0, 0x101010],
+      [new THREE.SphereGeometry(0.06, 6, 4),  0.17, 0.55, -0.47, 0, 0, 0, 0x101010],
+      [new THREE.BoxGeometry(0.22, 0.05, 0.05), -0.15, 0.64, -0.4, 0, 0, -0.5, 0x3a0a0a],
+      [new THREE.BoxGeometry(0.22, 0.05, 0.05),  0.15, 0.64, -0.4, 0, 0,  0.5, 0x3a0a0a],
+      [new THREE.TorusGeometry(0.12, 0.022, 4, 8, Math.PI), 0, 0.34, -0.42, 0, 0, 0, 0x2a0505]
+    ];
+    if (horned) {
+      parts.push([new THREE.ConeGeometry(0.15, 0.65, 6), -0.25, 0.95, 0.05, 0.35, 0, 0, 0x150a1a]);
+      parts.push([new THREE.ConeGeometry(0.15, 0.65, 6),  0.25, 0.95, 0.05, 0.35, 0, 0, 0x150a1a]);
+    }
+    const P = [], N = [], C = [];
+    const col = new THREE.Color();
+    for (const q of parts) {
+      const g = q[0].index ? q[0].toNonIndexed() : q[0].clone();
+      g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(q[4], q[5], q[6])).setPosition(q[1], q[2], q[3]));
+      P.push(g.attributes.position.array); N.push(g.attributes.normal.array);
+      col.setHex(q[7]);
+      const n = g.attributes.position.count, c = new Float32Array(n * 3);
+      for (let k = 0; k < n; k++) { c[k * 3] = col.r; c[k * 3 + 1] = col.g; c[k * 3 + 2] = col.b; }
+      C.push(c);
+      g.dispose(); q[0].dispose();
+    }
+    const cat = (arrs) => { let t = 0; for (const a of arrs) t += a.length; const o = new Float32Array(t); let f = 0; for (const a of arrs) { o.set(a, f); f += a.length; } return o; };
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(cat(P), 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(cat(N), 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(cat(C), 3));
+    geo.computeBoundingSphere();
+    _ballFace[key] = geo;
+    return geo;
+  }
   function spawnNormalEnemy(x, z, opts) {
     opts = opts || {};
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), enemyMat);
+    const body = new THREE.Mesh(ballBodyGeo(), enemyMat);
     body.position.y = 0.45;
-    const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x101010 });
-    const eyeWL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), eyeWhiteMat);
-    eyeWL.position.set(-0.17, 0.56, -0.38);
-    const eyeWR = eyeWL.clone(); eyeWR.position.x = 0.17;
-    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), pupilMat);
-    pupilL.position.set(-0.17, 0.55, -0.47);
-    const pupilR = pupilL.clone(); pupilR.position.x = 0.17;
-    const browMat = new THREE.MeshStandardMaterial({ color: 0x3a0a0a });
-    const browL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.05), browMat);
-    browL.position.set(-0.15, 0.64, -0.4);
-    browL.rotation.z = -0.5;
-    const browR = browL.clone(); browR.position.x = 0.15; browR.rotation.z = 0.5;
-    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x2a0505 });
-    const mouth = new THREE.Mesh(
-      new THREE.TorusGeometry(0.12, 0.022, 8, 16, Math.PI),
-      mouthMat
-    );
-    mouth.position.set(0, 0.34, -0.42);
-    g.add(body, eyeWL, eyeWR, pupilL, pupilR, browL, browR, mouth);
+    g.add(body, new THREE.Mesh(ballFaceGeo(!!opts.horned), ballFaceMat));
     let wingL = null, wingR = null;
     if (opts.flying) {
       wingL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 0.2), flyerWingMat);
@@ -1193,15 +1244,7 @@
       wingR.rotation.z = 0.3;
       g.add(wingL, wingR);
     }
-    if (opts.horned) {
-      const hornMat = new THREE.MeshStandardMaterial({ color: 0x150a1a });
-      const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.65, 8), hornMat);
-      hornL.position.set(-0.25, 0.95, 0.05);
-      hornL.rotation.x = 0.35;
-      const hornR = hornL.clone();
-      hornR.position.x = 0.25;
-      g.add(hornL, hornR);
-    }
+
     g.position.set(x, opts.flying ? (opts.flyHeight || 2.0) : 0, z);
     if (opts.stompOnly) {
       body.material = stompOnlyEnemyMat;
@@ -1261,10 +1304,13 @@
 
   // T1 (tutorial, início do jogo): só inimigos vermelhos redondos.
   // ---- T1: 5 grupos de inimigos, cada etapa mais longe rumo ao horizonte ----
-  // A) BATE-BATE: 4 inimigos em 2 duplas. Eles batem um no outro e VOLTAM,
+  // A) BATE-BATE: 6 inimigos em 3 duplas. Eles batem um no outro e VOLTAM,
   //    sem atravessar: a brecha aparece nas beiradas quando eles se separam.
   spawnNormalEnemy(-2.2, 327.0, { pattern: 'bounce', dir:  1, bounceCenter: 0, amp: 2.6, speed: 2.4 });
   spawnNormalEnemy( 2.2, 327.0, { pattern: 'bounce', dir: -1, bounceCenter: 0, amp: 2.6, speed: 2.4 });
+  // dupla extra ENTRE as outras duas, também se chocando
+  spawnNormalEnemy(-1.35, 325.1, { pattern: 'bounce', dir:  1, bounceCenter: 0, amp: 1.35, speed: 2.2 });
+  spawnNormalEnemy( 1.35, 325.1, { pattern: 'bounce', dir: -1, bounceCenter: 0, amp: 1.35, speed: 2.2 });
   spawnNormalEnemy( 2.2, 323.2, { pattern: 'bounce', dir: -1, bounceCenter: 0, amp: 2.6, speed: 2.0 });
   spawnNormalEnemy(-2.2, 323.2, { pattern: 'bounce', dir:  1, bounceCenter: 0, amp: 2.6, speed: 2.0 });
   // B) COBRA: 6 inimigos em onda, a brecha corre pra frente junto com o jogador.
@@ -1273,7 +1319,7 @@
   }
   // C) GIRANDO: 4 inimigos em carrossel; entre no tempo certo e passe pelo meio/beirada.
   for (let i = 0; i < 4; i++) {
-    spawnNormalEnemy(0, 308.5, { pattern: 'orbit', amp: 2.2, freq: 1.5, phase: i * Math.PI / 2 });
+    spawnNormalEnemy(0, 308.5, { pattern: 'orbit', amp: 2.55, freq: 1.5, phase: i * Math.PI / 2 });
   }
   // D) ESQUERDA E DIREITA: duas ruas cruzando a pista de lado a lado, em sentidos opostos.
   spawnNormalEnemy(0, 302.2, { pattern: 'cross', freq: 2.8, phase: 0,   len: 7 });
@@ -1724,13 +1770,13 @@
     jump: {
       title: 'Pulo', price: 20,
       desc: 'Aprenda a pular para atravessar vãos e alcançar plataformas mais altas. Segure o botão para um pulo mais alto e mais longo.',
-      post: 'Agora você já sabe pular. Será que consegue chegar na segunda plataforma?',
+      post: '',
       apply: function () { hasJumpAbility = true; }
     },
     camera: {
       title: 'Câmera', price: 15,
-      desc: 'Libera o controle da visão: gire com o analógico DIREITO (no PC, teclas 4 e 6), aproxime com 8 e afaste com 2. Aperte o analógico direito (ou 5) para voltar ao normal.',
-      post: 'Você pegou a CÂMERA! Agora dá pra mexer na visão com o analógico DIREITO: para os lados gira a câmera, para cima aproxima (zoom) e para baixo afasta. Aproximando bastante chega à primeira pessoa. Apertando o analógico direito, a câmera volta ao normal. (No PC: teclas 4 e 6 giram, 8 e 2 dão zoom, 5 reseta.)',
+      desc: 'Libera o controle da visão: gire com o analógico DIREITO (no PC, teclas 3 e 4), aproxime com 1 e afaste com 2. Aperte o analógico direito (ou 5) para voltar ao normal.',
+      post: 'Você pegou a CÂMERA! Agora dá pra mexer na visão com o analógico DIREITO: para os lados gira a câmera, para cima aproxima (zoom) e para baixo afasta. Aproximando bastante chega à primeira pessoa. Apertando o analógico direito, a câmera volta ao normal. (No PC: teclas 3 e 4 giram, 1 e 2 dão zoom, 5 reseta.)',
       apply: function () { hasCameraAbility = true; }
     },
     stomp: {
@@ -1817,7 +1863,7 @@
   function playCoinSound() { beep(1050, 1600, 0.10, 'triangle', 0.16); }
 
   // -------- MOEDAS --------
-  const coinGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.07, 18);
+  const coinGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.07, 10);
   const coinMat = new THREE.MeshStandardMaterial({
     color: 0xffcc33, emissive: 0xb8860b, emissiveIntensity: 0.65,
     metalness: 0.7, roughness: 0.35
@@ -1850,11 +1896,11 @@
   // Trecho 1 (T1, antes da câmera): 15 moedas de 1 = 15.
   // Espalhadas em zigue-zague de beirada a beirada para exigir desvio.
   spawnCoinRow([
-    [-2.30, 331.2, 1], [ 2.35, 328.6, 1], [ 0.10, 326.6, 1],
-    [ 2.55, 323.9, 1], [-2.55, 321.3, 1], [-0.30, 318.9, 1],
-    [ 2.45, 316.4, 1], [-2.45, 313.9, 1], [ 0.45, 311.5, 1],
-    [ 2.55, 309.0, 1], [-2.55, 306.4, 1], [ 0.00, 303.9, 1],
-    [ 2.20, 301.4, 1], [-2.20, 298.8, 1], [ 0.00, 296.0, 1]
+    [ 0.00, 327.0, 1], [ 2.35, 327.0, 1], [-2.40, 323.2, 1],
+    [ 2.55, 323.9, 1], [ 0.00, 315.75, 1], [-2.20, 308.5, 1],
+    [ 2.45, 316.4, 1], [-2.45, 313.9, 1], [ 0.45, 311.0, 1],
+    [ 2.55, 309.0, 1], [-0.80, 302.2, 1], [ 0.80, 300.4, 1],
+    [-2.00, 295.2, 1], [ 0.00, 293.8, 1], [ 2.00, 292.4, 1]
   ]);
   // ---- DINHEIRO NO FUNDO DAS 4 CONSTRUÇÕES ESCONDIDAS ----
   // Exatamente 5 moedas de 1 por toca (= 5). As 4 tocas somam 20, o preço
@@ -1862,18 +1908,20 @@
   // pedra do fundo: para quem vai do início para o fim da fase (câmera nas
   // costas) a própria parede tapa tudo; só aparecem quando o Fracote volta
   // e gira a câmera do fim para o começo.
+  // Moedas do MESMO tamanho das outras, espalhadas em 2 alturas dentro da toca
+  // (3 embaixo + 2 em cima) para não ficarem umas dentro das outras.
   const CAVE_COIN_SLOTS = [
-    [ 0.22, 0.62], [-0.24, 0.68], [ 0.10, 0.74], [-0.12, 0.60], [ 0.02, 0.70]
+    [-0.50, 0.50, 0.40], [ 0.05, 0.50, 0.40], [ 0.60, 0.50, 0.40],
+    [-0.22, 0.55, 1.00], [ 0.33, 0.55, 1.00]
   ];
   for (const h of HIDEOUTS) {
     for (let i = 0; i < 5; i++) {
       const sx = h.side * CAVE_COIN_SLOTS[i][0];
       const sz = CAVE_COIN_SLOTS[i][1];
-      spawnCoin(h.x + sx, h.z + sz, 1, 0.24, 0.50);
+      spawnCoin(h.x + sx, h.z + sz, 1, CAVE_COIN_SLOTS[i][2], 0.50);
       const cv = coinPickups[coinPickups.length - 1];
       // só dá para pegar depois de comprar a CÂMERA
       cv.requiresCamera = true;
-      cv.mesh.scale.setScalar(0.55);
     }
   }
   // Ilhota escondida atrás do início: UMA moeda de 1, atrás da PEDRA ALTA do
@@ -3599,7 +3647,7 @@
     vrShopPlane.visible = false;
     if (!shopActive) { shopBuyPrev = true; shopExitPrev = true; return; }
     const buyNow = !!(xrIn.shootBtn || keys['Enter'] || keys['NumpadEnter'] || keys['KeyE'] || padIn.jumpBtn);
-    const exitNow = !!(xrIn.triggerLeftBtn || xrIn.gripLeftBtn || keys['Escape'] || keys['KeyQ'] || keys['Backspace'] || keys['ArrowDown']);
+    const exitNow = !!(xrIn.triggerLeftBtn || xrIn.gripLeftBtn || keys['Escape'] || keys['KeyQ'] || keys['Backspace'] || keys['KeyO'] || keys['ArrowDown']);
     const buyEdge = buyNow && !shopBuyPrev, exitEdge = exitNow && !shopExitPrev;
     shopBuyPrev = buyNow; shopExitPrev = exitNow;
     if (exitEdge) { closeShop(true); return; }
@@ -3631,7 +3679,7 @@
     dialogueActive = false;
     dialogueBoxEl.style.display = 'none';
     // evita pular sem querer quando a fala é fechada com o botão de ação
-    jumpPrevHeld = !!(keys['Space'] || keys['KeyB'] || keys['ArrowUp']);
+    jumpPrevHeld = !!(keys['KeyI'] || keys['Space'] || keys['KeyB'] || keys['ArrowUp']);
     const cb = dialogueOnClose; dialogueOnClose = null;
     dialogueSpeaker = null;
     if (npcMode === 'arrive' && !introBusy) { npcMode = 'leave'; npcLeaveT = 0; }
@@ -3752,11 +3800,10 @@
     { who: 'npc',  text: 'Você vai jogar esse jogo que todos estão falando que é "O melhor jogo mais barato de todos os tempos"?', hero: 'npc', npcFace: 'hero', npcGesture: 'hero' },
     { who: 'hero', text: 'Eu e ele vamos jogar.', hero: 'camera', heroPoint: 'camera', npcFace: 'hero' },
     { who: 'npc',  text: 'Mas esse jogo tem gráficos muito ruins, olhe aí!', hero: 'horizon', npcFace: 'horizon', npcGesture: 'wave' },
-    { who: 'hero', text: 'Calma, queremos ver se o que todos estão falando realmente faz sentido. Será que esse jogo é "O Melhor Jogo Mais Barato de Todos os Tempos"?', hero: 'npc', npcFace: 'hero' },
-    { who: 'npc',  text: 'Vejam vocês mesmo,', hero: 'npc', npcFace: 'hero' },
+    { who: 'hero', text: 'Calma, vamos ver se esse jogo presta.', hero: 'npc', npcFace: 'hero' },
     { who: 'npc',  text: 'Duvido vocês conseguirem chegar ao fim desse jogo.', hero: 'npc', npcFace: 'hero', npcGesture: 'both', npcHeadAlt: true },
-    { who: 'npc',  text: 'Você vai começar com poucas mecânicas de Gameplay, agora você só sabe andar, e mais nada.', hero: 'npc', npcFace: 'hero', npcGesture: 'hero' },
-    { who: 'npc',  text: 'Vá, colete dinheiro para comprar novas habilidades.', hero: 'npc', npcFace: 'hero', npcGesture: 'hero' }
+    { who: 'npc',  text: 'Esse jogo além de ter o gráfico ruim, você começa com poucas mecânicas de Gameplay.', hero: 'npc', npcFace: 'hero', npcGesture: 'hero' },
+    { who: 'npc',  text: 'Quero ver se você sabe jogar mesmo e vai conseguir evoluir.', hero: 'npc', npcFace: 'hero', npcGesture: 'hero' }
   ];
   function playIntro(i) {
     if (i >= INTRO_STEPS.length) {
@@ -4242,14 +4289,14 @@
     if (dialogueActive) {
       dialogueTimer += dt;
       const okNow = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn ||
-        keys['Space'] || keys['Enter'] || keys['NumpadEnter'] || keys['KeyE'] || keys['KeyF']);
+        keys['KeyI'] || keys['KeyJ'] || keys['Space'] || keys['Enter'] || keys['NumpadEnter'] || keys['KeyE'] || keys['KeyF']);
       if (dialogueTimer >= dialogueMinTime && okNow && !dlgOkPrev) {
         dismissDialogue();
       }
       dlgOkPrev = okNow;
     } else {
       dlgOkPrev = !!(xr.jumpBtn || xr.shootBtn || pad.jumpBtn ||
-        keys['Space'] || keys['Enter'] || keys['NumpadEnter'] || keys['KeyE'] || keys['KeyF']);
+        keys['KeyI'] || keys['KeyJ'] || keys['Space'] || keys['Enter'] || keys['NumpadEnter'] || keys['KeyE'] || keys['KeyF']);
     }
     updateDialogueLabelPosition();
 
@@ -4385,7 +4432,7 @@
       character.rotation.y = aimLocked ? lockedFacingAngle : facingAngle;
 
       // -------- agachar / dash / pancada forte no ar --------
-      const crouchPressed = keys['ArrowDown'] || xr.triggerLeftBtn;
+      const crouchPressed = keys['KeyO'] || keys['ArrowDown'] || xr.triggerLeftBtn;
       const crouchJustPressed = crouchPressed && !prevCrouchPressed;
       prevCrouchPressed = crouchPressed;
       const moving = moveX !== 0 || moveZ !== 0;
@@ -4500,7 +4547,7 @@
       }
 
       // -------- pular --------
-      const jumpBtnBase = keys['Space'] || keys['KeyB'] || keys['ArrowUp'] || xr.jumpBtn || pad.jumpBtn;
+      const jumpBtnBase = keys['KeyI'] || keys['Space'] || keys['KeyB'] || keys['ArrowUp'] || xr.jumpBtn || pad.jumpBtn;
       const jumpPressed = jumpBtnBase && hasJumpAbility;
       if (jumpPressed && (grounded || dashing || dashJumpGrace > 0)) {
         velocityY = (dashing || dashJumpGrace > 0 || crouching) ? DASH_JUMP_SPEED : JUMP_SPEED;
@@ -4553,7 +4600,7 @@
 
       // -------- atirar (com arma) --------
       if (shootCooldown > 0) shootCooldown -= dt;
-      const shootPressed = keys['KeyF'] || keys['KeyV'] || keys['ArrowLeft'] || xr.shootBtn || pad.shootBtn;
+      const shootPressed = keys['KeyJ'] || keys['KeyF'] || keys['KeyV'] || keys['ArrowLeft'] || xr.shootBtn || pad.shootBtn;
       if (hasGun && shootPressed && shootCooldown <= 0) {
         let fwd = forwardVectorFromAngle(aimLocked ? lockedFacingAngle : facingAngle);
         const origin = new THREE.Vector3();
@@ -5584,8 +5631,8 @@
 
     // GIRO — segue o que foi escolhido no menu (Opções)
     const camStep = settings.deg * Math.PI / 180;
-    const d4 = !!keys['Digit4'];
-    const d6 = !!keys['Digit6'];
+    const d4 = !!keys['Digit3'];
+    const d6 = !!keys['Digit4'];
     let yawDir = 0;
     if (d4) yawDir = 1;
     else if (d6) yawDir = -1;
@@ -5619,7 +5666,7 @@
     }
 
     // ALTURA/ZOOM por níveis fixos
-    const d8 = !!keys['Digit8'];
+    const d8 = !!keys['Digit1'];
     const d2 = !!keys['Digit2'];
     let hDir = 0;
     if (d8) hDir = -1;
