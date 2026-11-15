@@ -102,7 +102,12 @@
       2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000,
       0 5px 12px rgba(0,0,0,0.95);
   }
-  #dialogue-hint { text-align:center; margin-top:6px; }
+  #dialogue-box::after {
+    content:''; display:block; width:0; height:0; margin:5px auto 0;
+    border-left:11px solid transparent; border-right:11px solid transparent; border-top:16px solid #ffe000;
+    filter:drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000);
+  }
+  #dialogue-hint { position:absolute; right:-18px; bottom:24px; margin:0; }
   #dialogue-ok {
     background:none; border:none; padding:0; cursor:pointer;
     font-family:inherit; font-size:12px; font-weight:bold; color:#ffe000;
@@ -567,6 +572,7 @@
     g.add(trunk, leaves);
     g.position.set(x, 0, z);
     g.scale.setScalar(scale);
+    g.userData.bake = true;
     scene.add(g);
   }
   for (let i = 0; i < 6; i++) {
@@ -589,11 +595,13 @@
     const mat = new THREE.MeshStandardMaterial({ color: p.color });
     const box = new THREE.Mesh(new THREE.BoxGeometry(p.hw * 2, 1, p.hd * 2), mat);
     box.position.set(p.cx, -0.5, p.cz);
+    box.userData.bake = true; box.userData.noCull = true;
     scene.add(box);
   }
   for (const s of CONNECTORS) {
     const stone = new THREE.Mesh(new THREE.CylinderGeometry(s.r * 0.95, s.r, 0.4, 14), stoneMat);
     stone.position.set(s.x, -0.2, s.z);
+    stone.userData.bake = true; stone.userData.noCull = true;
     scene.add(stone);
   }
 
@@ -667,6 +675,7 @@
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || rockMat);
     m.position.set(x, (y0 || 0) + h / 2 - 0.05, z);
     m.rotation.y = ry || 0;
+    m.userData.bake = true;
     scene.add(m);
     addSolid(x, z, w, d, ry);
     return m;
@@ -681,6 +690,7 @@
     }
     g.position.set(x, y || 0, z);
     g.scale.setScalar(s);
+    g.userData.bake = true;
     scene.add(g);
     return g;
   }
@@ -718,6 +728,7 @@
     m.position.set(x, (y0 || 0) + r * sy * 0.9, z);
     m.rotation.set((Math.random() - 0.5) * 0.55, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.55);
     m.scale.set(1 + Math.random() * 0.16, sy, 1 + Math.random() * 0.12);
+    m.userData.bake = true;
     scene.add(m);
     addSolid(x, z, r * 2.0, r * 2.0, 0);
     return m;
@@ -3325,17 +3336,56 @@
   // sempre bem na frente do jogador, grande e na orientação certa — igual à
   // legenda do PC, sem texto espelhado nem letra miúda.
   const vrDlgCanvas = document.createElement('canvas');
-  vrDlgCanvas.width = 1024; vrDlgCanvas.height = 560;
+  vrDlgCanvas.width = 1024; vrDlgCanvas.height = 512;
   const vrDlgCtx = vrDlgCanvas.getContext('2d');
   const vrDlgTex = crispTex(new THREE.CanvasTexture(vrDlgCanvas));
+  // Legenda SOLTA no mundo (sem caixa), em cima da cabeça de quem fala, com uma seta apontando pra ele.
+  // A origem do grupo é a PONTA da seta.
+  const VR_CAP_W = 2.8, VR_CAP_H = VR_CAP_W * 512 / 1024, VR_ARROW_H = 0.30;
+  const vrCapGroup = new THREE.Group();
+  vrCapGroup.visible = false;
+  vrCapGroup.userData.noCull = true;
   const vrDlgPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.5, 1.5 * 560 / 1024),
-    new THREE.MeshBasicMaterial({ map: vrDlgTex, transparent: true, side: THREE.DoubleSide, depthTest: false })
+    new THREE.PlaneGeometry(VR_CAP_W, VR_CAP_H),
+    new THREE.MeshBasicMaterial({ map: vrDlgTex, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false })
   );
-  vrDlgPlane.position.set(0, -0.02, -1.0);
-  vrDlgPlane.renderOrder = 40;
-  vrDlgPlane.visible = false;
-  camera.add(vrDlgPlane);
+  vrDlgPlane.position.set(0, VR_ARROW_H + VR_CAP_H / 2, 0);
+  vrDlgPlane.renderOrder = 42;
+  function makeCapArrow(verts, color, order) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
+    m.renderOrder = order;
+    m.frustumCulled = false;
+    return m;
+  }
+  const vrArrowOut = makeCapArrow([-0.23, 0.31, 0, 0.23, 0.31, 0, 0, -0.07, 0], 0x000000, 40);
+  const vrArrowIn  = makeCapArrow([-0.16, 0.28, 0, 0.16, 0.28, 0, 0, 0.0, 0], 0xffe000, 41);
+  vrCapGroup.add(vrArrowOut, vrArrowIn, vrDlgPlane);
+  scene.add(vrCapGroup);
+  const _capCam = new THREE.Vector3(), _capHead = new THREE.Vector3();
+  function updateVrCaption() {
+    const show = dialogueActive && renderer.xr.isPresenting;
+    vrCapGroup.visible = show;
+    if (!show) return;
+    speakerHeadWorld(_capHead);
+    _capHead.y -= 0.25;
+    _capCam.setFromMatrixPosition(camera.matrixWorld);
+    const dist = Math.hypot(_capCam.x - _capHead.x, _capCam.y - _capHead.y, _capCam.z - _capHead.z);
+    if (dist > 1.2) {
+      vrCapGroup.position.copy(_capHead);
+      vrCapGroup.scale.setScalar(Math.min(3.2, Math.max(0.45, dist / 5.2)));
+      vrArrowOut.visible = vrArrowIn.visible = true;
+    } else {
+      // quem fala está colado na câmera (1a pessoa): texto à frente do corpo, sem seta.
+      // Usa a direção do rig (não a da cabeça) para o texto não tremer quando você vira a cabeça.
+      const yaw = camPivot.rotation.y;
+      vrCapGroup.position.set(_capHead.x - Math.sin(yaw) * 1.9, _capHead.y - 0.1, _capHead.z - Math.cos(yaw) * 1.9);
+      vrCapGroup.scale.setScalar(0.42);
+      vrArrowOut.visible = vrArrowIn.visible = false;
+    }
+    vrCapGroup.rotation.y = Math.atan2(_capCam.x - vrCapGroup.position.x, _capCam.z - vrCapGroup.position.z);
+  }
   renderer.xr.addEventListener('sessionstart', function () { if (dialogueActive) dialogueTimer = 0; });
 
   function vrRoundRect(c, x, y, w, h, r) {
@@ -3366,46 +3416,33 @@
   }
   function drawVrDialogue(name, text) {
     const c = vrDlgCtx, W = vrDlgCanvas.width, H = vrDlgCanvas.height;
-    c.clearRect(0, 0, W, H);
-    // fundo escuro arredondado (garante leitura em qualquer cenário)
-    vrRoundRect(c, 10, 8, W - 20, H - 16, 28);
-    c.fillStyle = 'rgba(8,10,20,0.80)';
-    c.fill();
-    c.lineWidth = 5; c.strokeStyle = 'rgba(255,204,51,0.85)'; c.stroke();
-    // nome de quem fala
-    c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.font = 'bold 30px Verdana, sans-serif';
-    c.fillStyle = '#ffcc33';
-    c.fillText(String(name || 'Herói').toUpperCase(), 44, 62);
-    // texto amarelo, grande, quebrando linha sozinho
-    const maxW = W - 110;
-    const bodyTop = 96, bodyBottom = H - 76;
-    let size = 54, lines = [];
-    for (; size >= 30; size -= 2) {
+    c.clearRect(0, 0, W, H);   // sem fundo, sem caixa: só letras com contorno
+    const isNpc = name === NPC_NAME;
+    vrArrowIn.material.color.set(isNpc ? 0x7fd0ff : 0xffb347);
+    c.lineJoin = 'round'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    // dica de como continuar (pequena, no pé da legenda)
+    c.font = 'bold 28px Verdana, sans-serif';
+    c.lineWidth = 7; c.strokeStyle = '#000000'; c.fillStyle = '#ffffff';
+    const hint = 'A / X ou gatilho: continuar';
+    c.strokeText(hint, W / 2, H - 26); c.fillText(hint, W / 2, H - 26);
+    // texto da fala, quebrando linha sozinho, de baixo para cima (fica colado na seta)
+    const maxW = W - 80, bottom = H - 70, top = 70;
+    let size = 64, lines = [];
+    for (; size >= 34; size -= 2) {
       c.font = 'bold ' + size + 'px Verdana, sans-serif';
       lines = vrWrapLines(c, text, maxW);
-      if (lines.length * size * 1.24 <= bodyBottom - bodyTop) break;
+      if (lines.length * size * 1.22 <= bottom - top) break;
     }
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.lineJoin = 'round';
-    c.strokeStyle = '#000000';
-    c.lineWidth = Math.max(6, size * 0.20);
-    c.fillStyle = '#ffe000';
-    const totalH = lines.length * size * 1.24;
-    let y = bodyTop + (bodyBottom - bodyTop - totalH) / 2 + size * 0.62;
-    for (const ln of lines) {
-      c.strokeText(ln, W / 2, y);
-      c.fillText(ln, W / 2, y);
-      y += size * 1.24;
-    }
-    // dica de como continuar
-    c.font = 'bold 27px Verdana, sans-serif';
-    c.lineWidth = 6;
-    c.strokeStyle = '#000000';
-    c.fillStyle = '#ffe000';
-    const hint = 'A / X ou o gatilho para continuar';
-    c.strokeText(hint, W / 2, H - 40);
-    c.fillText(hint, W / 2, H - 40);
+    const lh = size * 1.22;
+    c.lineWidth = Math.max(8, size * 0.22); c.strokeStyle = '#000000'; c.fillStyle = '#ffe000';
+    let y = bottom - lh * lines.length + lh / 2;
+    for (const ln of lines) { c.strokeText(ln, W / 2, y); c.fillText(ln, W / 2, y); y += lh; }
+    // nome de quem fala, acima do texto, na cor da seta
+    c.font = 'bold 34px Verdana, sans-serif';
+    c.lineWidth = 8; c.strokeStyle = '#000000'; c.fillStyle = isNpc ? '#7fd0ff' : '#ffb347';
+    const ny = bottom - lh * lines.length - 26;
+    const nm = String(name || 'Herói').toUpperCase();
+    c.strokeText(nm, W / 2, ny); c.fillText(nm, W / 2, ny);
     vrDlgTex.needsUpdate = true;
   }
 
@@ -4164,8 +4201,7 @@
 
     updateMenu(xr);
     if (lastMoneyShown !== money) { lastMoneyShown = money; drawMoneyCanvas(); }
-    const vrDlgShow = dialogueActive && renderer.xr.isPresenting;
-    vrDlgPlane.visible = vrDlgShow;
+    updateVrCaption();
     updateVrShop(xr);
 
     // -------- diálogo: pausa o jogo e espera o jogador dispensar --------
@@ -5665,15 +5701,122 @@
       h.thumb.rotation.y = 0.5 + h.curlThumb * 0.9;
     }
 
+    if ((cullFrame++ & 3) === 0) updateDistanceCull();
     updateNpc(dt);
-    // Atualiza a pose da cabeça ANTES do render: painéis presos à câmera (HUD, diálogo, loja)
-    // usavam a pose do quadro anterior e tremiam ao girar a cabeça.
-    if (renderer.xr.isPresenting) renderer.xr.getCamera(camera);
     renderer.render(scene, camera);
   }
 
   // (o diálogo inicial abre quando o jogador escolhe "Iniciar Jogo" no menu)
 
+  // =========================================================================
+  // DESEMPENHO (VR): 1) funde o cenário estático em poucos objetos
+  //                  2) não desenha o que está longe demais para ser visto
+  // O jogo desenhava ~1000 objetos separados por olho a cada quadro.
+  // Ajuste/desligue pela URL: ?cull=60  (distância)   ?cull=0  (desliga)
+  // =========================================================================
+  const CULL_FAR = (function () {
+    const q = parseFloat(new URLSearchParams(location.search).get('cull'));
+    return isNaN(q) ? 75 : q;
+  })();
+  function bakeMatKey(m) {
+    return [m.type, m.color ? m.color.getHex() : 0, m.roughness, m.metalness,
+      m.emissive ? m.emissive.getHex() : 0, m.emissiveIntensity, m.transparent, m.opacity,
+      m.side, m.flatShading, m.map ? m.map.uuid : ''].join('|');
+  }
+  function bakeStaticScenery() {
+    scene.updateMatrixWorld(true);
+    const roots = scene.children.filter(function (o) { return o.userData && o.userData.bake; });
+    const buckets = new Map();
+    const v = new THREE.Vector3();
+    const okRoots = [];
+    for (const root of roots) {
+      let ok = true;
+      root.traverse(function (o) {
+        if (!o.isMesh) return;
+        const g = o.geometry;
+        if (Array.isArray(o.material) || !g || !g.attributes.position || !g.attributes.normal) ok = false;
+      });
+      if (!ok) continue;
+      okRoots.push(root);
+      root.traverse(function (o) {
+        if (!o.isMesh) return;
+        v.setFromMatrixPosition(o.matrixWorld);
+        const noCull = !!root.userData.noCull;
+        const key = Math.floor(v.z / 30) + '|' + (noCull ? 'g' : 'd') + '|' + bakeMatKey(o.material);
+        let b = buckets.get(key);
+        if (!b) { b = { mat: o.material, items: [], noCull: noCull }; buckets.set(key, b); }
+        b.items.push(o);
+      });
+    }
+    buckets.forEach(function (b) {
+      const P = [], N = [];
+      let total = 0;
+      for (const o of b.items) {
+        const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+        g.applyMatrix4(o.matrixWorld);
+        P.push(g.attributes.position.array); N.push(g.attributes.normal.array);
+        total += g.attributes.position.array.length;
+        g.dispose();
+      }
+      const pa = new Float32Array(total), na = new Float32Array(total);
+      let off = 0;
+      for (let i = 0; i < P.length; i++) { pa.set(P[i], off); na.set(N[i], off); off += P[i].length; }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pa, 3));
+      geo.setAttribute('normal', new THREE.BufferAttribute(na, 3));
+      geo.computeBoundingSphere();
+      const mesh = new THREE.Mesh(geo, b.mat);
+      mesh.matrixAutoUpdate = false;
+      mesh.userData.isBaked = true;
+      mesh.userData.noCull = b.noCull;
+      scene.add(mesh);
+    });
+    for (const r of okRoots) scene.remove(r);
+  }
+
+  const CULL_MASK = 1 << 10;   // camada que nenhuma câmera enxerga (0 = normal; 1 e 2 são os olhos do XR)
+  const cullList = [];
+  let cullFrame = 0;
+  const _cullCam = new THREE.Vector3();
+  function buildCullList() {
+    if (!(CULL_FAR > 0)) return;
+    scene.updateMatrixWorld(true);
+    const skip = [camPivot, character, npc, vrCapGroup];
+    scene.children.forEach(function (top) {
+      if (skip.indexOf(top) >= 0 || top.isLight || (top.userData && top.userData.noCull)) return;
+      top.traverse(function (o) {
+        if (!o.isMesh || Array.isArray(o.material) || !o.geometry) return;
+        const g = o.geometry;
+        if (!g.boundingSphere) g.computeBoundingSphere();
+        if (!g.boundingSphere) return;
+        if (o.userData.isBaked) {
+          const r = g.boundingSphere.radius, lim = CULL_FAR * 1.3 + r;
+          cullList.push({ mesh: o, fixed: true, cx: g.boundingSphere.center.x, cy: g.boundingSphere.center.y, cz: g.boundingSphere.center.z, lim2: lim * lim });
+          return;
+        }
+        const r = g.boundingSphere.radius * o.matrixWorld.getMaxScaleOnAxis();
+        if (r > 8) return;   // chão e estruturas grandes: sempre desenhados
+        const lim = Math.min(CULL_FAR, Math.max(16, r * 350)) + r;
+        cullList.push({ mesh: o, fixed: false, lim2: lim * lim });
+      });
+    });
+  }
+  function updateDistanceCull() {
+    if (!cullList.length) return;
+    _cullCam.setFromMatrixPosition(camera.matrixWorld);
+    const hx = _cullCam.x, hy = _cullCam.y, hz = _cullCam.z;
+    for (let i = 0; i < cullList.length; i++) {
+      const c = cullList[i];
+      let dx, dy, dz;
+      if (c.fixed) { dx = c.cx - hx; dy = c.cy - hy; dz = c.cz - hz; }
+      else { const e = c.mesh.matrixWorld.elements; dx = e[12] - hx; dy = e[13] - hy; dz = e[14] - hz; }
+      const mask = (dx * dx + dy * dy + dz * dz > c.lim2) ? CULL_MASK : 1;
+      if (c.mesh.layers.mask !== mask) c.mesh.layers.mask = mask;
+    }
+  }
+
+  bakeStaticScenery();
+  buildCullList();
   renderer.setAnimationLoop(animate);
 })();
 </script>
