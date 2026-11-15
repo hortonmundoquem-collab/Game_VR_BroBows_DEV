@@ -161,11 +161,6 @@
 </head>
 <body>
 <div id="ui">
-  <div id="info">
-    <b>Fase VR - Aventura do Herói</b><br/>
-    <u>Desktop:</u> WASD anda, I (ou Espaço) pula, O (ou seta ↓) agacha (parado) / cabeçada-dash (andando; partindo do chão atravessa buraco sem cair — pulo logo depois completa o salto) / no ar pancada forte, J (ou F) atira (com arma), G/seta → trava a mira, 3/4 gira câmera, 1 aproxima/2 afasta a câmera, 5 reseta a câmera<br/>
-    <u>Quest:</u> analógico esquerdo anda, A/X pula, gatilho direito atira, GRIP direito trava a mira, GRIP esquerdo agacha/dash (partindo do chão atravessa buraco sem cair; pulo logo depois completa o salto), analógico direito gira/aproxima-afasta a câmera, clique do analógico direito (R3) reseta a câmera<br/>
-    Tutorial (7 plataformas): comece sabendo apenas andar. A 1ª plataforma (T1) tem 5 grupos de inimigos — bate-bate, cobra, girando, esquerda/direita e vindo pra frente — agora mais espaçados, com a plataforma alongada para o horizonte. O FINAL da T1 AFINA até um bico: primeiro fica a CÂMERA e só depois o PULO (não dá para comprar o pulo antes da câmera). A T1 tem exatamente 15 moedas de 1, que é o preço da CÂMERA (15) — ao comprá-la o bolso seca. Nas beiradas da T1 há 4 TOCAS DE PEDRA (formações rochosas naturais, com colisão, e arbustos crescendo em cima das pedras) com 5 moedas de 1 cada, no FUNDO da toca, junto às pedras do fundo: quem vai do início para o fim da fase não as enxerga, e elas só podem ser pegas depois de comprar a câmera. As 4 tocas somam exatamente 20, o preço do PULO — depois de comprar o pulo o dinheiro seca de novo. No começo existe uma plaforminha atrás do ponto de partida — AGORA UM POUCO MAIS AFASTADA, para o jogador treinar o pulo — só se chega com um PULO (sem parede invisível: se errar, cai) — e a moeda dela fica ATRÁS DE UMA PEDRA ALTA: com a câmera voltando do fim para o começo da fase não dá para vê-la. Depois da ponta fina há uma plataforma menor (sem checkpoint); só então começam 3 fileiras iguais de 5 inimigos lado a lado, que dão acesso à T2: cada um dos 15 inimigos enfileirados tem 1 moeda EM CIMA da cabeça. Depois, entre os 5 inimigos que só morrem com o PISÃO FORTE ficam 4 moedas no chão — e essas são as ÚNICAS 4 moedas da T2. Somando as 15 de cima dos inimigos + as 4 entre os resistentes + a 1 da plaforminha do início = exatamente 20, o preço da PANCADA FORTE (20) — e o dinheiro seca de novo. Ao comprar a câmera ela faz uma demonstração sozinha (sobe tudo, vai até a 1ª pessoa, volta, gira 360° para cada lado). TODOS os upgrades agora são COMPRADOS com dinheiro espalhado pelas fases: encoste no item e o Guia vem correndo vender — ele oferece na legenda amarela acima da cabeça, mostra o preço e o seu saldo; se faltar dinheiro, saia e colete mais moedas. Na T2 (metade do tamanho), 5 inimigos resistentes (só morrem com a pancada forte) — derrote os 5 para abrir o portão. No FINAL da T2 fica o PRIMEIRO CHECKPOINT (o da ponta fina foi retirado) e o Guia avisa: "Muito bem, seu primeiro Check point, qualquer problema, continuará daqui, vou deixar essa arma gratuita pra você, tá indo bem." Atrás do portão, a ARMA é GRATUITA (pega ao encostar, sem loja) e não há nenhuma moeda na T2 além das 4 entre os resistentes. Na T3, o upgrade da TRAVA DE MIRA libera um TREINO: 30 inimigos com chifres vindo da FRENTE — segure G para travar a mira e derrube todos; o portão só abre quando todos caírem. Logo atrás, o upgrade de ANDAR ABAIXADO (seta ↓ parado). Antes da T4 há o PULO DUPLO e, depois dela, o DASH: mesma tecla do agachar, mas andando dispara uma CABEÇADA pra frente que mata no caminho. Depois do dash, um vão GRANDE exige DASH + pulo. 6 plataformas + corredor final: inimigos normais, atiradores, rápidos. Plataforma esquerda (P4): puzzle empurrando pedra para pegar a chave 1. Plataforma direita (P5): quiz matemático — acerte para ganhar a chave 2; errou, morre. Com as 2 chaves o portão da arena abre. Guardiões perseguem, espinhos. Ache a estrela no corredor!  </div>
   <button id="vr-button">Entrar em VR</button>
   <div id="message"></div>
   <button id="restart-button">Repetir fase</button>
@@ -776,7 +771,7 @@
     addBush(s * 5.0, h.z + 0.75, 0.5, bushMat, 2.55);
     // 2ª pedra, por CIMA e a 45° para o lado do centro da fase:
     // caverna da ESQUERDA -> inclinada para a DIREITA; da DIREITA -> para a ESQUERDA.
-    addCapRock(s * 3.7, 3.0, h.z + 1.6, 1.0, 1.7, 0.4, 1.6, 0, rockMat, s * Math.PI / 4, 0);
+    addCapRock(s * 3.7, 3.0, h.z + 0.1, 1.0, 1.7, 0.4, 3.0, 0, rockMat, s * Math.PI / 4, 0);
     // arbustos em volta (não tapam a boca)
     addBush(s * 3.5,  h.z - 2.45, 0.8, bushMat2);
     addBush(s * 6.75, h.z - 2.4,  0.75);
@@ -1781,7 +1776,7 @@
     },
     stomp: {
       title: 'Pancada Forte', price: 20,
-      desc: 'No ar, desça com força para esmagar inimigos resistentes. Alguns inimigos só morrem com a pancada forte.',
+      desc: 'No ar, aperte L para descer com força e esmagar inimigos resistentes (e para apertar os botões de Check Point). Alguns inimigos só morrem com a pancada forte.',
       post: 'Agora você sabe pisar forte! Alguns inimigos só caem assim.',
       apply: function () { hasStompAbility = true; }
     },
@@ -2111,57 +2106,98 @@
   const checkpoints = [];
   function spawnCheckpoint(x, z, message, after) {
     const group = new THREE.Group();
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x9a7a4a, roughness: 0.95 });
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 1.5, 8), woodMat);
-    post.position.y = 0.75;
-    const board = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 0.08), woodMat);
-    board.position.set(0, 1.55, -0.12);
-    const signCanvas = document.createElement('canvas');
-    signCanvas.width = 1024; signCanvas.height = 358;
-    const signCtx = signCanvas.getContext('2d');
-    signCtx.fillStyle = '#7a5a2e'; signCtx.fillRect(0, 0, 1024, 358);
-    signCtx.strokeStyle = '#f2e3b8'; signCtx.lineWidth = 14; signCtx.strokeRect(14, 14, 996, 330);
-    signCtx.fillStyle = '#ffffff'; signCtx.font = 'bold 150px sans-serif';
-    signCtx.textAlign = 'center'; signCtx.textBaseline = 'middle';
-    signCtx.fillText('CHECKPOINT', 512, 185);
-    const signTex = crispTex(new THREE.CanvasTexture(signCanvas));
-    const signMat = new THREE.MeshBasicMaterial({ map: signTex });
-    const liveCanvas = document.createElement('canvas');
-    liveCanvas.width = 1024; liveCanvas.height = 358;
-    const liveCtx = liveCanvas.getContext('2d');
-    liveCtx.fillStyle = '#1fae4b'; liveCtx.fillRect(0, 0, 1024, 358);
-    liveCtx.strokeStyle = '#ffe066'; liveCtx.lineWidth = 18; liveCtx.strokeRect(14, 14, 996, 330);
-    liveCtx.fillStyle = '#ffffff'; liveCtx.font = 'bold 150px sans-serif';
-    liveCtx.textAlign = 'center'; liveCtx.textBaseline = 'middle';
-    liveCtx.fillText('CHECKPOINT', 512, 185);
-    const liveTex = crispTex(new THREE.CanvasTexture(liveCanvas));
-    const chk1 = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 0.686), signMat);
-    chk1.position.set(0, 1.55, -0.12 + 0.045);
-    const chk2 = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 0.686), signMat);
-    chk2.position.set(0, 1.55, -0.12 - 0.045);
-    chk2.rotation.y = Math.PI;
-    const flagGroup = new THREE.Group();
-    flagGroup.visible = false;
-    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.0, 8), new THREE.MeshStandardMaterial({ color: 0xd0d0d0 }));
-    flagPole.position.y = 1.5;
-    const flagMat = new THREE.MeshStandardMaterial({ color: 0xff4444, emissive: 0x992222, emissiveIntensity: 0.35 });
-    const flag = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.55, 0.05), flagMat);
-    flag.position.set(0.6, 2.7, 0);
-    flagGroup.add(flagPole, flag);
-    group.add(post, board, chk1, chk2, flagGroup);
+    // base metálica do botão (caixa de arcade)
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: 0.7, roughness: 0.4 });
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.68, 0.14, 24), baseMat);
+    base.position.y = 0.07;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.05, 10, 28), new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: 0.9, roughness: 0.25 }));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.15;
+    // botão verde ESCURO (desapertado) — fica verde aceso quando pisado
+    const btnMat = new THREE.MeshStandardMaterial({ color: 0x0b3d1a, emissive: 0x000000, emissiveIntensity: 0, roughness: 0.35, metalness: 0.2 });
+    const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.26, 28), btnMat);
+    btn.position.y = 0.27;
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), btnMat);
+    cap.scale.set(1, 0.32, 1);
+    cap.position.y = 0.4;
+    const btnGroup = new THREE.Group();
+    btnGroup.add(btn, cap);
+    // placa "Check Point" (aparece quando o botão é apertado)
+    const c = document.createElement('canvas');
+    c.width = 1024; c.height = 300;
+    const cx = c.getContext('2d');
+    const rr = (x0, y0, w, h, r) => {
+      cx.beginPath(); cx.moveTo(x0 + r, y0); cx.lineTo(x0 + w - r, y0); cx.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + r);
+      cx.lineTo(x0 + w, y0 + h - r); cx.quadraticCurveTo(x0 + w, y0 + h, x0 + w - r, y0 + h);
+      cx.lineTo(x0 + r, y0 + h); cx.quadraticCurveTo(x0, y0 + h, x0, y0 + h - r);
+      cx.lineTo(x0, y0 + r); cx.quadraticCurveTo(x0, y0, x0 + r, y0); cx.closePath();
+    };
+    const grad = cx.createLinearGradient(0, 0, 0, 300);
+    grad.addColorStop(0, '#0f5a2a'); grad.addColorStop(1, '#06260f');
+    rr(20, 20, 984, 260, 60); cx.fillStyle = grad; cx.fill();
+    cx.lineWidth = 14; cx.strokeStyle = '#7dff9a'; cx.stroke();
+    cx.lineWidth = 4; cx.strokeStyle = '#d8ffe2'; rr(38, 38, 948, 224, 46); cx.stroke();
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.font = 'bold 150px Verdana, Geneva, sans-serif';
+    cx.lineJoin = 'round';
+    cx.shadowColor = '#3dff74'; cx.shadowBlur = 28;
+    cx.lineWidth = 16; cx.strokeStyle = '#04200c'; cx.strokeText('Check Point', 512, 158);
+    cx.fillStyle = '#eaffef'; cx.fillText('Check Point', 512, 158);
+    const signTex = crispTex(new THREE.CanvasTexture(c));
+    const signMat = new THREE.SpriteMaterial({ map: signTex, transparent: true, depthTest: false });
+    const sign = new THREE.Sprite(signMat);
+    sign.position.set(0, 2.1, 0);
+    sign.scale.set(0.001, 0.001, 1);
+    sign.renderOrder = 20;
+    sign.visible = false;
+    group.add(base, ring, btnGroup, sign);
     group.position.set(x, 0, z);
     scene.add(group);
-    flagGroup.visible = false;
-    return { mesh: group, flagGroup, flag, board, signMat, liveTex, activated: false, message: message || 'Checkpoint!', after: after || null };
+    return { mesh: group, btn: btnGroup, btnMat, sign, signMat, signW: 3.6, signH: 3.6 * 300 / 1024, activated: false, popT: 0, message: message || 'Checkpoint!', after: after || null };
+  }
+  // liga o visual de "apertado": botão afunda e fica verde aceso + placa
+  function setCheckpointActive(cp, instant) {
+    cp.activated = true;
+    cp.btn.position.y = -0.14;
+    cp.btnMat.color.setHex(0x22e050);
+    cp.btnMat.emissive.setHex(0x22ff55);
+    cp.btnMat.emissiveIntensity = 1.3;
+    cp.sign.visible = true;
+    cp.popT = instant ? 99 : 0;
+    if (instant) cp.sign.scale.set(cp.signW, cp.signH, 1);
+  }
+  // som característico: clique de botão de arcade + "tá-dá" de moedinha
+  function playCheckpointSound() {
+    beep(180, 60, 0.10, 'square', 0.30);
+    setTimeout(function () { beep(880, 880, 0.09, 'square', 0.16); }, 90);
+    setTimeout(function () { beep(1175, 1175, 0.09, 'square', 0.16); }, 180);
+    setTimeout(function () { beep(1568, 1568, 0.09, 'square', 0.16); }, 270);
+    setTimeout(function () { beep(2093, 2093, 0.28, 'triangle', 0.18); }, 360);
+  }
+  // pisada forte (L) em cima do botão
+  function tryPressCheckpointButtons(px, pz) {
+    for (const cp of checkpoints) {
+      if (cp.activated) continue;
+      const dx = px - cp.mesh.position.x, dz = pz - cp.mesh.position.z;
+      if (Math.sqrt(dx * dx + dz * dz) < 0.85) {
+        setCheckpointActive(cp, false);
+        saveCheckpoint(cp.mesh.position.x, cp.mesh.position.z);
+        playCheckpointSound();
+        showDialogue(cp.message, {
+          name: NPC_NAME,
+          onClose: cp.after ? function () { showDialogue(cp.after, { name: NPC_NAME }); } : null
+        });
+      }
+    }
   }
   // Checkpoint do fim da T2: no FINAL da plataforma dos inimigos resistentes,
   // logo antes do portão e da arma gratuita. É o primeiro checkpoint do jogo.
-  checkpoints.push(spawnCheckpoint(0, 254.2,
-    'Checkpoint! Se você cair agora, reaparece aqui mesmo — no fim da plataforma dos inimigos resistentes, antes do portão da arma.',
+  checkpoints.push(spawnCheckpoint(2.35, 254.6,
+    'Check Point! Se você cair agora, reaparece aqui mesmo — na beirada do fim da plataforma dos inimigos resistentes, antes do portão da arma.',
     'Muito bem, seu primeiro Check point, qualquer problema, continuará daqui, vou deixar essa arma gratuita pra você, tá indo bem.'));
   // Checkpoint do fim da T4, ao lado DIREITO do item do dash.
-  checkpoints.push(spawnCheckpoint(1.9, 170,
-    'Checkpoint! Se você cair agora, reaparece aqui mesmo — logo ao lado do item do dash, já na beirinha da primeira plataforma com inimigos.'));
+  checkpoints.push(spawnCheckpoint(2.35, 170.6,
+    'Check Point! Se você cair agora, reaparece aqui mesmo — logo ao lado do item do dash, na beirada da plataforma.'));
 
   // =========================================================================
   // PUZZLE (P4) — pedra empurrável + placa + chave
@@ -2852,6 +2888,8 @@
   const DASH_MOMENTUM_DECAY = 6;
   let dashStartedOnGround = false;
   let prevCrouchPressed = false;
+  let prevPoundKey = false;
+  let lastCpHintAt = -99;
   let lastMoveDirX = 0;
   let lastMoveDirZ = 0;
   function startDash() {
@@ -2959,7 +2997,7 @@
   }
 
   // -------- VIDA (3 corações) --------
-  const MAX_HEARTS = 3;
+  let MAX_HEARTS = 3;
   let hearts = MAX_HEARTS;
   const HURT_BLINK_TIME = 1.0;
   let invulnTimer = 0;
@@ -2994,6 +3032,11 @@
     if (!checkpoints.some((c) => c.activated)) respawnAllEnemies();
     character.position.copy(checkpointPos);
     camPivot.position.set(checkpointPos.x, 0, checkpointPos.z);
+    // câmera: mantém altura / 1ª pessoa, mas volta a olhar para o fim da fase
+    camYawTarget = 0;
+    camPivot.rotation.y = 0;
+    facingAngle = 0;
+    character.rotation.y = 0;
     updateHeartsUI();
     fadeEl.style.opacity = '1';
     setTimeout(() => { fadeEl.style.opacity = '0'; }, 220);
@@ -3132,15 +3175,21 @@
   // =========================================================================
   const SETTINGS_KEY = 'brobows_settings_v1';
   const SAVE_KEY = 'brobows_save_v2'; // v2: economia nova (pisão 20)
-  const settings = { turn: 'fast', deg: 30 };
+  const settings = { turn: 'fast', deg: 30, diff: 'normal' };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const o = JSON.parse(raw);
       if (o.turn === 'fast' || o.turn === 'mixed' || o.turn === 'smooth') settings.turn = o.turn;
       if (o.deg === 20 || o.deg === 30 || o.deg === 45) settings.deg = o.deg;
+      if (o.diff === 'easy' || o.diff === 'normal') settings.diff = o.diff;
     }
   } catch (e) {}
+  function applyDifficulty() {
+    MAX_HEARTS = settings.diff === 'easy' ? 10 : 3;
+    hearts = MAX_HEARTS;
+  }
+  applyDifficulty();
   function persistSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
 
   let menuActive = true;
@@ -3161,9 +3210,11 @@
       return out;
     }
     return [
-      { id: 'start', label: 'Iniciar Jogo', x: 252, y: 300, w: 520, h: 100, selected: false },
-      { id: 'load', label: 'Carregar Jogo', x: 252, y: 430, w: 520, h: 100, selected: false },
-      { id: 'options', label: 'Opções', x: 252, y: 560, w: 520, h: 100, selected: false },
+      { id: 'diff:easy', label: 'Fácil', sub: '(começa com 10 corações)', x: 40, y: 235, w: 456, h: 110, selected: settings.diff === 'easy' },
+      { id: 'diff:normal', label: 'Normal', sub: '(começa com 3 corações)', x: 528, y: 235, w: 456, h: 110, selected: settings.diff === 'normal' },
+      { id: 'start', label: 'Iniciar Jogo', x: 252, y: 370, w: 520, h: 90, selected: false },
+      { id: 'load', label: 'Carregar Jogo', x: 252, y: 475, w: 520, h: 90, selected: false },
+      { id: 'options', label: 'Opções', x: 252, y: 580, w: 520, h: 90, selected: false },
     ];
   }
   function menuRR(c, x, y, w, h, r) {
@@ -3183,7 +3234,7 @@
       c.fillStyle = '#ff9a3a'; c.font = 'bold 96px sans-serif';
       c.fillText('Jogo BRobows', MW / 2, 120);
       c.fillStyle = '#ffffff'; c.font = 'bold 56px sans-serif';
-      c.fillText('Wobercron Doido', MW / 2, 205);
+      c.fillText('Wobercron Doido', MW / 2, 190);
     } else {
       c.fillStyle = '#ff9a3a'; c.font = 'bold 72px sans-serif';
       c.fillText('Opções', MW / 2, 90);
@@ -3197,8 +3248,17 @@
       c.fillStyle = b.selected ? (hov ? '#ffa24a' : '#ff7a1a') : (hov ? '#5a5a96' : '#2a2a44');
       c.fill();
       c.lineWidth = hov ? 6 : 3; c.strokeStyle = hov ? '#ffffff' : (b.selected ? '#ffe0b0' : '#555577'); c.stroke();
-      c.fillStyle = '#ffffff'; c.font = 'bold 46px sans-serif';
-      c.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 2);
+      c.fillStyle = '#ffffff';
+      if (b.sub) {
+        c.font = 'bold 48px sans-serif';
+        c.fillText(b.label, b.x + b.w / 2, b.y + 40);
+        c.font = '30px sans-serif';
+        c.fillStyle = b.selected ? '#fff3df' : '#c9c9e6';
+        c.fillText(b.sub, b.x + b.w / 2, b.y + 82);
+      } else {
+        c.font = 'bold 46px sans-serif';
+        c.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 2);
+      }
     }
     if (menuMsg) {
       c.fillStyle = '#ffcc99'; c.font = '34px sans-serif';
@@ -3339,6 +3399,11 @@
     if (id === 'load') {
       if (loadGame()) { menuActive = false; refreshMenu(); initNpcAway(); return; }
       menuMsg = 'Nenhum jogo salvo ainda. O jogo salva nos checkpoints.';
+    } else if (id.indexOf('diff:') === 0) {
+      settings.diff = id.slice(5);
+      persistSettings();
+      applyDifficulty();
+      updateHeartsUI();
     } else if (id === 'options') {
       menuScreen = 'options';
     } else if (id === 'back') {
@@ -3408,10 +3473,7 @@
         if (dd < bestD) { bestD = dd; best = c; }
       }
       if (best) {
-        best.activated = true;
-        best.signMat.map = best.liveTex;
-        best.signMat.needsUpdate = true;
-        best.mesh.scale.set(1.5, 1.5, 1.5);
+        setCheckpointActive(best, true);
       }
     }
     checkpointPos.set(d.x, 0, d.z);
@@ -3979,9 +4041,17 @@
     heartsCtx.textAlign = 'left';
     heartsCtx.font = '64px sans-serif';
     heartsCtx.textBaseline = 'middle';
-    for (let i = 0; i < MAX_HEARTS; i++) {
-      heartsCtx.fillStyle = i < hearts ? '#ff3b3b' : 'rgba(255,255,255,0.25)';
-      heartsCtx.fillText('\u2665', 10 + i * 82, 108);
+    if (MAX_HEARTS <= 3) {
+      for (let i = 0; i < MAX_HEARTS; i++) {
+        heartsCtx.fillStyle = i < hearts ? '#ff3b3b' : 'rgba(255,255,255,0.25)';
+        heartsCtx.fillText('\u2665', 10 + i * 82, 108);
+      }
+    } else {
+      heartsCtx.font = '44px sans-serif';
+      for (let i = 0; i < MAX_HEARTS; i++) {
+        heartsCtx.fillStyle = i < hearts ? '#ff3b3b' : 'rgba(255,255,255,0.25)';
+        heartsCtx.fillText('\u2665', 8 + (i % 5) * 48, 72 + Math.floor(i / 5) * 46);
+      }
     }
     heartsTexture.needsUpdate = true;
   }
@@ -4435,6 +4505,10 @@
       const crouchPressed = keys['KeyO'] || keys['ArrowDown'] || xr.triggerLeftBtn;
       const crouchJustPressed = crouchPressed && !prevCrouchPressed;
       prevCrouchPressed = crouchPressed;
+      // PISÃO FORTE: tecla L (PC) ou gatilho esquerdo (VR)
+      const poundKeyDown = !!keys['KeyL'];
+      const poundJust = (poundKeyDown && !prevPoundKey) || (xr.triggerLeftBtn && crouchJustPressed);
+      prevPoundKey = poundKeyDown;
       const moving = moveX !== 0 || moveZ !== 0;
       if (crouchJustPressed && moving && grounded && hasDashAbility && !dashing && dashCooldown <= 0) {
         startDash();
@@ -4448,7 +4522,7 @@
           lastCrouchDeniedAt = t;
           showHint('Ainda não sei andar abaixado... Preciso achar o item logo atrás do portão.', 2000);
         }
-      } else if (crouchJustPressed && !groundPounding && hasStompAbility && !dashing) {
+      } else if (poundJust && !groundPounding && hasStompAbility && !dashing) {
         groundPounding = true;
         crouching = false;
         velocityY = GROUND_POUND_SPEED;
@@ -4699,6 +4773,7 @@
               spawnImpactEffect(character.position);
               squashMesh(character, false);
               playPoundLandSound();
+              tryPressCheckpointButtons(character.position.x, character.position.z);
             }
             if (hasGroundAt(character.position.x, character.position.z)) lastGroundPos.set(character.position.x, 0, character.position.z);
             triggerBridgeFall(character.position.x, character.position.z);
@@ -5359,29 +5434,22 @@
         }
       }
 
-      // -------- CHECKPOINTS --------
+      // -------- CHECKPOINTS (botão de arcade: só aperta com o PISÃO FORTE) --------
       for (const cp of checkpoints) {
         if (!cp.activated) {
           const dx = character.position.x - cp.mesh.position.x;
           const dz = character.position.z - cp.mesh.position.z;
-          if (Math.sqrt(dx * dx + dz * dz) < 1.2) {
-            cp.activated = true;
-            cp.signMat.map = cp.liveTex;
-            cp.signMat.needsUpdate = true;
-            saveCheckpoint(cp.mesh.position.x, cp.mesh.position.z);
-            playPickupSound();
-            showDialogue(cp.message, {
-              name: NPC_NAME,
-              onClose: cp.after ? function () { showDialogue(cp.after, { name: NPC_NAME }); } : null
-            });
+          if (hasStompAbility && Math.sqrt(dx * dx + dz * dz) < 2.6 && t - lastCpHintAt > 6) {
+            lastCpHintAt = t;
+            showHint('Botão de Check Point! Pule e aperte L para pisar forte em cima dele.', 2600);
           }
         } else {
-          const cs = cp.mesh.scale.x + (1.5 - cp.mesh.scale.x) * Math.min(1, 4 * dt);
-          cp.mesh.scale.set(cs, cs, cs);
-          cp.mesh.rotation.y = Math.sin(t * 2.2) * 0.08;
-          cp.mesh.position.y = Math.sin(t * 3) * 0.03;
-          const glow = 1.1 + Math.sin(t * 4) * 0.12;
-          cp.signMat.color.setRGB(glow, glow, glow);
+          cp.popT += dt;
+          const k = Math.min(1, cp.popT / 0.45);
+          const bounce = k < 1 ? (1 - Math.pow(1 - k, 3)) * (1 + Math.sin(k * Math.PI) * 0.25) : 1;
+          cp.sign.scale.set(cp.signW * bounce + 0.001, cp.signH * bounce + 0.001, 1);
+          cp.sign.position.y = 2.1 + Math.sin(t * 2.4) * 0.06;
+          cp.btnMat.emissiveIntensity = 1.2 + Math.sin(t * 4) * 0.25;
         }
       }
 
