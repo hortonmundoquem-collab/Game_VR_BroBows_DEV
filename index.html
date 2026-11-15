@@ -629,7 +629,9 @@
     ];
     geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
     geo.computeVertexNormals();
-    scene.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x6bcb3b })));
+    const tipMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x6bcb3b }));
+    tipMesh.userData.noCull = true;
+    scene.add(tipMesh);
   })();
 
   // =========================================================================
@@ -1931,13 +1933,44 @@
       shopExitBtn.textContent = 'Sair e coletar dinheiro';
     }
     const falta = money < def.price;
-    const txt = def.title + ' — ' + def.price + ' moedas (você tem ' + money + '). ' + def.desc +
-      (falta ? ' Faltam ' + (def.price - money) + ' moedas, colete mais!' : '');
     const xrOn = renderer.xr.isPresenting;
-    const hint = falta
-      ? (xrOn ? 'Gatilho esquerdo: sair e coletar dinheiro' : 'Esc / Q: sair e coletar dinheiro')
-      : (xrOn ? 'Gatilho direito: COMPRAR  |  Gatilho esquerdo: sair' : 'Enter / E: COMPRAR  |  Esc / Q: sair');
-    drawVrDialogue(NPC_NAME, txt, hint);
+    if (currentShop.stage === 0) {
+      drawVrDialogue(NPC_NAME, 'Quer comprar o Upgrade: ' + def.title + '?',
+        xrOn ? 'Gatilho direito: SIM  |  Gatilho esquerdo: NÃO' : 'Enter / E: SIM  |  Esc / Q: NÃO');
+    } else {
+      const hint = falta
+        ? (xrOn ? 'Gatilho esquerdo: sair e coletar dinheiro' : 'Esc / Q: sair e coletar dinheiro')
+        : (xrOn ? 'Gatilho direito: COMPRAR  |  Gatilho esquerdo: sair' : 'Enter / E: COMPRAR  |  Esc / Q: sair');
+      drawVrShopCaption(def, falta, hint);
+    }
+  }
+  function drawVrShopCaption(def, falta, hint) {
+    const c = vrDlgCtx, W = vrDlgCanvas.width, H = vrDlgCanvas.height;
+    c.clearRect(0, 0, W, H);
+    vrArrowIn.material.color.set(0xffcc33);
+    c.lineJoin = 'round'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    function outlined(t, y, size, color, lw) {
+      c.font = 'bold ' + size + 'px Verdana, sans-serif';
+      c.lineWidth = lw; c.strokeStyle = '#000000'; c.fillStyle = color;
+      c.strokeText(t, W / 2, y); c.fillText(t, W / 2, y);
+    }
+    outlined('LOJA', 60, 48, '#ffcc33', 10);
+    vrRoundRect(c, 150, 105, W - 300, 290, 30);
+    c.fillStyle = 'rgba(10,12,28,0.93)'; c.fill();
+    c.lineWidth = 8; c.strokeStyle = '#ffcc33'; c.stroke();
+    c.lineWidth = 0;
+    c.font = 'bold 48px Verdana, sans-serif'; c.fillStyle = '#ffffff';
+    c.fillText(def.title, W / 2, 165);
+    c.font = 'bold 42px Verdana, sans-serif'; c.fillStyle = '#ffd23a';
+    c.fillText('Preço: ' + def.price + ' moedas', W / 2, 245);
+    c.fillStyle = falta ? '#ff8a8a' : '#7dff9a';
+    c.fillText('Seu dinheiro: ' + money + ' moedas', W / 2, 315);
+    if (falta) {
+      c.font = 'bold 30px Verdana, sans-serif'; c.fillStyle = '#ffb347';
+      c.fillText('Faltam ' + (def.price - money) + ' moedas', W / 2, 365);
+    }
+    outlined(hint, H - 40, 28, '#ffffff', 7);
+    vrDlgTex.needsUpdate = true;
   }
   // -------- A COMPRA É FEITA PELO GUIA --------
   // Ao encostar no item, o Guia vem correndo até o herói, oferece o item na
@@ -1975,7 +2008,7 @@
     const def = UPGRADE_DEFS[key];
     if (!def || shopActive) return;
     shopActive = true;
-    currentShop = { pickup: pickup, arr: arr, key: key };
+    currentShop = { pickup: pickup, arr: arr, key: key, stage: 0 };
     // painel VR: recomeça o estado dos botões/rays
     vrShopFrames = 0;
     vrShopHover = null;
@@ -2015,10 +2048,7 @@
     playPickupSound();
     if (key === 'camera') {
       // comprou a câmera: o Guia fala e ela mesma faz a demonstração
-      showDialogue('A CÂMERA é sua! Fica de olho: eu vou mostrar tudo o que ela faz.', {
-        name: NPC_NAME,
-        onClose: function () { startCameraDemo(); }
-      });
+      showDialogue('Use a câmera à vontade.', { name: NPC_NAME });
     } else if (def.post) {
       showDialogue(def.post, { name: NPC_NAME });
     }
@@ -3574,6 +3604,7 @@
     shopBuyPrev = buyNow; shopExitPrev = exitNow;
     if (exitEdge) { closeShop(true); return; }
     if (buyEdge && currentShop) {
+      if (currentShop.stage === 0) { currentShop.stage = 1; refreshShopUI(); return; }
       const def = UPGRADE_DEFS[currentShop.key];
       if (def && money >= def.price) buyCurrentUpgrade();
     }
@@ -3697,12 +3728,16 @@
     _pa.z = Math.asin(Math.max(-1, Math.min(1, _pv.x)));
   }
 
+  // câmera colada no herói (1ª pessoa / zoom máximo): o Guia fica À FRENTE, visível
+  function npcSide() {
+    return dolly.position.z < 3.2 ? { ox: 0.9, oz: -2.3 } : { ox: 1.7, oz: 0.9 };
+  }
   function initNpcAway() { npcOn = true; npcMode = 'away'; npc.visible = false; }
   // chamado quando uma caixa do Guia abre fora da abertura: ele entra correndo pela lateral
   function npcCall() {
     if (introBusy) return;
     if (npcMode === 'away') {
-      npcSpot(4.2, 1.6, _npcT);
+      { const ns = npcSide(); npcSpot(ns.ox + 2.5, ns.oz + 0.7, _npcT); }
       npc.position.set(_npcT.x, Math.max(0, character.position.y), _npcT.z);
       npcFace = angTo(character.position.x - npc.position.x, character.position.z - npc.position.z);
     }
@@ -3775,7 +3810,7 @@
         moving = true;
       } else { npcMode = 'intro'; playIntro(0); }
     } else if (npcMode === 'arrive') {
-      npcSpot(1.7, 0.9, _npcT);
+      { const ns = npcSide(); npcSpot(ns.ox, ns.oz, _npcT); }
       const dx = _npcT.x - npc.position.x, dz = _npcT.z - npc.position.z;
       const d = Math.hypot(dx, dz);
       if (d > 0.1) {
